@@ -65,7 +65,7 @@ do
         echo "processed run ${scheduled}"
     fi
 
-    if [ "$running" -lt "$concurrent" ]; then
+    if [ "${curr}" -lt "${concurrent}" ]; then
         req=$(expr ${concurrent} - ${curr})
         ${debug} && echo "running ${req} runs to get back to $concurrent level"
         parallel -N0 kubectl create -f $run  2>&1 >/dev/null ::: $(seq 1 ${req})
