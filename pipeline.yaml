@@ -3,7 +3,6 @@ kind: Task
 metadata:
   name: sum
 spec:
-  displayName: Sum the two provided integers
   params:
     - name: a
       type: string
@@ -28,7 +27,6 @@ kind: Task
 metadata:
   name: diff
 spec:
-  displayName: Sum the two provided integers
   params:
     - name: a
       type: string
@@ -53,7 +51,6 @@ kind: Task
 metadata:
   name: mul
 spec:
-  displayName: Sum the two provided integers
   params:
     - name: a
       type: string
@@ -78,7 +75,6 @@ kind: Task
 metadata:
   name: div
 spec:
-  displayName: Sum the two provided integers
   params:
     - name: a
       type: string
@@ -103,8 +99,6 @@ kind: Pipeline
 metadata:
   name: math-pipeline
 spec:
-  displayName: Sum Multiple Numbers
-  description: Calculate the sum of multiple numbers
   params:
     - name: a
       type: string
@@ -114,8 +108,6 @@ spec:
       default: "1"
   tasks:
     - name: sum-two-numbers
-      displayName: Calculate the first two numbers
-      description: Calculate the sum of the first two numbers
       taskRef:
         name: sum
       params:
@@ -124,8 +116,6 @@ spec:
         - name: b
           value: "$(params.b)"
     - name: diff-two-numbers
-      displayName: Calculate the first two numbers
-      description: Calculate the sum of the first two numbers
       taskRef:
         name: diff
       params:
@@ -134,8 +124,6 @@ spec:
         - name: b
           value: "$(params.b)"
     - name: mul-two-numbers
-      displayName: Calculate the first two numbers
-      description: Calculate the sum of the first two numbers
       taskRef:
         name: mul
       params:
@@ -144,8 +132,6 @@ spec:
         - name: b
           value: "$(params.b)"
     - name: div-two-numbers
-      displayName: Sum with the third number
-      description: Calculate the sum of the first two numbers and the third number
       taskRef:
         name: sum
       params:
