@@ -20,6 +20,13 @@ Also, you need to apply pipelines, tasks, config, secret, and PVC before running
 kc apply -f pipeline.yaml
 ```
 
+Install the Gnu Parallel
+
+e.g. in Fedora 38+
+```
+sudo dnf install -y parallel
+```
+
 ## Example run
 ```
 ## Creating new namespace for benchmarking
@@ -28,5 +35,5 @@ kubectl config set-context --current --namespace=benchmark
 ## Applying resources to run benchmarking runs/jobs
 kc apply -f pipeline.yaml
 ## Running benchmark
-times ./benchmark-tekton.sh --total 100 --concurrent 10
+time ./benchmark-tekton.sh --total 100 --concurrent 10
 ```
