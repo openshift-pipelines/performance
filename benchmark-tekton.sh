@@ -1,8 +1,8 @@
 #!/bin/bash
 
 script_name=$(basename "$0")
-short=t:c:j:d:h
-long=total:,concurrent:,job:,jsonpath:,debug:,help
+short=t:c:r:d:h
+long=total:,concurrent:,run:,debug:,help
 
 total=10000
 concurrent=100
@@ -30,8 +30,8 @@ eval set -- "${format}"
 while :; do
     case "${1}" in
         -t | --total        )   total=$2;                                              shift 2                          ;;
-        -b | --concurrent   )   concurrent=$2;                                         shift 2                          ;;
-        -s | --run          )   run=$2;                                                shift 2                          ;;
+        -c | --concurrent   )   concurrent=$2;                                         shift 2                          ;;
+        -r | --run          )   run=$2;                                                shift 2                          ;;
         -d | --debug        )   debug=$2;                                              shift 2                          ;;
         --help              )   echo "${usage}" 1>&2;                                  exit                             ;;
         --                  )   shift;                                                 break                            ;;

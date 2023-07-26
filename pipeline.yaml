@@ -133,7 +133,7 @@ spec:
           value: "$(params.b)"
     - name: div-two-numbers
       taskRef:
-        name: sum
+        name: div
       params:
         - name: a
           value: "$(params.a)"
