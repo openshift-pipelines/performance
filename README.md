@@ -37,3 +37,11 @@ kc apply -f pipeline.yaml
 ## Running benchmark
 time ./benchmark-tekton.sh --total 100 --concurrent 10
 ```
+
+## References
+This script heavily uses GNU parallel:
+
+```
+Tange, O. (2023, August 22). GNU Parallel 20230822 ('Chandrayaan').
+Zenodo. https://doi.org/10.5281/zenodo.8278274
+```
