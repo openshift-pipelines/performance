@@ -45,6 +45,7 @@ while :; do
 done
 
 
+started=$(date -Ins --utc)
 while true; do
     data=$(kubectl get pr -o=json)
     all=$(echo "$data" | jq --raw-output '.items | length')
@@ -67,5 +68,23 @@ while true; do
     echo "$(date -Ins --utc) done with this cycle"
     sleep 1
 done
+ended=$(date -Ins --utc)
+
+echo "$data" >benchmark-tekton-runs.json
+cat <<EOF >benchmark-tekton.json
+{
+    "results": {
+        "started": "$started",
+        "ended": "$ended"
+    },
+    "parameters": {
+        "test": {
+            "total": $total,
+            "concurrent": $concurrent,
+            "run": "$run"
+        }
+    }
+}
+EOF
 
 echo "$(date -Ins --utc) done with ${total} runs of ${run} which ran with ${concurrent} runs"
