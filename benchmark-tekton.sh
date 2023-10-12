@@ -9,6 +9,11 @@ concurrent=100
 run="./run.yaml"
 debug=false
 
+if ! type parallel >/dev/null; then
+    echo "Please install 'parallel'"
+    exit 1
+fi
+
 read -r -d '' usage <<EOF
 Script needs following options
 --concurrent     optional,
