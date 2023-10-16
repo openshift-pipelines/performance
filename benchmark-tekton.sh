@@ -1,8 +1,8 @@
 #!/bin/bash
 
 script_name=$(basename "$0")
-short=t:c:r:d:h
-long=total:,concurrent:,run:,debug:,help
+short=t:c:r::dh
+long=total:,concurrent:,run::,debug,help
 
 total=10000
 concurrent=100
@@ -29,7 +29,7 @@ Script needs following options
 
 EOF
 
-format=$(getopt -o $short --long $long --name "$script_name" -- "$@")
+format=$(getopt -o "$short" --long "$long" --name "$script_name" -- "$@")
 
 eval set -- "${format}"
 while :; do
@@ -37,27 +37,22 @@ while :; do
         -t | --total        )   total=$2;                                              shift 2                          ;;
         -c | --concurrent   )   concurrent=$2;                                         shift 2                          ;;
         -r | --run          )   run=$2;                                                shift 2                          ;;
-        -d | --debug        )   debug=$2;                                              shift 2                          ;;
-        --help              )   echo "${usage}" 1>&2;                                  exit                             ;;
+        -d | --debug        )   debug=true;                                            shift                            ;;
+        -h | --help         )   echo "${usage}" 1>&2;                                  exit                             ;;
         --                  )   shift;                                                 break                            ;;
         *                   )   echo "Error parsing, incorrect options ${format}";     exit 1                           ;;
     esac
 done
 
 
-while true
-do
+while true; do
     running=$(kubectl get pr -o=jsonpath='{.items[?(@.status.conditions[0].status=="Unknown")].metadata.name}' | wc -w)
 
-    all=$(expr $(kubectl get pr | wc -l) - 1)
-
-    if [ "${all}" -lt 0 ]; then
-        all=0
-    fi
+    all=$(kubectl get pr -o=name | wc -l)
 
     scheduled=$(kubectl get pr -o=jsonpath='{.items[?(@.status.conditions[0].type=="Succeeded")].metadata.name}' | wc -w)
 
-    curr=$(expr ${all} - ${scheduled} + ${running})
+    curr=$((${all} - ${scheduled} + ${running}))
 
     if [ "${all}" -ge "${total}" ]; then
         break
@@ -71,9 +66,9 @@ do
     fi
 
     if [ "${curr}" -lt "${concurrent}" ]; then
-        req=$(expr ${concurrent} - ${curr})
+        req=$((${concurrent} - ${curr}))
         ${debug} && echo "running ${req} runs to get back to $concurrent level"
-        parallel -N0 kubectl create -f $run  2>&1 >/dev/null ::: $(seq 1 ${req})
+        parallel --will-cite -N0 kubectl create -f $run  2>&1 >/dev/null ::: $(seq 1 ${req})
         kubectl delete pod --field-selector=status.phase==Succeeded 2>&1 > /dev/null &
     fi
     echo "done with this cycle"
