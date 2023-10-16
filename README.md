@@ -17,7 +17,7 @@ The script needs the following options:
 
 Also, you need to apply pipelines, tasks, config, secret, and PVC before running the benchmark:
 ```
-kc apply -f pipeline.yaml
+kubectl apply -f pipeline.yaml
 ```
 
 Install the Gnu Parallel
@@ -33,7 +33,7 @@ sudo dnf install -y parallel
 kubectl create ns benchmark
 kubectl config set-context --current --namespace=benchmark
 ## Applying resources to run benchmarking runs/jobs
-kc apply -f pipeline.yaml
+kubectl apply -f pipeline.yaml
 ## Running benchmark
 time ./benchmark-tekton.sh --total 100 --concurrent 10
 ```
