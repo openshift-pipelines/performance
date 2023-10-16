@@ -14,6 +14,11 @@ if ! type jq >/dev/null; then
     exit 1
 fi
 
+if ! type parallel >/dev/null; then
+    echo "Please install 'parallel'"
+    exit 1
+fi
+
 read -r -d '' usage <<EOF
 Script needs following options
 --concurrent     optional,
