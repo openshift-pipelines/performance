@@ -9,6 +9,11 @@ concurrent=100
 run="./run.yaml"
 debug=false
 
+if ! type jq >/dev/null; then
+    echo "Please install jq"
+    exit 1
+fi
+
 if ! type parallel >/dev/null; then
     echo "Please install 'parallel'"
     exit 1
@@ -45,33 +50,46 @@ while :; do
 done
 
 
+started=$(date -Ins --utc)
 while true; do
-    running=$(kubectl get pr -o=jsonpath='{.items[?(@.status.conditions[0].status=="Unknown")].metadata.name}' | wc -w)
+    data=$(kubectl get pr -o=json)
+    all=$(echo "$data" | jq --raw-output '.items | length')
+    pending=$(echo "$data" | jq --raw-output '.items | map(select(.status.conditions == null)) | length')
+    running=$(echo "$data" | jq --raw-output '.items | map(select(.status.conditions[0].status == "Unknown")) | length')
+    finished=$(echo "$data" | jq --raw-output '.items | map(select(.status.conditions[0].status != null and .status.conditions[0].status != "Unknown")) | length')
 
-    all=$(kubectl get pr -o=name | wc -l)
+    ${debug} && echo "$(date -Ins --utc) out of ${total} runs ${all} already exists, ${pending} pending, ${finished} finished and ${running} running"
 
-    scheduled=$(kubectl get pr -o=jsonpath='{.items[?(@.status.conditions[0].type=="Succeeded")].metadata.name}' | wc -w)
+    [ "${finished}" -ge "${total}" ] && break
 
-    curr=$((${all} - ${scheduled} + ${running}))
+    remaining=$((${total} - ${all}))
+    needed=$((${concurrent} - ${running} - ${pending}))
+    [[ ${needed} -gt ${remaining} ]] && needed=${remaining}
 
-    if [ "${all}" -ge "${total}" ]; then
-        break
+    if [ "${needed}" -gt 0 ]; then
+        ${debug} && echo "$(date -Ins --utc) creating ${needed} runs to raise concurrency to ${concurrent}"
+        parallel --will-cite -N0 kubectl create -f $run  2>&1 >/dev/null ::: $(seq 1 ${needed})
     fi
-
-    if ${debug}; then
-        echo "scheduled running ${running}"
-        echo "current running runs ${curr}"
-        echo "all runs ${all}"
-        echo "processed run ${scheduled}"
-    fi
-
-    if [ "${curr}" -lt "${concurrent}" ]; then
-        req=$((${concurrent} - ${curr}))
-        ${debug} && echo "running ${req} runs to get back to $concurrent level"
-        parallel --will-cite -N0 kubectl create -f $run  2>&1 >/dev/null ::: $(seq 1 ${req})
-        kubectl delete pod --field-selector=status.phase==Succeeded 2>&1 > /dev/null &
-    fi
-    echo "done with this cycle"
+    echo "$(date -Ins --utc) done with this cycle"
+    sleep 1
 done
+ended=$(date -Ins --utc)
 
-echo "done with ${total} runs of ${run} which ran with ${concurrent} runs"
+echo "$data" >benchmark-tekton-runs.json
+cat <<EOF >benchmark-tekton.json
+{
+    "results": {
+        "started": "$started",
+        "ended": "$ended"
+    },
+    "parameters": {
+        "test": {
+            "total": $total,
+            "concurrent": $concurrent,
+            "run": "$run"
+        }
+    }
+}
+EOF
+
+echo "$(date -Ins --utc) done with ${total} runs of ${run} which ran with ${concurrent} runs"
