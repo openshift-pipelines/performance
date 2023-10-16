@@ -75,8 +75,9 @@ while true; do
 done
 ended=$(date -Ins --utc)
 
-echo "$data" >benchmark-tekton-runs.json
-cat <<EOF >benchmark-tekton.json
+echo "$(date -Ins --utc) dumping basic results to data files"
+output="benchmark-tekton.json"
+cat <<EOF >$output
 {
     "results": {
         "started": "$started",
@@ -91,5 +92,16 @@ cat <<EOF >benchmark-tekton.json
     }
 }
 EOF
+echo "$data" >benchmark-tekton-runs.json
+prs_avg=$(echo "$data" | jq --raw-output '[.items[] | ((.status.completionTime | fromdate) - (.metadata.creationTimestamp | fromdate))] | add / length')
+prs_min=$(echo "$data" | jq --raw-output '[.items[] | ((.status.completionTime | fromdate) - (.metadata.creationTimestamp | fromdate))] | min')
+prs_max=$(echo "$data" | jq --raw-output '[.items[] | ((.status.completionTime | fromdate) - (.metadata.creationTimestamp | fromdate))] | max')
+cat $output | jq '.results.PipelineRuns.duration.min = '$prs_min' | .results.PipelineRuns.duration.avg = '$prs_avg' | .results.PipelineRuns.duration.max = '$prs_max'' >"$$.json" && mv -f "$$.json" "$output"
+pr_creationTimestamp_first=$(echo "$data" | jq --raw-output '[.items[] | .metadata.creationTimestamp] | sort | first')
+pr_creationTimestamp_last=$(echo "$data" | jq --raw-output '[.items[] | .metadata.creationTimestamp] | sort | last')
+cat $output | jq '.results.PipelineRuns.creationTimestamp.first = '$pr_creationTimestamp_first' | .results.PipelineRuns.creationTimestamp.last = '$pr_creationTimestamp_last'' >"$$.json" && mv -f "$$.json" "$output"
+pr_completionTime_first=$(echo "$data" | jq --raw-output '[.items[] | .status.completionTime] | sort | first')
+pr_completionTime_last=$(echo "$data" | jq --raw-output '[.items[] | .status.completionTime] | sort | last')
+cat $output | jq '.results.PipelineRuns.completionTime_first.first = '$pr_completionTime_first' | .results.PipelineRuns.completionTime.last = '$pr_completionTime_last'' >"$$.json" && mv -f "$$.json" "$output"
 
 echo "$(date -Ins --utc) done with ${total} runs of ${run} which ran with ${concurrent} runs"
