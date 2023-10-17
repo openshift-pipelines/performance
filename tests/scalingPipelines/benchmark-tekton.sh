@@ -96,7 +96,6 @@ cat <<EOF >$output
 }
 EOF
 echo "$data" >benchmark-tekton-runs.json
-cat $output   # DEBUG
 
 echo "$(date -Ins --utc) adding stats to data files"
 prs_avg=$(echo "$data" | jq --raw-output '[.items[] | ((.status.completionTime | fromdate) - (.metadata.creationTimestamp | fromdate))] | add / length')
