@@ -52,6 +52,9 @@ done
 
 started=$(date -Ins --utc)
 while true; do
+    # When you run with `--total 1000`, final JSON have almost 7MB.
+    # Maybe we can use this to get the size down:
+    # https://kubernetes.io/docs/reference/using-api/api-concepts/#receiving-resources-as-tables
     data=$(kubectl get pr -o=json)
     all=$(echo "$data" | jq --raw-output '.items | length')
     pending=$(echo "$data" | jq --raw-output '.items | map(select(.status.conditions == null)) | length')
