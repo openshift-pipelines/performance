@@ -13,7 +13,7 @@ kubectl config set-context --current --namespace=benchmark
 kubectl apply -f pipeline.yaml
 
 info "Benchmark"
-time ./benchmark-tekton.sh --total "$TEST_TOTAL" --concurrent "$TEST_CONCURRENCY" --debug
+time ./benchmark-tekton.sh --total 20 --concurrent 10 --debug
 
 info "Cleanup"
 kubectl delete --all PipelineRuns
