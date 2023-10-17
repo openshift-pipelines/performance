@@ -7,22 +7,7 @@ set -o pipefail
 source $(dirname $0)/lib.sh
 
 info "Deploy pipelines"
-cat <<EOF | kubectl apply -f -
-apiVersion: operators.coreos.com/v1alpha1
-kind: Subscription
-metadata:
-  labels:
-    operators.coreos.com/openshift-pipelines-operator-rh.openshift-operators: ""
-  name: openshift-pipelines-operator-rh
-  namespace: openshift-operators
-spec:
-  channel: pipelines-1.12
-  installPlanApproval: Manual
-  name: openshift-pipelines-operator-rh
-  source: redhat-operators
-  sourceNamespace: openshift-marketplace
-  startingCSV: openshift-pipelines-operator-rh.v1.12.0
-EOF
+kubectl apply -f $DEPLOYMENT_YAML
 
 function entity_by_selector_exists() {
     local ns="$1"

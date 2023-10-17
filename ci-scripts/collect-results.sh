@@ -11,8 +11,8 @@ monitoring_collection_data=$ARTIFACT_DIR/benchmark-tekton.json
 monitoring_collection_log=$ARTIFACT_DIR/monitoring-collection.log
 
 info "Collecting artifacts..."
-[ -f performance/tests/scalingPipelines/benchmark-tekton.json ] && cp performance/tests/scalingPipelines/benchmark-tekton.json "${ARTIFACT_DIR}"
-[ -f performance/tests/scalingPipelines/benchmark-tekton-runs.json ] && cp performance/tests/scalingPipelines/benchmark-tekton-runs.json "${ARTIFACT_DIR}"
+[ -f tests/scalingPipelines/benchmark-tekton.json ] && cp tests/scalingPipelines/benchmark-tekton.json "${ARTIFACT_DIR}"
+[ -f tests/scalingPipelines/benchmark-tekton-runs.json ] && cp tests/scalingPipelines/benchmark-tekton-runs.json "${ARTIFACT_DIR}"
 
 info "Setting up tool to collect monitoring data..."
 python3 -m venv venv
