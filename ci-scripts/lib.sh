@@ -11,7 +11,7 @@ function info() {
 }
 
 function warning() {
-    log WARNING "$1"
+    _log WARNING "$1"
 }
 
 function error() {
