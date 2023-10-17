@@ -16,4 +16,4 @@ info "Benchmark"
 time ./benchmark-tekton.sh --total 20 --concurrent 10 --debug
 
 info "Cleanup"
-oc delete --all PipelineRuns
+kubectl delete --all PipelineRuns

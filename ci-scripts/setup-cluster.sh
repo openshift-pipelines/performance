@@ -7,7 +7,7 @@ set -o pipefail
 source $(dirname $0)/lib.sh
 
 info "Deploy pipelines"
-cat <<EOF | oc apply -f -
+cat <<EOF | kubectl apply -f -
 apiVersion: operators.coreos.com/v1alpha1
 kind: Subscription
 metadata:
@@ -28,7 +28,7 @@ function entity_by_selector_exists() {
     local ns="$1"
     local entity="$2"
     local l="$3"
-    local count=$( oc -n "$ns" get "$entity" -l "$l" -o name 2>/dev/null | wc -l )
+    local count=$( kubectl -n "$ns" get "$entity" -l "$l" -o name 2>/dev/null | wc -l )
     debug "Number of $entity entities in $ns with label $l: $count"
     [ "$count" -gt 0 ]
 }
@@ -51,12 +51,12 @@ function wait_for_entity_by_selector() {
 
 info "Wait for installplan to appear"
 wait_for_entity_by_selector 300 openshift-operators InstallPlan operators.coreos.com/openshift-pipelines-operator-rh.openshift-operators=
-ip_name=$(oc -n openshift-operators get installplan -l operators.coreos.com/openshift-pipelines-operator-rh.openshift-operators= -o name)
-oc -n openshift-operators patch -p '{"spec":{"approved":true}}' --type merge "$ip_name"
+ip_name=$(kubectl -n openshift-operators get installplan -l operators.coreos.com/openshift-pipelines-operator-rh.openshift-operators= -o name)
+kubectl -n openshift-operators patch -p '{"spec":{"approved":true}}' --type merge "$ip_name"
 
 info "Wait for deployment to finish"
 wait_for_entity_by_selector 300 openshift-pipelines pod app=tekton-pipelines-controller
-oc -n openshift-pipelines wait --for=condition=ready --timeout=300s pod -l app=tekton-pipelines-controller
+kubectl -n openshift-pipelines wait --for=condition=ready --timeout=300s pod -l app=tekton-pipelines-controller
 
 info "Deployment finished"
-oc -n openshift-pipelines get pods
+kubectl -n openshift-pipelines get pods
