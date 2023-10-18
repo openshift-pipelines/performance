@@ -2,7 +2,7 @@
 
 source $(dirname $0)/lib.sh
 
-JOB_BASE="https://gcsweb-ci.apps.ci.l2s4.p1.openshiftapps.com/gcs/origin-ci-test/logs/"
+JOB_BASE="https://gcsweb-ci.apps.ci.l2s4.p1.openshiftapps.com/gcs/origin-ci-test/logs/periodic-ci-openshift-pipelines-performance-master-scaling-pipelines-daily"
 CACHE_DIR="prow-to-es-cache-dir"
 ES_HOST="http://elasticsearch.intlab.perf-infra.lab.eng.rdu2.redhat.com"
 ES_INDEX="pipelines_ci_status_data"
@@ -134,19 +134,16 @@ function upload_horreum() {
 counter=0
 
 # Fetch JSON files from main test that runs every 12 hours
-for job in "scaling-pipelines-upstream-stable-daily" "scaling-pipelines-upstream-nightly-daily"; do
-    job_history="$JOB_BASE/periodic-ci-openshift-pipelines-performance-master-$job"
-    for i in $(curl -SsL "$job_history" | grep -Eo '[0-9]{19}' | sort -V | uniq | tail -n 10); do
-        f="$job_history/$i/artifacts/$job/openshift-pipelines-scaling-pipelines/artifacts/benchmark-tekton.json"
-        out="$CACHE_DIR/$i.benchmark-tekton.json"
+for i in $(curl -SsL "$JOB_BASE" | grep -Eo '[0-9]{19}' | sort -V | uniq | tail -n 10); do
+    f="$JOB_BASE/$i/artifacts/scaling-pipelines-daily/openshift-pipelines-scaling-pipelines/artifacts/benchmark-tekton.json"
+    out="$CACHE_DIR/$i.benchmark-tekton.json"
 
-        download "$f" "$out"
-        check_json "$out" || continue
-        upload_basic "$out" "$i"
-        enritch_stuff "$out" '."$schema"' "urn:openshift-pipelines-perfscale-scalingPipelines:0.1"
-        upload_horreum "$out" "openshift-pipelines-perfscale-scalingPipelines" ".metadata.env.BUILD_ID" "$i"
-        let counter+=1
-    done
+    download "$f" "$out"
+    check_json "$out" || continue
+    upload_basic "$out" "$i"
+    enritch_stuff "$out" '."$schema"' "urn:openshift-pipelines-perfscale-scalingPipelines:0.1"
+    upload_horreum "$out" "openshift-pipelines-perfscale-scalingPipelines" ".metadata.env.BUILD_ID" "$i"
+    let counter+=1
 done
 
 info "Processed $counter files"
