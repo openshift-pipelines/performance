@@ -120,9 +120,9 @@ pr_creationTimestamp_last=$(echo "$data" | jq --raw-output '[.items[] | .metadat
 cat $output | jq '.results.PipelineRuns.creationTimestamp.first = "'$pr_creationTimestamp_first'" | .results.PipelineRuns.creationTimestamp.last = "'$pr_creationTimestamp_last'"' >"$$.json" && mv -f "$$.json" "$output"
 pr_startTime_first=$(echo "$data" | jq --raw-output '[.items[] | .status.startTime] | sort | first')
 pr_startTime_last=$(echo "$data" | jq --raw-output '[.items[] | .status.startTime] | sort | last')
-cat $output | jq '.results.PipelineRuns.startTime_first.first = "'$pr_startTime_first'" | .results.PipelineRuns.startTime.last = "'$pr_startTime_last'"' >"$$.json" && mv -f "$$.json" "$output"
+cat $output | jq '.results.PipelineRuns.startTime.first = "'$pr_startTime_first'" | .results.PipelineRuns.startTime.last = "'$pr_startTime_last'"' >"$$.json" && mv -f "$$.json" "$output"
 pr_completionTime_first=$(echo "$data" | jq --raw-output '[.items[] | .status.completionTime] | sort | first')
 pr_completionTime_last=$(echo "$data" | jq --raw-output '[.items[] | .status.completionTime] | sort | last')
-cat $output | jq '.results.PipelineRuns.completionTime_first.first = "'$pr_completionTime_first'" | .results.PipelineRuns.completionTime.last = "'$pr_completionTime_last'"' >"$$.json" && mv -f "$$.json" "$output"
+cat $output | jq '.results.PipelineRuns.completionTime.first = "'$pr_completionTime_first'" | .results.PipelineRuns.completionTime.last = "'$pr_completionTime_last'"' >"$$.json" && mv -f "$$.json" "$output"
 
 echo "$(date -Ins --utc) done with ${total} runs of ${run} which ran with ${concurrent} runs"
