@@ -1,4 +1,4 @@
-# scalingPipelines
+# Scaling pipelines test
 The script needs the following options:
 
 * --concurrent   optional,

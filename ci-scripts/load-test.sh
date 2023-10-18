@@ -7,7 +7,7 @@ set -o pipefail
 source $(dirname $0)/lib.sh
 
 info "Setup"
-cd tests/scalingPipelines/
+cd tests/scaling-pipelines/
 kubectl create ns benchmark
 kubectl config set-context --current --namespace=benchmark
 kubectl apply -f pipeline.yaml
