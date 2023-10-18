@@ -98,26 +98,30 @@ EOF
 echo "$data" >benchmark-tekton-runs.json
 
 echo "$(date -Ins --utc) adding stats to data files"
-prs_avg=$(echo "$data" | jq --raw-output '[.items[] | ((.status.completionTime | fromdate) - (.metadata.creationTimestamp | fromdate))] | add / length')
-prs_min=$(echo "$data" | jq --raw-output '[.items[] | ((.status.completionTime | fromdate) - (.metadata.creationTimestamp | fromdate))] | min')
-prs_max=$(echo "$data" | jq --raw-output '[.items[] | ((.status.completionTime | fromdate) - (.metadata.creationTimestamp | fromdate))] | max')
+data_successful=$(echo "$data" | jq --raw-output '.items |= [.[] | . as $a | .status.conditions[] | select(.type == "Succeeded" and .status == "True") | $a]')
+prs_avg=$(echo "$data_successful" | jq --raw-output '[.items[] | ((.status.completionTime | fromdate) - (.metadata.creationTimestamp | fromdate))] | add / length')
+prs_min=$(echo "$data_successful" | jq --raw-output '[.items[] | ((.status.completionTime | fromdate) - (.metadata.creationTimestamp | fromdate))] | min')
+prs_max=$(echo "$data_successful" | jq --raw-output '[.items[] | ((.status.completionTime | fromdate) - (.metadata.creationTimestamp | fromdate))] | max')
 cat $output | jq '.results.PipelineRuns.duration.min = '$prs_min' | .results.PipelineRuns.duration.avg = '$prs_avg' | .results.PipelineRuns.duration.max = '$prs_max'' >"$$.json" && mv -f "$$.json" "$output"
-prs_avg=$(echo "$data" | jq --raw-output '[.items[] | ((.status.StartTime | fromdate) - (.metadata.creationTimestamp | fromdate))] | add / length')
-prs_min=$(echo "$data" | jq --raw-output '[.items[] | ((.status.StartTime | fromdate) - (.metadata.creationTimestamp | fromdate))] | min')
-prs_max=$(echo "$data" | jq --raw-output '[.items[] | ((.status.StartTime | fromdate) - (.metadata.creationTimestamp | fromdate))] | max')
+prs_avg=$(echo "$data_successful" | jq --raw-output '[.items[] | ((.status.startTime | fromdate) - (.metadata.creationTimestamp | fromdate))] | add / length')
+prs_min=$(echo "$data_successful" | jq --raw-output '[.items[] | ((.status.startTime | fromdate) - (.metadata.creationTimestamp | fromdate))] | min')
+prs_max=$(echo "$data_successful" | jq --raw-output '[.items[] | ((.status.startTime | fromdate) - (.metadata.creationTimestamp | fromdate))] | max')
 cat $output | jq '.results.PipelineRuns.pending.min = '$prs_min' | .results.PipelineRuns.pending.avg = '$prs_avg' | .results.PipelineRuns.pending.max = '$prs_max'' >"$$.json" && mv -f "$$.json" "$output"
-prs_avg=$(echo "$data" | jq --raw-output '[.items[] | ((.status.completionTime | fromdate) - (.status.StartTime | fromdate))] | add / length')
-prs_min=$(echo "$data" | jq --raw-output '[.items[] | ((.status.completionTime | fromdate) - (.status.StartTime | fromdate))] | min')
-prs_max=$(echo "$data" | jq --raw-output '[.items[] | ((.status.completionTime | fromdate) - (.status.StartTime | fromdate))] | max')
+prs_avg=$(echo "$data_successful" | jq --raw-output '[.items[] | ((.status.completionTime | fromdate) - (.status.startTime | fromdate))] | add / length')
+prs_min=$(echo "$data_successful" | jq --raw-output '[.items[] | ((.status.completionTime | fromdate) - (.status.startTime | fromdate))] | min')
+prs_max=$(echo "$data_successful" | jq --raw-output '[.items[] | ((.status.completionTime | fromdate) - (.status.startTime | fromdate))] | max')
 cat $output | jq '.results.PipelineRuns.running.min = '$prs_min' | .results.PipelineRuns.running.avg = '$prs_avg' | .results.PipelineRuns.running.max = '$prs_max'' >"$$.json" && mv -f "$$.json" "$output"
 prs_succeeded=$(echo "$data" | jq --raw-output '[.items[] | .status.conditions[] | select(.type == "Succeeded" and .status == "True")] | length')
 prs_failed=$(echo "$data" | jq --raw-output '[.items[] | .status.conditions[] | select(.type == "Succeeded" and .status != "True")] | length')
 cat $output | jq '.results.PipelineRuns.count.succeeded = '$prs_succeeded' | .results.PipelineRuns.count.failed = '$prs_failed'' >"$$.json" && mv -f "$$.json" "$output"
 pr_creationTimestamp_first=$(echo "$data" | jq --raw-output '[.items[] | .metadata.creationTimestamp] | sort | first')
 pr_creationTimestamp_last=$(echo "$data" | jq --raw-output '[.items[] | .metadata.creationTimestamp] | sort | last')
-cat $output | jq '.results.PipelineRuns.creationTimestamp.first = '$pr_creationTimestamp_first' | .results.PipelineRuns.creationTimestamp.last = '$pr_creationTimestamp_last'' >"$$.json" && mv -f "$$.json" "$output"
+cat $output | jq '.results.PipelineRuns.creationTimestamp.first = "'$pr_creationTimestamp_first'" | .results.PipelineRuns.creationTimestamp.last = "'$pr_creationTimestamp_last'"' >"$$.json" && mv -f "$$.json" "$output"
+pr_startTime_first=$(echo "$data" | jq --raw-output '[.items[] | .status.startTime] | sort | first')
+pr_startTime_last=$(echo "$data" | jq --raw-output '[.items[] | .status.startTime] | sort | last')
+cat $output | jq '.results.PipelineRuns.startTime_first.first = "'$pr_startTime_first'" | .results.PipelineRuns.startTime.last = "'$pr_startTime_last'"' >"$$.json" && mv -f "$$.json" "$output"
 pr_completionTime_first=$(echo "$data" | jq --raw-output '[.items[] | .status.completionTime] | sort | first')
 pr_completionTime_last=$(echo "$data" | jq --raw-output '[.items[] | .status.completionTime] | sort | last')
-cat $output | jq '.results.PipelineRuns.completionTime_first.first = '$pr_completionTime_first' | .results.PipelineRuns.completionTime.last = '$pr_completionTime_last'' >"$$.json" && mv -f "$$.json" "$output"
+cat $output | jq '.results.PipelineRuns.completionTime_first.first = "'$pr_completionTime_first'" | .results.PipelineRuns.completionTime.last = "'$pr_completionTime_last'"' >"$$.json" && mv -f "$$.json" "$output"
 
 echo "$(date -Ins --utc) done with ${total} runs of ${run} which ran with ${concurrent} runs"
