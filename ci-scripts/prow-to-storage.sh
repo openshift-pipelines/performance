@@ -127,17 +127,14 @@ function upload_horreum() {
         -d "@$f"
 }
 
-#### Fetch JSON files from main test that runs every 12 hours
-###for i in $(curl -SsL "$JOB_BASE" | grep -Eo '[0-9]{19}' | sort -V | uniq | tail -n 10); do
-###    f="$JOB_BASE/$i/artifacts/TODO/TODO/artifacts/benchmark-tekton.json"
-    i=1714589688590766080
+# Fetch JSON files from main test that runs every 12 hours
+for i in $(curl -SsL "$JOB_BASE" | grep -Eo '[0-9]{19}' | sort -V | uniq | tail -n 10); do
+    f="$JOB_BASE/$i/artifacts/TODO/TODO/artifacts/benchmark-tekton.json"
     out="$CACHE_DIR/$i.benchmark-tekton.json"
-
-    f="https://gcsweb-ci.apps.ci.l2s4.p1.openshiftapps.com/gcs/origin-ci-test/pr-logs/pull/openshift_release/44206/rehearse-44206-pull-ci-openshift-pipelines-performance-master-scaling-pipelines/1714589688590766080/artifacts/scaling-pipelines/openshift-pipelines-scaling-pipelines/artifacts/benchmark-tekton.json"
 
     download "$f" "$out"
     check_json "$out" || continue
     upload_basic "$out" "$i"
     enritch_stuff "$out" '."$schema"' "urn:openshift-pipelines-perfscale-scalingPipelines:0.1"
     upload_horreum "$out" "openshift-pipelines-perfscale-scalingPipelines" ".metadata.env.BUILD_ID" "$i"
-###done
+done
