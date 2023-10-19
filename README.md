@@ -24,7 +24,7 @@ Every hour we run a CI puller script (see `ci-scripts/prow-to-storage.sh`) via [
 
 OpenSearch (a.k.a. ElasticSearch) instance we are using: <http://elasticsearch.intlab.perf-infra.lab.eng.rdu2.redhat.com/> and OpenSearch Dashboard (a.k.a. Kibana) instance we are using: <http://kibana.intlab.perf-infra.lab.eng.rdu2.redhat.com/> (managed by Perf&Scale Integrations lab team: [INTLAB Jira](https://issues.redhat.com/browse/INTLAB)). It is meant to provide useful dashboard and a way how to explore historical test data.
 
-All data are being pushed to `pipelines_ci_status_data` index in OpenSearch. As basic insight into the data you can use this [dashboard](TODO). It's JSON definition is backed up in `config/kibana/` directory.
+All data are being pushed to `pipelines_ci_status_data` index in OpenSearch. You can browse the data in "Discover". As basic insight into the data you can use this [dashboard](http://kibana.intlab.perf-infra.lab.eng.rdu2.redhat.com/app/dashboards#/view/427d69b0-6e6d-11ee-897a-a399889b5129). It's JSON definition is backed up in `config/kibana/` directory.
 
 ### Horreum
 
