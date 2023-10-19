@@ -18,6 +18,10 @@ if [ -z "$HORREUM_JHUTAR_PASSWORD" ]; then
     fatal "Please provide HORREUM_JHUTAR_PASSWORD variable"
 fi
 
+format_date() {
+    date -d "$1" +%FT%TZ --utc
+}
+
 function download() {
     local from="$1"
     local to="$2"
@@ -98,8 +102,8 @@ function upload_horreum() {
     local test_owner="Openshift-pipelines-team"
     local test_access="PUBLIC"
 
-    local test_start="$( cat "$f" | jq --raw-output ".results.started" )"
-    local test_end="$( cat "$f" | jq --raw-output ".results.ended" )"
+    local test_start="$( format_date $( cat "$f" | jq --raw-output ".results.started" ) )"
+    local test_end="$( format_date $( cat "$f" | jq --raw-output ".results.ended" ) )"
 
     if [ -z "$test_start" -o -z "$test_end" -o "$test_start" == "null" -o "$test_end" == "null" ]; then
         error "We need start ($test_start) and end ($test_end) time in the JSON we are supposed to upload"
