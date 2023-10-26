@@ -73,6 +73,8 @@
 # Interesting CI environment variables
 {% for var in [
   'BUILD_ID',
+  'DEPLOYMENT_TYPE',
+  'DEPLOYMENT_VERSION',
   'HOSTNAME',
   'JOB_NAME',
   'OPENSHIFT_API',
@@ -85,6 +87,9 @@
   'PULL_REFS',
   'REPO_NAME',
   'REPO_OWNER',
+  'TEST_CONCURRENT',
+  'TEST_RUN',
+  'TEST_TOTAL',
 ] %}
 - name: metadata.env.{{ var }}
   env_variable: {{ var }}
