@@ -2,7 +2,7 @@
 
 source $(dirname $0)/lib.sh
 
-JOB_BASE="https://gcsweb-ci.apps.ci.l2s4.p1.openshiftapps.com/gcs/origin-ci-test/logs/TODO"
+JOB_BASE="https://gcsweb-ci.apps.ci.l2s4.p1.openshiftapps.com/gcs/origin-ci-test/logs/periodic-ci-openshift-pipelines-performance-master-scaling-pipelines-daily"
 CACHE_DIR="prow-to-es-cache-dir"
 ES_HOST="http://elasticsearch.intlab.perf-infra.lab.eng.rdu2.redhat.com"
 ES_INDEX="pipelines_ci_status_data"
@@ -17,6 +17,10 @@ fi
 if [ -z "$HORREUM_JHUTAR_PASSWORD" ]; then
     fatal "Please provide HORREUM_JHUTAR_PASSWORD variable"
 fi
+
+format_date() {
+    date -d "$1" +%FT%TZ --utc
+}
 
 function download() {
     local from="$1"
@@ -98,8 +102,8 @@ function upload_horreum() {
     local test_owner="Openshift-pipelines-team"
     local test_access="PUBLIC"
 
-    local test_start="$( cat "$f" | jq --raw-output ".results.started" )"
-    local test_end="$( cat "$f" | jq --raw-output ".results.ended" )"
+    local test_start="$( format_date $( cat "$f" | jq --raw-output ".results.started" ) )"
+    local test_end="$( format_date $( cat "$f" | jq --raw-output ".results.ended" ) )"
 
     if [ -z "$test_start" -o -z "$test_end" -o "$test_start" == "null" -o "$test_end" == "null" ]; then
         error "We need start ($test_start) and end ($test_end) time in the JSON we are supposed to upload"
@@ -127,9 +131,11 @@ function upload_horreum() {
         -d "@$f"
 }
 
+counter=0
+
 # Fetch JSON files from main test that runs every 12 hours
 for i in $(curl -SsL "$JOB_BASE" | grep -Eo '[0-9]{19}' | sort -V | uniq | tail -n 10); do
-    f="$JOB_BASE/$i/artifacts/TODO/TODO/artifacts/benchmark-tekton.json"
+    f="$JOB_BASE/$i/artifacts/scaling-pipelines-daily/openshift-pipelines-scaling-pipelines/artifacts/benchmark-tekton.json"
     out="$CACHE_DIR/$i.benchmark-tekton.json"
 
     download "$f" "$out"
@@ -137,4 +143,7 @@ for i in $(curl -SsL "$JOB_BASE" | grep -Eo '[0-9]{19}' | sort -V | uniq | tail 
     upload_basic "$out" "$i"
     enritch_stuff "$out" '."$schema"' "urn:openshift-pipelines-perfscale-scalingPipelines:0.1"
     upload_horreum "$out" "openshift-pipelines-perfscale-scalingPipelines" ".metadata.env.BUILD_ID" "$i"
+    let counter+=1
 done
+
+info "Processed $counter files"
