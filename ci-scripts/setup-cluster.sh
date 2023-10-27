@@ -7,7 +7,7 @@ set -o pipefail
 source $(dirname $0)/lib.sh
 
 info "Deploy pipelines $DEPLOYMENT_TYPE/$DEPLOYMENT_VERSION"
-if [ "$DEPLOYMENT_TYPE" == "downstream" ]
+if [ "$DEPLOYMENT_TYPE" == "downstream" ]; then
     cat <<EOF | kubectl apply -f -
 apiVersion: operators.coreos.com/v1alpha1
 kind: Subscription
