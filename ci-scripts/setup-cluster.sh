@@ -7,7 +7,7 @@ set -o pipefail
 source $(dirname $0)/lib.sh
 
 info "Deploy pipelines $DEPLOYMENT_TYPE/$DEPLOYMENT_VERSION"
-if [ "$DEPLOYMENT_TYPE" == "downstream" ]
+if [ "$DEPLOYMENT_TYPE" == "downstream" ]; then
     cat <<EOF | kubectl apply -f -
 apiVersion: operators.coreos.com/v1alpha1
 kind: Subscription
@@ -58,8 +58,11 @@ wait_for_entity_by_selector 300 openshift-operators InstallPlan operators.coreos
 ip_name=$(kubectl -n openshift-operators get installplan -l operators.coreos.com/openshift-pipelines-operator-rh.openshift-operators= -o name)
 kubectl -n openshift-operators patch -p '{"spec":{"approved":true}}' --type merge "$ip_name"
 
-info "Wait for deployment to finish"
+info "Configure resources on tekton-pipelines-controller"
 wait_for_entity_by_selector 300 openshift-pipelines pod app=tekton-pipelines-controller
+kubectl -n openshift-pipelines set resources deployment/tekton-pipelines-controller --limits=cpu=1,memory=2Gi --requests=cpu=1,memory=2Gi
+
+info "Wait for deployment to finish"
 kubectl -n openshift-pipelines wait --for=condition=ready --timeout=300s pod -l app=tekton-pipelines-controller
 
 info "Deployment finished"
