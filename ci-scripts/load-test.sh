@@ -4,7 +4,7 @@ set -o nounset
 set -o errexit
 set -o pipefail
 
-source $(dirname $0)/lib.sh
+source "$(dirname "$0")/lib.sh"
 
 info "Setup"
 cd tests/scaling-pipelines/

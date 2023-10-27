@@ -4,7 +4,7 @@ set -o nounset
 set -o errexit
 set -o pipefail
 
-source $(dirname $0)/lib.sh
+source "$(dirname "$0")/lib.sh"
 
 ARTIFACT_DIR=${ARTIFACT_DIR:-artifacts}
 monitoring_collection_data=$ARTIFACT_DIR/benchmark-tekton.json
@@ -42,7 +42,7 @@ if [ -f "$monitoring_collection_data" ]; then
         --prometheus-host "https://$mhost" \
         --prometheus-port 443 \
         --prometheus-token "$(oc whoami -t)" \
-        -d &>$monitoring_collection_log
+        -d &>"$monitoring_collection_log"
     set +u
     deactivate
     set -u
