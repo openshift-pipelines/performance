@@ -58,11 +58,16 @@ wait_for_entity_by_selector 300 openshift-operators InstallPlan operators.coreos
 ip_name=$(kubectl -n openshift-operators get installplan -l operators.coreos.com/openshift-pipelines-operator-rh.openshift-operators= -o name)
 kubectl -n openshift-operators patch -p '{"spec":{"approved":true}}' --type merge "$ip_name"
 
-info "Configure resources on tekton-pipelines-controller"
-wait_for_entity_by_selector 300 openshift-pipelines pod app=tekton-pipelines-controller
-kubectl -n openshift-pipelines set resources deployment/tekton-pipelines-controller --limits=cpu=1,memory=2Gi --requests=cpu=1,memory=2Gi
+if [ "$DEPLOYMENT_TYPE" == "downstream" -a "$DEPLOYMENT_VERSION" == "1.11" ]; then
+    warning "Configure resources for tekton-pipelines-controller is supported since 1.12"
+else
+    info "Configure resources for tekton-pipelines-controller"
+    wait_for_entity_by_selector 300 "" TektonConfig openshift-pipelines.tekton.dev/sa-created=true
+    kubectl patch TektonConfig/config --patch '{"spec":{"pipeline":{"options":{"deployments":{"tekton-pipelines-controller":{"spec":{"template":{"spec":{"containers":[{"name":"tekton-pipelines-controller","resources":{"requests":{"memory":"2Gi","cpu":"1"},"limits":{"memory":"2Gi","cpu":"1"}}}]}}}}}}}}}' --type merge
+fi
 
 info "Wait for deployment to finish"
+wait_for_entity_by_selector 300 openshift-pipelines pod app=tekton-pipelines-controller
 kubectl -n openshift-pipelines wait --for=condition=ready --timeout=300s pod -l app=tekton-pipelines-controller
 
 info "Deployment finished"
