@@ -38,9 +38,9 @@
   monitoring_query: sum(tekton_pipelines_controller_workqueue_depth)
   monitoring_step: 15
 
-- name: measurements.pipelinerun_duration_scheduled_seconds
-  monitoring_query: sum(pipelinerun_duration_scheduled_seconds_sum / pipelinerun_duration_scheduled_seconds_count)
-  monitoring_step: 15
+###- name: measurements.pipelinerun_duration_scheduled_seconds
+###  monitoring_query: sum(pipelinerun_duration_scheduled_seconds_sum / pipelinerun_duration_scheduled_seconds_count)
+###  monitoring_step: 15
 
 - name: measurements.tekton_pipelines_controller_running_taskruns_throttled_by_node
   monitoring_query: sum(tekton_pipelines_controller_running_taskruns_throttled_by_node_count)
@@ -48,6 +48,10 @@
 
 - name: measurements.tekton_pipelines_controller_running_taskruns_throttled_by_quota
   monitoring_query: sum(tekton_pipelines_controller_running_taskruns_throttled_by_quota_count)
+  monitoring_step: 15
+
+- name: measurements.tekton_pipelines_controller_client_latency_average
+  monitoring_query: sum(rate(tekton_pipelines_controller_client_latency_sum[1m]) / rate(tekton_pipelines_controller_client_latency_count[1m]))
   monitoring_step: 15
 
 - name: measurements.etcd_request_duration_seconds_average
@@ -95,7 +99,10 @@
   env_variable: {{ var }}
 {% endfor %}
 
-# Cluster nodes info
+# Gather some basic info about the cluster
+- name: metadata.cluster.context
+  command: oc project default > /dev/null && oc config current-context
+
 - name: metadata.cluster.control-plane.count
   command: oc get nodes -l node-role.kubernetes.io/master -o name | wc -l
 
@@ -115,3 +122,56 @@
 - name: metadata.cluster.compute-nodes.nodes
   command: oc get nodes -l node-role.kubernetes.io/worker -o json | jq '.items | map(.metadata.name)'
   output: json
+
+
+
+{% macro monitor_pod(namespace, pod, step=15, pod_suffix_regex='-[0-9a-f]+-.*') -%}
+# Gather monitoring data about the pod
+- name: measurements.{{ pod }}.cpu
+  monitoring_query: sum(pod:container_cpu_usage:sum{namespace='{{ namespace }}', pod=~'{{ pod }}{{ pod_suffix_regex }}'})
+  monitoring_step: {{ step }}
+- name: measurements.{{ pod }}.memory
+  monitoring_query: sum(container_memory_usage_bytes{namespace='{{ namespace }}', pod=~'{{ pod }}{{ pod_suffix_regex }}', container!='POD', container!=''})
+  monitoring_step: {{ step }}
+- name: measurements.{{ pod }}.network_throughput
+  monitoring_query: sum( rate(container_network_transmit_bytes_total{namespace='{{ namespace }}', pod=~'{{ pod }}{{ pod_suffix_regex }}'}[{{ step * 4 }}s]) + rate(container_network_receive_bytes_total{namespace='{{ namespace }}', pod=~'{{ pod }}{{ pod_suffix_regex }}'}[{{ step * 4 }}s]) )
+  monitoring_step: {{ step * 4 }}
+- name: measurements.{{ pod }}.network_drop
+  monitoring_query: sum( rate(container_network_transmit_packets_dropped_total{namespace='{{ namespace }}', pod=~'{{ pod }}{{ pod_suffix_regex }}'}[{{ step * 4 }}s]) + rate(container_network_receive_packets_dropped_total{namespace='{{ namespace }}', pod=~'{{ pod }}{{ pod_suffix_regex }}'}[{{ step * 4 }}s]) )
+  monitoring_step: {{ step * 4 }}
+- name: measurements.{{ pod }}.disk_throughput
+  monitoring_query: sum( sum(rate(container_fs_reads_bytes_total{namespace='{{ namespace }}', pod=~'{{ pod }}{{ pod_suffix_regex }}', device!='/dev/dm-0'}[{{ step * 4 }}s])) + sum(rate(container_fs_writes_bytes_total{namespace='{{ namespace }}', pod=~'{{ pod }}{{ pod_suffix_regex }}', device!='/dev/dm-0'}[{{ step * 4 }}s])) )
+  monitoring_step: {{ step * 4 }}
+- name: measurements.{{ pod }}.restarts
+  monitoring_query: sum(kube_pod_container_status_restarts_total{namespace='{{ namespace }}', pod=~'{{ pod }}{{ pod_suffix_regex }}'})
+  monitoring_step: {{ step }}
+- name: measurements.{{ pod }}.count_ready
+  monitoring_query: sum( kube_pod_status_ready{namespace='{{ namespace }}', pod=~'{{ pod }}{{ pod_suffix_regex }}'} )
+  monitoring_step: {{ step }}
+{%- endmacro %}
+
+{% macro pod_info(namespace, deployment, container) -%}
+# Gather info about pod configuration
+- name: parameters.cluster.pods.{{ deployment }}-{{ container }}.count
+  command: oc -n {{ namespace }} get deployment/{{ deployment }} -o json | jq '.spec.template.spec | if has("replicas") then .replicas else 1 end'
+- name: parameters.cluster.pods.{{ deployment }}-{{ container }}.resources
+  command: oc -n {{ namespace }} get deployment/{{ deployment }} -o json | jq '.spec.template.spec.containers | map(select(.name == "{{ container }}"))[0].resources'
+  output: json
+- name: parameters.cluster.pods.{{ deployment }}-{{ container }}.image
+  command: oc -n {{ namespace }} get deployment/{{ deployment }} -o json | jq --raw-output '.spec.template.spec.containers | map(select(.name == "{{ container }}"))[0].image'
+- name: parameters.cluster.pods.{{ deployment }}-{{ container }}.image_tag
+  command: oc -n {{ namespace }} get deployment/{{ deployment }} -o json | jq --raw-output '.spec.template.spec.containers | map(select(.name == "{{ container }}"))[0].image | split(":")[1]'
+{%- endmacro %}
+
+# Collect data for relevant pods
+{% set deployments = ['pipelines-as-code-controller','pipelines-as-code-watcher','pipelines-as-code-webhook','tekton-chains-controller','tekton-events-controller','tekton-operator-proxy-webhook','tekton-pipelines-controller','tekton-pipelines-remote-resolvers','tekton-pipelines-webhook','tekton-triggers-controller','tekton-triggers-core-interceptors','tekton-triggers-webhook','tkn-cli-serve'] %}
+{% set containers = ['pac-controller','pac-watcher','pac-webhook','tekton-chains-controller','tekton-events-controller','proxy','tekton-pipelines-controller','controller','webhook','tekton-triggers-controller','tekton-triggers-core-interceptors','webhook','tkn-cli-serve'] %}
+
+{% for item in deployments %}
+{{ monitor_pod('openshift-pipelines', deployments[loop.index0], 15) }}
+{{ pod_info('openshift-pipelines', deployments[loop.index0], containers[loop.index0]) }}
+{% endfor %}
+
+# Collect data for API pods
+{{ monitor_pod('openshift-apiserver', 'apiserver', 15) }}
+{{ monitor_pod('openshift-kube-apiserver', 'kube-apiserver', 15, pod_suffix_regex='-ip-.+') }}
