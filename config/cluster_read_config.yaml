@@ -74,6 +74,8 @@
   monitoring_query: sum(irate(node_disk_io_time_seconds_total{cluster="",namespace=~".*"}[5m]))
   monitoring_step: 15
 
+
+
 # Interesting CI environment variables
 {% for var in [
   'BUILD_ID',
@@ -99,6 +101,8 @@
   env_variable: {{ var }}
 {% endfor %}
 
+
+
 # Gather some basic info about the cluster
 - name: metadata.cluster.context
   command: oc project default > /dev/null && oc config current-context
@@ -121,6 +125,17 @@
 
 - name: metadata.cluster.compute-nodes.nodes
   command: oc get nodes -l node-role.kubernetes.io/worker -o json | jq '.items | map(.metadata.name)'
+  output: json
+
+
+
+# Collect versions of various components
+- name: parameters.cluster.pod.openshift-pipelines-operator.version
+  command: oc -n openshift-operators get pods -l app=openshift-pipelines-operator -o json | jq '[ .items[0] | .spec.containers[] | {"key": .name, "value": .env | map(select(.name == "VERSION"))[0].value} ] | from_entries'
+  output: json
+
+- name: parameters.cluster.pod.openshift-pipelines-configmaps.version
+  command: oc -n openshift-pipelines get configmap -o json | jq '[ .items[] | if select(.data.version != null) then {"key": .metadata.name, "value": .data.version} else {} end ] | from_entries'
   output: json
 
 
@@ -163,6 +178,8 @@
   command: oc -n {{ namespace }} get deployment/{{ deployment }} -o json | jq --raw-output '.spec.template.spec.containers | map(select(.name == "{{ container }}"))[0].image | split(":")[1]'
 {%- endmacro %}
 
+
+
 # Collect data for relevant pods
 {% set deployments = ['pipelines-as-code-controller','pipelines-as-code-watcher','pipelines-as-code-webhook','tekton-chains-controller','tekton-events-controller','tekton-operator-proxy-webhook','tekton-pipelines-controller','tekton-pipelines-remote-resolvers','tekton-pipelines-webhook','tekton-triggers-controller','tekton-triggers-core-interceptors','tekton-triggers-webhook','tkn-cli-serve'] %}
 {% set containers = ['pac-controller','pac-watcher','pac-webhook','tekton-chains-controller','tekton-events-controller','proxy','tekton-pipelines-controller','controller','webhook','tekton-triggers-controller','tekton-triggers-core-interceptors','webhook','tkn-cli-serve'] %}
@@ -171,6 +188,8 @@
 {{ monitor_pod('openshift-pipelines', deployments[loop.index0], 15) }}
 {{ pod_info('openshift-pipelines', deployments[loop.index0], containers[loop.index0]) }}
 {% endfor %}
+
+
 
 # Collect data for API pods
 {{ monitor_pod('openshift-apiserver', 'apiserver', 15) }}
