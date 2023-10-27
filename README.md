@@ -2,6 +2,8 @@
 
 ## How perf&scale CI works
 
+.
+
 ### Prow
 
 To execute the tests we are using Prow. Jobs in Prow were configured in [openshift/release PR#44206](https://github.com/openshift/release/pull/44206).
