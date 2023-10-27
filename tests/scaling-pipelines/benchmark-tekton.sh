@@ -1,8 +1,8 @@
 #!/bin/bash
 
 script_name=$(basename "$0")
-short=t:c:r::dh
-long=total:,concurrent:,run::,debug,help
+short=t:c:r:dh
+long=total:,concurrent:,run:,debug,help
 
 total=10000
 concurrent=100
