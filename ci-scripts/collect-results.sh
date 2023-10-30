@@ -4,14 +4,16 @@ set -o nounset
 set -o errexit
 set -o pipefail
 
-source $(dirname $0)/lib.sh
+source "$(dirname "$0")/lib.sh"
 
 ARTIFACT_DIR=${ARTIFACT_DIR:-artifacts}
 monitoring_collection_data=$ARTIFACT_DIR/benchmark-tekton.json
 monitoring_collection_log=$ARTIFACT_DIR/monitoring-collection.log
+monitoring_collection_dir=$ARTIFACT_DIR/monitoring-collection-raw-data-dir
 
 info "Collecting artifacts..."
 mkdir -p "${ARTIFACT_DIR}"
+mkdir -p "${monitoring_collection_dir}"
 [ -f tests/scaling-pipelines/benchmark-tekton.json ] && cp tests/scaling-pipelines/benchmark-tekton.json "${ARTIFACT_DIR}/"
 [ -f tests/scaling-pipelines/benchmark-tekton-runs.json ] && cp tests/scaling-pipelines/benchmark-tekton-runs.json "${ARTIFACT_DIR}/"
 
@@ -39,10 +41,11 @@ if [ -f "$monitoring_collection_data" ]; then
         --additional ./config/cluster_read_config.yaml \
         --monitoring-start "$mstart" \
         --monitoring-end "$mend" \
+        --monitoring-raw-data-dir "$monitoring_collection_dir" \
         --prometheus-host "https://$mhost" \
         --prometheus-port 443 \
         --prometheus-token "$(oc whoami -t)" \
-        -d &>$monitoring_collection_log
+        -d &>"$monitoring_collection_log"
     set +u
     deactivate
     set -u
