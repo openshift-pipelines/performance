@@ -8,6 +8,9 @@ source "$(dirname "$0")/lib.sh"
 
 info "Deploy pipelines $DEPLOYMENT_TYPE/$DEPLOYMENT_VERSION"
 if [ "$DEPLOYMENT_TYPE" == "downstream" ]; then
+    DEPLOYMENT_CSV_VERSION="$DEPLOYMENT_VERSION.0"
+    [ "$DEPLOYMENT_VERSION" == "1.11" ] && DEPLOYMENT_CSV_VERSION="1.11.1"
+
     cat <<EOF | kubectl apply -f -
 apiVersion: operators.coreos.com/v1alpha1
 kind: Subscription
@@ -22,7 +25,7 @@ spec:
   name: openshift-pipelines-operator-rh
   source: redhat-operators
   sourceNamespace: openshift-marketplace
-  startingCSV: openshift-pipelines-operator-rh.v${DEPLOYMENT_VERSION}.0
+  startingCSV: openshift-pipelines-operator-rh.v${DEPLOYMENT_CSV_VERSION}
 EOF
 else
     fatal "Unknown deployment type '$DEPLOYMENT_TYPE'"
