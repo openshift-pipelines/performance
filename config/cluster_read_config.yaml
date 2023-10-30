@@ -183,12 +183,27 @@
 
 
 # Collect data for relevant pods
+{% if DEPLOYMENT_TYPE == 'downstream' %}
+
 {% set deployments = ['pipelines-as-code-controller','pipelines-as-code-watcher','pipelines-as-code-webhook','tekton-chains-controller','tekton-events-controller','tekton-operator-proxy-webhook','tekton-pipelines-controller','tekton-pipelines-remote-resolvers','tekton-pipelines-webhook','tekton-triggers-controller','tekton-triggers-core-interceptors','tekton-triggers-webhook','tkn-cli-serve'] %}
 {% set containers = ['pac-controller','pac-watcher','pac-webhook','tekton-chains-controller','tekton-events-controller','proxy','tekton-pipelines-controller','controller','webhook','tekton-triggers-controller','tekton-triggers-core-interceptors','webhook','tkn-cli-serve'] %}
+{% set namespace = 'openshift-pipelines' %}
+
+{% elif DEPLOYMENT_TYPE == 'upstream' %}
+
+{% set deployments = ['tekton-events-controller','tekton-pipelines-controller','tekton-pipelines-webhook'] %}
+{% set containers = ['tekton-events-controller','tekton-pipelines-controller','webhook'] %}
+{% set namespace = 'tekton-pipelines' %}
+
+{% else %}
+
+# Nothing
+
+{% endif %}
 
 {% for item in deployments %}
-{{ monitor_pod('openshift-pipelines', deployments[loop.index0], 15) }}
-{{ pod_info('openshift-pipelines', deployments[loop.index0], containers[loop.index0]) }}
+{{ monitor_pod(namespace, deployments[loop.index0], 15) }}
+{{ pod_info(namespace, deployments[loop.index0], containers[loop.index0]) }}
 {% endfor %}
 
 
