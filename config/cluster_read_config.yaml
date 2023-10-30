@@ -131,11 +131,11 @@
 
 # Collect versions of various components
 - name: parameters.cluster.pod.openshift-pipelines-operator.version
-  command: oc -n openshift-operators get pods -l app=openshift-pipelines-operator -o json | jq '[ .items[0] | .spec.containers[] | {"key": .name, "value": .env | map(select(.name == "VERSION"))[0].value} ] | from_entries'
+  command: "oc -n openshift-operators get pods -l app=openshift-pipelines-operator -o json | jq '[ .items[0] | .spec.containers[] | {\"key\": .name, \"value\": .env | map(select(.name == \"VERSION\"))[0].value} ] | from_entries'"
   output: json
 
 - name: parameters.cluster.pod.openshift-pipelines-configmaps.version
-  command: oc -n openshift-pipelines get configmap -o json | jq '[ .items[] | if select(.data.version != null) then {"key": .metadata.name, "value": .data.version} else {} end ] | from_entries'
+  command: "oc -n openshift-pipelines get configmap -o json | jq '[ .items[] | if select(.data.version != null) then {\"key\": .metadata.name, \"value\": .data.version} else {} end ] | from_entries'"
   output: json
 
 
