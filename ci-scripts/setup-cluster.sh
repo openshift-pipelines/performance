@@ -101,11 +101,11 @@ elif [ "$DEPLOYMENT_TYPE" == "upstream" ]; then
     if [ "$DEPLOYMENT_VERSION" == "stable" ]; then
         curl https://storage.googleapis.com/tekton-releases/pipeline/latest/release.notags.yaml \
             | yq 'del(.spec.template.spec.containers[].securityContext.runAsUser, .spec.template.spec.containers[].securityContext.runAsGroup)' \
-            | kubectl apply --validate=warn -f -
+            | kubectl apply --validate=warn -f - || true
     elif [ "$DEPLOYMENT_VERSION" == "nightly" ]; then
         curl https://storage.googleapis.com/tekton-releases-nightly/pipeline/latest/release.notags.yaml \
             | yq 'del(.spec.template.spec.containers[].securityContext.runAsUser, .spec.template.spec.containers[].securityContext.runAsGroup)' \
-            | kubectl apply --validate=warn -f -
+            | kubectl apply --validate=warn -f - || true
     else
         fatal "Unknown deployment version '$DEPLOYMENT_VERSION'"
     fi
