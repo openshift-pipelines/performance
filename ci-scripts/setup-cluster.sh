@@ -101,17 +101,22 @@ elif [ "$DEPLOYMENT_TYPE" == "upstream" ]; then
     if [ "$DEPLOYMENT_VERSION" == "stable" ]; then
         curl https://storage.googleapis.com/tekton-releases/pipeline/latest/release.notags.yaml \
             | yq 'del(.spec.template.spec.containers[].securityContext.runAsUser, .spec.template.spec.containers[].securityContext.runAsGroup)' \
-            | kubectl apply --validate=warn -f -
+            | kubectl apply --validate=warn -f - || true
     elif [ "$DEPLOYMENT_VERSION" == "nightly" ]; then
         curl https://storage.googleapis.com/tekton-releases-nightly/pipeline/latest/release.notags.yaml \
             | yq 'del(.spec.template.spec.containers[].securityContext.runAsUser, .spec.template.spec.containers[].securityContext.runAsGroup)' \
-            | kubectl apply --validate=warn -f -
+            | kubectl apply --validate=warn -f - || true
     else
         fatal "Unknown deployment version '$DEPLOYMENT_VERSION'"
     fi
 
-    info "Wait for deployment to finish"
+    info "Configure resources for tekton-pipelines-controller"
     wait_for_entity_by_selector 300 tekton-pipelines pod app=tekton-pipelines-controller
+    kubectl -n tekton-pipelines set resources deployment/tekton-pipelines-controller -c tekton-pipelines-controller --limits=cpu=1,memory=2Gi --requests=cpu=1,memory=2Gi
+
+    info "Wait for deployment to finish"
+    wait_for_entity_by_selector 300 tekton-pipelines pod app=tekton-pipelines-webhook
+    kubectl -n tekton-pipelines wait --for=condition=ready --timeout=300s pod -l app=tekton-pipelines-webhook
     kubectl -n tekton-pipelines wait --for=condition=ready --timeout=300s pod -l app=tekton-pipelines-controller
 
     info "Deployment finished"
