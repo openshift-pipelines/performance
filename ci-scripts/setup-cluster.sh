@@ -84,6 +84,8 @@ EOF
     info "Wait for deployment to finish"
     wait_for_entity_by_selector 300 openshift-pipelines pod app=tekton-pipelines-controller
     kubectl -n openshift-pipelines wait --for=condition=ready --timeout=300s pod -l app=tekton-pipelines-controller
+    wait_for_entity_by_selector 300 openshift-pipelines pod app=tekton-pipelines-webhook
+    kubectl -n openshift-pipelines wait --for=condition=ready --timeout=300s pod -l app=tekton-pipelines-webhook
 
     info "Deployment finished"
     kubectl -n openshift-pipelines get pods
