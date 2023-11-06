@@ -112,6 +112,43 @@ elif [ "$DEPLOYMENT_TYPE" == "upstream" ]; then
         fatal "Unknown deployment version '$DEPLOYMENT_VERSION'"
     fi
 
+    info "Enabling user workload monitoring"
+    rm -f config.yaml
+    oc -n openshift-monitoring extract configmap/cluster-monitoring-config --to=. --keys=config.yaml
+    sed -i '/^enableUserWorkload:/d' config.yaml
+    echo "enableUserWorkload: true" >> config.yaml
+    cat config.yaml
+    oc -n openshift-monitoring set data configmap/cluster-monitoring-config --from-file=config.yaml
+    wait_for_entity_by_selector 300 openshift-user-workload-monitoring StatefulSet operator.prometheus.io/name=user-workload
+    kubectl -n openshift-user-workload-monitoring rollout status --watch --timeout=600s StatefulSet/prometheus-user-workload
+    kubectl -n openshift-user-workload-monitoring wait --for=condition=ready pod -l app.kubernetes.io/component=prometheus
+    kubectl -n openshift-user-workload-monitoring get pod
+
+    info "Setup monitoring"
+    cat <<EOF | kubectl -n tekton-pipelines apply -f -
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  labels:
+    app: controller
+  annotations:
+    networkoperator.openshift.io/ignore-errors: ""
+  name: openshift-pipelines-monitor
+  namespace: tekton-pipelines
+spec:
+  endpoints:
+    - interval: 10s
+      port: http-metrics
+      honorLabels: true
+  jobLabel: app
+  namespaceSelector:
+    matchNames:
+      - openshift-pipelines
+  selector:
+    matchLabels:
+      app: tekton-pipelines-controller
+EOF
+
     info "Configure resources for tekton-pipelines-controller"
     wait_for_entity_by_selector 300 tekton-pipelines pod app=tekton-pipelines-controller
     kubectl -n tekton-pipelines set resources deployment/tekton-pipelines-controller -c tekton-pipelines-controller --limits=cpu=1,memory=2Gi --requests=cpu=1,memory=2Gi
