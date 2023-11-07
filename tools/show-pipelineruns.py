@@ -48,7 +48,7 @@ class DateTimeDecoder(json.JSONDecoder):
         return ret
 
 
-class Something():
+class Something:
     def __init__(self, data_dir):
         self.data = {}
         self.data_taskruns = []
@@ -61,12 +61,14 @@ class Something():
 
         self.pr_count = 0
         self.tr_count = 0
-        self.pr_skips = 0   # how many PipelineRuns we skipped
-        self.tr_skips = 0   # how many TaskRuns we skipped
-        self.pod_skips = 0   # how many Pods we skipped
-        self.pr_duration = datetime.timedelta(0)   # total time of all PipelineRuns
-        self.tr_duration = datetime.timedelta(0)   # total time of all TaskRuns
-        self.pr_idle_duration = datetime.timedelta(0)   # total time in PipelineRuns when no TaskRun was running
+        self.pr_skips = 0  # how many PipelineRuns we skipped
+        self.tr_skips = 0  # how many TaskRuns we skipped
+        self.pod_skips = 0  # how many Pods we skipped
+        self.pr_duration = datetime.timedelta(0)  # total time of all PipelineRuns
+        self.tr_duration = datetime.timedelta(0)  # total time of all TaskRuns
+        self.pr_idle_duration = datetime.timedelta(
+            0
+        )  # total time in PipelineRuns when no TaskRun was running
 
         self._populate(self.data_dir)
         self._merge_taskruns()
@@ -75,12 +77,16 @@ class Something():
     def _merge_taskruns(self):
         for tr in self.data_taskruns:
             if tr["pipelinerun"] not in self.data:
-                logging.warning(f"TaskRun {tr['name']} pipelinerun {tr['pipelinerun']} unknown, skipping.")
+                logging.warning(
+                    f"TaskRun {tr['name']} pipelinerun {tr['pipelinerun']} unknown, skipping."
+                )
                 self.tr_skips += 1
                 continue
 
             if tr["task"] in self.data[tr["pipelinerun"]]["taskRuns"]:
-                logging.warning(f"TaskRun {tr['name']} task {tr['task']} already in PipelineRun, strange, skipping.")
+                logging.warning(
+                    f"TaskRun {tr['name']} task {tr['task']} already in PipelineRun, strange, skipping."
+                )
                 self.tr_skips += 1
                 continue
 
@@ -97,21 +103,32 @@ class Something():
     def _merge_pods(self):
         for pod in self.data_pods:
             if pod["pipelinerun"] not in self.data:
-                logging.warning(f"Pod {pod['name']} pipelinerun {pod['pipelinerun']} unknown, skipping.")
+                logging.warning(
+                    f"Pod {pod['name']} pipelinerun {pod['pipelinerun']} unknown, skipping."
+                )
                 self.pod_skips += 1
                 continue
 
             if pod["task"] not in self.data[pod["pipelinerun"]]["taskRuns"]:
-                logging.warning(f"Pod {pod['name']} task {pod['task']} unknown, skipping.")
+                logging.warning(
+                    f"Pod {pod['name']} task {pod['task']} unknown, skipping."
+                )
                 self.pod_skips += 1
                 continue
 
-            if pod["name"] != self.data[pod["pipelinerun"]]["taskRuns"][pod["task"]]["podName"]:
-                logging.warning(f"Pod {pod['name']} task labels does not match TaskRun podName, skipping.")
+            if (
+                pod["name"]
+                != self.data[pod["pipelinerun"]]["taskRuns"][pod["task"]]["podName"]
+            ):
+                logging.warning(
+                    f"Pod {pod['name']} task labels does not match TaskRun podName, skipping."
+                )
                 self.pod_skips += 1
                 continue
 
-            self.data[pod["pipelinerun"]]["taskRuns"][pod["task"]]["node_name"] = pod["node_name"]
+            self.data[pod["pipelinerun"]]["taskRuns"][pod["task"]]["node_name"] = pod[
+                "node_name"
+            ]
 
         self.data_pods = []
 
@@ -161,7 +178,9 @@ class Something():
         try:
             pr_name = pr["metadata"]["name"]
         except KeyError as e:
-            logging.warning(f"PipelineRun '{str(pr)[:200]}...' missing name, skipping: {e}")
+            logging.warning(
+                f"PipelineRun '{str(pr)[:200]}...' missing name, skipping: {e}"
+            )
             self.pr_skips += 1
             return
 
@@ -182,7 +201,9 @@ class Something():
                     pr_condition_ok = True
                 break
         if not pr_condition_ok:
-            logging.warning(f"PipelineRun {pr_name} is not in right condition, skipping: {pr_conditions}")
+            logging.warning(
+                f"PipelineRun {pr_name} is not in right condition, skipping: {pr_conditions}"
+            )
             self.pr_skips += 1
             return
 
@@ -211,7 +232,9 @@ class Something():
             tr_task = tr["metadata"]["labels"]["tekton.dev/pipelineTask"]
             tr_pipelinerun = tr["metadata"]["labels"]["tekton.dev/pipelineRun"]
         except KeyError as e:
-            logging.warning(f"TaskRun {tr_name} missing task or pipelinerun, skipping: {e}")
+            logging.warning(
+                f"TaskRun {tr_name} missing task or pipelinerun, skipping: {e}"
+            )
             self.tr_skips += 1
             return
 
@@ -238,16 +261,18 @@ class Something():
             self.tr_skips += 1
             return
 
-        self.data_taskruns.append({
-            "name": tr_name,
-            "task": tr_task,
-            "pipelinerun": tr_pipelinerun,
-            "creationTimestamp": tr_creationTimestamp,
-            "completionTime": tr_completionTime,
-            "start_time": tr_startTime,
-            "podName": tr_podName,
-            "namespace": tr_namespace,
-        })
+        self.data_taskruns.append(
+            {
+                "name": tr_name,
+                "task": tr_task,
+                "pipelinerun": tr_pipelinerun,
+                "creationTimestamp": tr_creationTimestamp,
+                "completionTime": tr_completionTime,
+                "start_time": tr_startTime,
+                "podName": tr_podName,
+                "namespace": tr_namespace,
+            }
+        )
 
     def _populate_pod(self, pod):
         """Load Pod."""
@@ -262,7 +287,9 @@ class Something():
             pod_pipelinerun = pod["metadata"]["labels"]["tekton.dev/pipelineRun"]
             pod_task = pod["metadata"]["labels"]["tekton.dev/pipelineTask"]
         except KeyError as e:
-            logging.warning(f"Pod {pod_name} missing pipelinerun or task, skipping: {e}")
+            logging.warning(
+                f"Pod {pod_name} missing pipelinerun or task, skipping: {e}"
+            )
             self.pod_skips += 1
             return
 
@@ -273,12 +300,14 @@ class Something():
             self.pod_skips += 1
             return
 
-        self.data_pods.append({
-            "name": pod_name,
-            "pipelinerun": pod_pipelinerun,
-            "task": pod_task,
-            "node_name": pod_node_name,
-        })
+        self.data_pods.append(
+            {
+                "name": pod_name,
+                "pipelinerun": pod_pipelinerun,
+                "task": pod_task,
+                "node_name": pod_node_name,
+            }
+        )
 
     def _dump_json(self, data, path):
         with open(path, "w") as fp:
@@ -295,15 +324,22 @@ class Something():
         Visualizing overlapping intervals:
         https://www.nxn.se/valent/visualizing-overlapping-intervals
         """
+
         def fits_into_lane(entity, lane):
             start = "creationTimestamp"
             end = "completionTime"
-            logging.debug(f"Checking if entity ({entity[start]} - {entity[end]}) fits into lane with {len(lane)} members")
+            logging.debug(
+                f"Checking if entity ({entity[start]} - {entity[end]}) fits into lane with {len(lane)} members"
+            )
             for member in lane:
-                if member[start] <= entity[start] <= member[end] \
-                   or member[start] <= entity[end] <= member[end] \
-                   or entity[start] <= member[start] <= entity[end]:
-                    logging.debug(f"Entity ({entity[start]} - {entity[end]}) does not fit because of lane member ({member[start]} - {member[end]})")
+                if (
+                    member[start] <= entity[start] <= member[end]
+                    or member[start] <= entity[end] <= member[end]
+                    or entity[start] <= member[start] <= entity[end]
+                ):
+                    logging.debug(
+                        f"Entity ({entity[start]} - {entity[end]}) does not fit because of lane member ({member[start]} - {member[end]})"
+                    )
                     return False
             logging.debug(f"Entity ({entity[start]} - {entity[end]}) fits")
             return True
@@ -357,8 +393,7 @@ class Something():
 
             for t in existing:
                 # If both ends are inside of existing interval, we ignore it
-                if t[start] <= new[start] <= t[end] \
-                   and t[start] <= new[end] <= t[end]:
+                if t[start] <= new[start] <= t[end] and t[start] <= new[end] <= t[end]:
                     processed = True
                     continue
 
@@ -409,11 +444,27 @@ class Something():
             self.pr_idle_duration += pr_duration - tr_simple_duration
 
         print(f"There was {self.pr_count} PipelineRuns and {self.tr_count} TaskRuns")
-        print(f"In total PipelineRuns took {self.pr_duration} and TaskRuns took {self.tr_duration}, PipelineRuns were idle for {self.pr_idle_duration}")
-        pr_duration_avg = (self.pr_duration / self.pr_count).total_seconds() if self.pr_count != 0 else None
-        tr_duration_avg = (self.tr_duration / self.tr_count).total_seconds() if self.tr_count != 0 else None
-        pr_idle_duration_avg = (self.pr_idle_duration / self.pr_count).total_seconds() if self.pr_count != 0 else None
-        print(f"In average PipelineRuns took {pr_duration_avg} and TaskRuns took {tr_duration_avg}, PipelineRuns were idle for {pr_idle_duration_avg} seconds")
+        print(
+            f"In total PipelineRuns took {self.pr_duration} and TaskRuns took {self.tr_duration}, PipelineRuns were idle for {self.pr_idle_duration}"
+        )
+        pr_duration_avg = (
+            (self.pr_duration / self.pr_count).total_seconds()
+            if self.pr_count != 0
+            else None
+        )
+        tr_duration_avg = (
+            (self.tr_duration / self.tr_count).total_seconds()
+            if self.tr_count != 0
+            else None
+        )
+        pr_idle_duration_avg = (
+            (self.pr_idle_duration / self.pr_count).total_seconds()
+            if self.pr_count != 0
+            else None
+        )
+        print(
+            f"In average PipelineRuns took {pr_duration_avg} and TaskRuns took {tr_duration_avg}, PipelineRuns were idle for {pr_idle_duration_avg} seconds"
+        )
 
     def _compute_nodes(self):
         """
@@ -425,7 +476,9 @@ class Something():
                 try:
                     node_name = tr_data["node_name"]
                 except KeyError:
-                    logging.warning(f"TaskRun {tr_name} missing node_name field, skipping.")
+                    logging.warning(
+                        f"TaskRun {tr_name} missing node_name field, skipping."
+                    )
                     continue
                 if node_name not in nodes:
                     nodes[node_name] = 1
@@ -448,7 +501,9 @@ class Something():
                 try:
                     node_name = tr_data["node_name"]
                 except KeyError:
-                    logging.warning(f"TaskRun {tr_name} missing node_name field, skipping.")
+                    logging.warning(
+                        f"TaskRun {tr_name} missing node_name field, skipping."
+                    )
                     continue
                 table.append([pr_name, tr_name, node_name])
                 pr_tr_nodes[tr_name] = node_name
@@ -478,11 +533,15 @@ class Something():
         #     headers=["PipelineRun", "TaskRun", "Node"],
         # ))
 
-        print("\nWhich TaskRuns inside of one PipelineRun were sharing node most often:")
-        print(tabulate.tabulate(
-            table_data,
-            headers=["TaskRun"] + table_keys,
-        ))
+        print(
+            "\nWhich TaskRuns inside of one PipelineRun were sharing node most often:"
+        )
+        print(
+            tabulate.tabulate(
+                table_data,
+                headers=["TaskRun"] + table_keys,
+            )
+        )
 
     def _plot_graph(self):
         """
@@ -495,7 +554,10 @@ class Something():
         def entity_to_coords(entity):
             start = "creationTimestamp"
             end = "completionTime"
-            return (entity[start].timestamp(), (entity[end] - entity[start]).total_seconds())
+            return (
+                entity[start].timestamp(),
+                (entity[end] - entity[start]).total_seconds(),
+            )
 
         def get_min(entity, current_min):
             start = "creationTimestamp"
@@ -513,14 +575,45 @@ class Something():
 
         tr_height = 10
         fig_pr_y_pos = 0
-        colors = sorted(matplotlib.colors.TABLEAU_COLORS, key=lambda c: tuple(matplotlib.colors.rgb_to_hsv(matplotlib.colors.to_rgb(c))))
-        colors = ['tab:gray', 'tab:brown', 'tab:orange', 'tab:olive', 'tab:green', 'tab:cyan', 'tab:blue', 'tab:purple', 'tab:pink', 'tab:red']
+        colors = sorted(
+            matplotlib.colors.TABLEAU_COLORS,
+            key=lambda c: tuple(
+                matplotlib.colors.rgb_to_hsv(matplotlib.colors.to_rgb(c))
+            ),
+        )
+        colors = [
+            "tab:gray",
+            "tab:brown",
+            "tab:orange",
+            "tab:olive",
+            "tab:green",
+            "tab:cyan",
+            "tab:blue",
+            "tab:purple",
+            "tab:pink",
+            "tab:red",
+        ]
 
         for pr_lane in self.pr_lanes:
             for pr in pr_lane:
                 pr_coords = entity_to_coords(pr)
-                ax.broken_barh([[pr_coords[0] - 1, pr_coords[1] + 2]], (fig_pr_y_pos + 1, tr_height * len(pr["tr_lanes"]) - 2), facecolors="white", edgecolor="black")
-                txt = ax.text(x=pr_coords[0] + 4, y=fig_pr_y_pos + tr_height * len(pr["tr_lanes"]) - tr_height * 0.5, s=pr["name"], fontsize=8, horizontalalignment='left', verticalalignment='center', color="darkgray", rotation=-10, rotation_mode="anchor")
+                ax.broken_barh(
+                    [[pr_coords[0] - 1, pr_coords[1] + 2]],
+                    (fig_pr_y_pos + 1, tr_height * len(pr["tr_lanes"]) - 2),
+                    facecolors="white",
+                    edgecolor="black",
+                )
+                txt = ax.text(
+                    x=pr_coords[0] + 4,
+                    y=fig_pr_y_pos + tr_height * len(pr["tr_lanes"]) - tr_height * 0.5,
+                    s=pr["name"],
+                    fontsize=8,
+                    horizontalalignment="left",
+                    verticalalignment="center",
+                    color="darkgray",
+                    rotation=-10,
+                    rotation_mode="anchor",
+                )
                 ax.add_artist(txt)
                 c_index = 0
                 fig_tr_y_pos = fig_pr_y_pos
@@ -529,8 +622,22 @@ class Something():
                         fig_x_min = get_min(tr, fig_x_min)
                         fig_x_max = get_max(tr, fig_x_max)
                         tr_coords = entity_to_coords(tr)
-                        ax.broken_barh([tr_coords], (fig_tr_y_pos + 2, tr_height - 4), facecolors=colors[c_index])
-                        txt = ax.text(x=tr_coords[0] + 2, y=fig_tr_y_pos + tr_height / 2, s=tr["name"], fontsize=8, horizontalalignment='left', verticalalignment='center', color="lightgray", rotation=30, rotation_mode="anchor")
+                        ax.broken_barh(
+                            [tr_coords],
+                            (fig_tr_y_pos + 2, tr_height - 4),
+                            facecolors=colors[c_index],
+                        )
+                        txt = ax.text(
+                            x=tr_coords[0] + 2,
+                            y=fig_tr_y_pos + tr_height / 2,
+                            s=tr["name"],
+                            fontsize=8,
+                            horizontalalignment="left",
+                            verticalalignment="center",
+                            color="lightgray",
+                            rotation=30,
+                            rotation_mode="anchor",
+                        )
                         ax.add_artist(txt)
                         c_index += 1
                         if c_index == len(colors):
@@ -539,7 +646,7 @@ class Something():
             fig_pr_y_pos += tr_height * max([len(pr["tr_lanes"]) for pr in pr_lane])
         ax.set_ylim(0, fig_pr_y_pos)
         ax.set_xlim(fig_x_min - 10, fig_x_max + 10)
-        ax.set_xlabel('timestamps [s]')
+        ax.set_xlabel("timestamps [s]")
         ax.grid(True)
 
         # matplotlib.pyplot.show()
@@ -570,7 +677,8 @@ def main():
         help="Directory from where to load YAML data and where to put output SVG",
     )
     parser.add_argument(
-        "-d", "--debug",
+        "-d",
+        "--debug",
         action="store_true",
         help="Show debug output",
     )
