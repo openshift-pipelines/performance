@@ -3,34 +3,25 @@
 import argparse
 import copy
 import datetime
-import errno
 import json
 import logging
 import os
 import os.path
-import re
 import sys
+import yaml
+import time
 
 import matplotlib.pyplot
 import matplotlib.colors
 
-import opl.skelet
-import opl.data
-
-import requests
-
 import tabulate
-
-import kubernetes   # noqa: I100
-
-import urllib3
-import urllib3.exceptions
-
-import utils_users
 
 
 def str2date(date_str):
-    return datetime.datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+    if isinstance(date_str, datetime.datetime):
+        return date_str
+    else:
+        return datetime.datetime.fromisoformat(date_str.replace("Z", "+00:00"))
 
 
 class DateTimeEncoder(json.JSONEncoder):
@@ -58,27 +49,15 @@ class DateTimeDecoder(json.JSONDecoder):
 
 
 class Something():
-    SPEC_PIPELINERUNS = {
-        "group": "tekton.dev",
-        "version": "v1beta1",
-        "plural": "pipelineruns",
-    }
-    SPEC_TASKRUNS = {
-        "group": "tekton.dev",
-        "version": "v1beta1",
-        "plural": "taskruns",
-    }
+    def __init__(self, data_dir):
+        self.data = {}
+        self.data_taskruns = []
+        self.data_pods = []
+        self.data_taskruns = []
+        self.data_dir = data_dir
+        self.pr_lanes = []
 
-    def __init__(self, status_data, users_list, info_dir):
-        self.status_data = status_data
-        self.users_list = users_list
-        self.info_dir = info_dir
-
-        self.raw_data_path = os.path.join(self.info_dir, "raw-data.json")
-        self.lanes_path = os.path.join(self.info_dir, "lanes-data.json")
-        self.raw_cr_dir = os.path.join(self.info_dir, "cr-dir/")
-        self._create_dir(self.raw_cr_dir)
-        self.fig_path = os.path.join(self.info_dir, "output.svg")
+        self.fig_path = os.path.join(self.data_dir, "output.svg")
 
         self.pr_count = 0
         self.tr_count = 0
@@ -89,197 +68,217 @@ class Something():
         self.tr_duration = datetime.timedelta(0)   # total time of all TaskRuns
         self.pr_idle_duration = datetime.timedelta(0)   # total time in PipelineRuns when no TaskRun was running
 
-    def _create_dir(self, name):
+        self._populate(self.data_dir)
+        self._merge_taskruns()
+        self._merge_pods()
+
+    def _merge_taskruns(self):
+        for tr in self.data_taskruns:
+            if tr["pipelinerun"] not in self.data:
+                logging.warning(f"TaskRun {tr['name']} pipelinerun {tr['pipelinerun']} unknown, skipping.")
+                self.tr_skips += 1
+                continue
+
+            if tr["task"] in self.data[tr["pipelinerun"]]["taskRuns"]:
+                logging.warning(f"TaskRun {tr['name']} task {tr['task']} already in PipelineRun, strange, skipping.")
+                self.tr_skips += 1
+                continue
+
+            tr_task = tr["task"]
+            tr_pipelinerun = tr["pipelinerun"]
+            del tr["name"]
+            del tr["task"]
+            del tr["pipelinerun"]
+
+            self.data[tr_pipelinerun]["taskRuns"][tr_task] = tr
+
+        self.data_taskruns = []
+
+    def _merge_pods(self):
+        for pod in self.data_pods:
+            if pod["pipelinerun"] not in self.data:
+                logging.warning(f"Pod {pod['name']} pipelinerun {pod['pipelinerun']} unknown, skipping.")
+                self.pod_skips += 1
+                continue
+
+            if pod["task"] not in self.data[pod["pipelinerun"]]["taskRuns"]:
+                logging.warning(f"Pod {pod['name']} task {pod['task']} unknown, skipping.")
+                self.pod_skips += 1
+                continue
+
+            if pod["name"] != self.data[pod["pipelinerun"]]["taskRuns"][pod["task"]]["podName"]:
+                logging.warning(f"Pod {pod['name']} task labels does not match TaskRun podName, skipping.")
+                self.pod_skips += 1
+                continue
+
+            self.data[pod["pipelinerun"]]["taskRuns"][pod["task"]]["node_name"] = pod["node_name"]
+
+        self.data_pods = []
+
+    def _populate(self, data_dir):
+        for currentpath, folders, files in os.walk(data_dir):
+            for datafile in files:
+                datafile = os.path.join(currentpath, datafile)
+
+                start = time.time()
+                if datafile.endswith(".yaml") or datafile.endswith(".yml"):
+                    with open(datafile, "r") as fd:
+                        data = yaml.safe_load(fd)
+                elif datafile.endswith(".json"):
+                    data = self._load_json(datafile)
+                else:
+                    continue
+                end = time.time()
+                print(f"Loaded {datafile} in {(end - start):.2f} seconds")
+
+                if "kind" not in data or data["kind"] != "List":
+                    logging.info(f"Skipping {datafile} as it is not a list")
+                    continue
+
+                if "items" not in data:
+                    logging.info(f"Skipping {datafile} as it does not contain items")
+                    continue
+
+                logging.info(f"Loading {datafile}")
+
+                for i in data["items"]:
+                    if "kind" not in i:
+                        logging.warning("Skipping item because it does not have kind")
+                        continue
+
+                    if i["kind"] == "PipelineRun":
+                        self._populate_pipelinerun(i)
+                    elif i["kind"] == "TaskRun":
+                        self._populate_taskrun(i)
+                    elif i["kind"] == "Pod":
+                        self._populate_pod(i)
+                    else:
+                        logging.warning("Skipping item because it has unexpeted kind")
+                        continue
+
+    def _populate_pipelinerun(self, pr):
+        """Load PipelineRun."""
         try:
-            os.makedirs(name)
-        except OSError as e:
-            if e.errno != errno.EEXIST:
-                raise
+            pr_name = pr["metadata"]["name"]
+        except KeyError as e:
+            logging.warning(f"PipelineRun '{str(pr)[:200]}...' missing name, skipping: {e}")
+            self.pr_skips += 1
+            return
 
-    def _client_for_user(self, user):
-        """Return k8s API client for given user."""
-        configuration = kubernetes.client.Configuration()
-        configuration.api_key_prefix["authorization"] = "Bearer"
-        configuration.verify_ssl = user["verify"]
-        configuration.host = user["api_host"]
-        configuration.sso_host = user["sso_host"]
+        try:
+            pr_conditions = pr["status"]["conditions"]
+            pr_creationTimestamp = str2date(pr["metadata"]["creationTimestamp"])
+            pr_completionTime = str2date(pr["status"]["completionTime"])
+            pr_startTime = str2date(pr["status"]["startTime"])
+        except KeyError as e:
+            logging.warning(f"PipelineRun {pr_name} missing some fields, skipping: {e}")
+            self.pr_skips += 1
+            return
 
-        self._refresh_token(configuration, refresh_token=user["offline_token"])
-        configuration.refresh_api_key_hook = self._refresh_token
-        api_client = kubernetes.client.ApiClient(configuration)
-        logging.debug(f"Initiated kubernets client object with {configuration.host}")
-        return api_client
+        pr_condition_ok = False
+        for c in pr_conditions:
+            if c["type"] == "Succeeded":
+                if c["status"] == "True":
+                    pr_condition_ok = True
+                break
+        if not pr_condition_ok:
+            logging.warning(f"PipelineRun {pr_name} is not in right condition, skipping: {pr_conditions}")
+            self.pr_skips += 1
+            return
 
-    @staticmethod
-    def _refresh_token(conf, refresh_token=None):
-        """Based on offline token, generate access token."""
-        if refresh_token is None:
-            refresh_token = conf.sso_token["refresh_token"]
-            now = datetime.datetime.utcnow().replace(tzinfo=datetime.timezone.utc)
-            max_age = conf.sso_token["expires_in"] / 2
-            current_age = (now - conf.sso_token_refresh).total_seconds()
-            do_refresh = current_age >= max_age
-            if do_refresh:
-                logging.debug(f"SSO token is {current_age:.0f} seconds old and because max allowed age is {max_age:.0f} seconds, refreshing")
+        to_be_added = {
+            "creationTimestamp": pr_creationTimestamp,
+            "completionTime": pr_completionTime,
+            "start_time": pr_startTime,
+        }
+
+        if pr_name not in self.data:
+            self.data[pr_name] = to_be_added
+            self.data[pr_name]["taskRuns"] = {}
         else:
-            do_refresh = True
-            logging.debug("No token available, generating one")
+            self.data[pr_name].update(to_be_added)
 
-        if do_refresh:
-            refresh_at = datetime.datetime.utcnow().replace(tzinfo=datetime.timezone.utc)
-            response = requests.post(
-                f"{conf.sso_host}/auth/realms/redhat-external/protocol/openid-connect/token",
-                headers={
-                    "Accept": "application/json",
-                    "Content-Type": "application/x-www-form-urlencoded",
-                },
-                data={
-                    "grant_type": "refresh_token",
-                    "client_id": "cloud-services",
-                    "refresh_token": refresh_token,
-                },
-            )
-            sso_token = response.json()
-            conf.sso_token_refresh = refresh_at
-            conf.sso_token = sso_token
-            conf.api_key["authorization"] = sso_token["access_token"]
-            logging.debug(f"SSO token refreshed, valid for {sso_token['expires_in']} seconds")
+    def _populate_taskrun(self, tr):
+        """Load TaskRun."""
+        try:
+            tr_name = tr["metadata"]["name"]
+        except KeyError as e:
+            logging.warning(f"TaskRun missing name, skipping: {e}, {str(tr)[:200]}")
+            self.tr_skips += 1
+            return
 
-    def _populate_pipelineruns(self, api_instance, namespace):
-        """Load PipelineRuns."""
-        api_response = api_instance.list_namespaced_custom_object(
-            **self.SPEC_PIPELINERUNS,
-            namespace=namespace,
-        )
+        try:
+            tr_task = tr["metadata"]["labels"]["tekton.dev/pipelineTask"]
+            tr_pipelinerun = tr["metadata"]["labels"]["tekton.dev/pipelineRun"]
+        except KeyError as e:
+            logging.warning(f"TaskRun {tr_name} missing task or pipelinerun, skipping: {e}")
+            self.tr_skips += 1
+            return
 
-        for pr in api_response["items"]:
-            try:
-                pr_name = pr["metadata"]["name"]
-            except KeyError as e:
-                logging.warning(f"PipelineRun '{str(pr)[:200]}...' missing name, skipping: {e}")
-                self.pr_skips += 1
-                continue
+        try:
+            tr_conditions = tr["status"]["conditions"]
+            tr_creationTimestamp = str2date(tr["metadata"]["creationTimestamp"])
+            tr_completionTime = str2date(tr["status"]["completionTime"])
+            tr_startTime = str2date(tr["status"]["startTime"])
+            tr_podName = tr["status"]["podName"]
+            tr_namespace = tr["metadata"]["namespace"]
+        except KeyError as e:
+            logging.warning(f"TaskRun {tr_name} missing some fields, skipping: {e}")
+            self.tr_skips += 1
+            return
 
-            safe_now = re.sub(r'[^a-zA-Z0-9_-]', '-', datetime.datetime.utcnow().replace(tzinfo=datetime.timezone.utc).isoformat())
-            path = os.path.join(self.raw_cr_dir, pr_name + "-" + safe_now)
-            self._dump_json(data=pr, path=path)
+        tr_condition_ok = False
+        for c in tr_conditions:
+            if c["type"] == "Succeeded":
+                if c["status"] == "True":
+                    tr_condition_ok = True
+                break
+        if not tr_condition_ok:
+            logging.warning(f"TaskRun {tr_name} is not in right condition, skipping")
+            self.tr_skips += 1
+            return
 
-            try:
-                pr_conditions = pr["status"]["conditions"]
-                pr_creationTimestamp = str2date(pr["metadata"]["creationTimestamp"])
-                pr_completionTime = str2date(pr["status"]["completionTime"])
-                pr_startTime = str2date(pr["status"]["startTime"])
-            except KeyError as e:
-                logging.warning(f"PipelineRun {pr_name} missing some fields, skipping: {e}")
-                self.pr_skips += 1
-                continue
+        self.data_taskruns.append({
+            "name": tr_name,
+            "task": tr_task,
+            "pipelinerun": tr_pipelinerun,
+            "creationTimestamp": tr_creationTimestamp,
+            "completionTime": tr_completionTime,
+            "start_time": tr_startTime,
+            "podName": tr_podName,
+            "namespace": tr_namespace,
+        })
 
-            pr_condition_ok = False
-            for c in pr_conditions:
-                if c["type"] == "Succeeded":
-                    if c["status"] == "True":
-                        pr_condition_ok = True
-                    break
-            if not pr_condition_ok:
-                logging.warning(f"PipelineRun {pr_name} is not in right condition, skipping: {pr_conditions}")
-                self.pr_skips += 1
-                continue
+    def _populate_pod(self, pod):
+        """Load Pod."""
+        try:
+            pod_name = pod["metadata"]["name"]
+        except KeyError as e:
+            logging.warning(f"Pod missing name, skipping: {e}, {str(pod)[:200]}")
+            self.pod_skips += 1
+            return
 
-            self.data[pr_name] = {
-                "creationTimestamp": pr_creationTimestamp,
-                "completionTime": pr_completionTime,
-                "start_time": pr_startTime,
-                "taskRuns": {},
-            }
+        try:
+            pod_pipelinerun = pod["metadata"]["labels"]["tekton.dev/pipelineRun"]
+            pod_task = pod["metadata"]["labels"]["tekton.dev/pipelineTask"]
+        except KeyError as e:
+            logging.warning(f"Pod {pod_name} missing pipelinerun or task, skipping: {e}")
+            self.pod_skips += 1
+            return
 
-    def _populate_taskruns(self, api_instance, namespace):
-        """Load TaskRuns."""
-        api_response = api_instance.list_namespaced_custom_object(
-            **self.SPEC_TASKRUNS,
-            namespace=namespace,
-        )
+        try:
+            pod_node_name = pod["spec"]["nodeName"]
+        except KeyError as e:
+            logging.warning(f"Pod {pod_name} missing node name filed, skipping: {e}")
+            self.pod_skips += 1
+            return
 
-        for tr in api_response["items"]:
-            try:
-                tr_name = tr["metadata"]["labels"]["tekton.dev/task"]
-                tr_pipelinerun = tr["metadata"]["labels"]["tekton.dev/pipelineRun"]
-            except KeyError as e:
-                logging.warning(f"TaskRun missing name or pipelinerun, skipping: {e}")
-                self.tr_skips += 1
-                continue
-
-            safe_now = re.sub(r'[^a-zA-Z0-9_-]', '-', datetime.datetime.utcnow().replace(tzinfo=datetime.timezone.utc).isoformat())
-            path = os.path.join(self.raw_cr_dir, tr_pipelinerun + "-" + tr_name + "-" + safe_now)
-            self._dump_json(data=tr, path=path)
-
-            try:
-                tr_conditions = tr["status"]["conditions"]
-                tr_creationTimestamp = str2date(tr["metadata"]["creationTimestamp"])
-                tr_completionTime = str2date(tr["status"]["completionTime"])
-                tr_startTime = str2date(tr["status"]["startTime"])
-                tr_podName = tr["status"]["podName"]
-                tr_namespace = tr["metadata"]["namespace"]
-            except KeyError as e:
-                logging.warning(f"TaskRun {tr_pipelinerun}/{tr_name} missing some fields, skipping: {e}")
-                self.tr_skips += 1
-                continue
-
-            tr_condition_ok = False
-            for c in tr_conditions:
-                if c["type"] == "Succeeded":
-                    if c["status"] == "True":
-                        tr_condition_ok = True
-                    break
-            if not tr_condition_ok:
-                logging.warning(f"TaskRun {tr_pipelinerun}/{tr_name} is not in right condition, skipping")
-                self.tr_skips += 1
-                continue
-
-            if tr_pipelinerun not in self.data:
-                logging.warning(f"TaskRun {tr_pipelinerun}/{tr_name} do not have it's PipelineRun tracked, skipping")
-                self.tr_skips += 1
-                continue
-
-            self.data[tr_pipelinerun]["taskRuns"][tr_name] = {
-                "creationTimestamp": tr_creationTimestamp,
-                "completionTime": tr_completionTime,
-                "start_time": tr_startTime,
-                "podName": tr_podName,
-                "namespace": tr_namespace,
-            }
-
-    def _populate_pods(self, api_instance, namespace):
-        """Load Nodes for TaskRuns Pod."""
-        for pr_name, pr_data in self.data.items():
-            for tr_name, tr_data in pr_data["taskRuns"].items():
-                pod_name = tr_data["podName"]
-                tr_namespace = tr_data["namespace"]
-
-                if tr_namespace != namespace:
-                    continue
-
-                try:
-                    api_response = api_instance.read_namespaced_pod(
-                        name=pod_name,
-                        namespace=tr_namespace,
-                    ).to_dict()
-                except kubernetes.client.exceptions.ApiException as e:
-                    logging.warning(f"Pod '{pod_name}' can not be obtained, skipping: {e}")
-                    self.pod_skips += 1
-                    continue
-
-                safe_now = re.sub(r'[^a-zA-Z0-9_-]', '-', datetime.datetime.utcnow().replace(tzinfo=datetime.timezone.utc).isoformat())
-                path = os.path.join(self.raw_cr_dir, pr_name + "-" + tr_name + "-" + pod_name + "-" + safe_now)
-                self._dump_json(data=api_response, path=path)
-
-                try:
-                    pod_node_name = api_response["spec"]["node_name"]
-                except KeyError as e:
-                    logging.warning(f"Pod {pod_name} for {pr_name}/{tr_name} missing node name filed, skipping: {e}")
-                    self.pod_skips += 1
-                    continue
-
-                tr_data["node_name"] = pod_node_name
+        self.data_pods.append({
+            "name": pod_name,
+            "pipelinerun": pod_pipelinerun,
+            "task": pod_task,
+            "node_name": pod_node_name,
+        })
 
     def _dump_json(self, data, path):
         with open(path, "w") as fp:
@@ -342,8 +341,6 @@ class Something():
                 self.pr_lanes.append([pr])
 
         self.pr_lanes.sort(key=lambda k: min([i["creationTimestamp"] for i in k]))
-
-        self._dump_json(data=self.pr_lanes, path=self.lanes_path)
 
     def _compute_times(self):
         """
@@ -418,15 +415,6 @@ class Something():
         pr_idle_duration_avg = (self.pr_idle_duration / self.pr_count).total_seconds() if self.pr_count != 0 else None
         print(f"In average PipelineRuns took {pr_duration_avg} and TaskRuns took {tr_duration_avg}, PipelineRuns were idle for {pr_idle_duration_avg} seconds")
 
-        self.status_data.set("results.show_pipelineruns.pr_count", self.pr_count)
-        self.status_data.set("results.show_pipelineruns.tr_count", self.tr_count)
-        self.status_data.set("results.show_pipelineruns.pr_duration_sum", self.pr_duration.total_seconds())
-        self.status_data.set("results.show_pipelineruns.tr_duration_sum", self.tr_duration.total_seconds())
-        self.status_data.set("results.show_pipelineruns.pr_idle_duration_sum", self.pr_idle_duration.total_seconds())
-        self.status_data.set("results.show_pipelineruns.pr_duration_avg", pr_duration_avg)
-        self.status_data.set("results.show_pipelineruns.tr_duration_avg", tr_duration_avg)
-        self.status_data.set("results.show_pipelineruns.pr_idle_duration_avg", pr_idle_duration_avg)
-
     def _compute_nodes(self):
         """
         Based on loaded data, compute how many TaskRuns run on what nodes.
@@ -447,9 +435,6 @@ class Something():
         print("\nNumber of TaskRuns per node:")
         for node, count in sorted(nodes.items(), key=lambda item: item[1]):
             print(f"    {node}: {count}")
-
-        self.status_data.set("results.count_by_node.stats", opl.data.data_stats(list(nodes.values())))
-        self.status_data.set("results.count_by_node.detail", [{k: v} for k, v in nodes.items()])
 
     def _show_pr_tr_nodes(self):
         """
@@ -487,18 +472,17 @@ class Something():
                 table_row.append(stats[tr1][tr2])
             table_data.append([tr1] + table_row)
 
-        print("\nWhich PipelineRuns and TaskRuns ran on which node:")
-        print(tabulate.tabulate(
-            table,
-            headers=["PipelineRun", "TaskRun", "Node"],
-        ))
+        # print("\nWhich PipelineRuns and TaskRuns ran on which node:")
+        # print(tabulate.tabulate(
+        #     table,
+        #     headers=["PipelineRun", "TaskRun", "Node"],
+        # ))
 
         print("\nWhich TaskRuns inside of one PipelineRun were sharing node most often:")
         print(tabulate.tabulate(
             table_data,
             headers=["TaskRun"] + table_keys,
         ))
-
 
     def _plot_graph(self):
         """
@@ -562,28 +546,6 @@ class Something():
         matplotlib.pyplot.savefig(self.fig_path)
 
     def doit(self):
-        self.data = {}
-        self.pr_lanes = []
-
-        if os.path.isfile(self.raw_data_path):
-            self.data = self._load_json(path=self.raw_data_path)
-        else:
-            for user in reversed(self.users_list):
-                namespace = f"{user['username'].replace('_', '-')}-tenant"
-                logging.info(f"Processing user {user}, namespace {namespace}")
-                api_client = self._client_for_user(user)
-                api_instance = kubernetes.client.CustomObjectsApi(api_client)
-
-                self._populate_pipelineruns(api_instance, namespace)
-                self._populate_taskruns(api_instance, namespace)
-
-                api_instance = kubernetes.client.CoreV1Api(api_client)
-                self._populate_pods(api_instance, namespace)
-
-            print(f"Skipped {self.pr_skips} PipelineRuns and {self.tr_skips} TaskRuns and {self.pod_skips} Pods for various reasons")
-
-            self._dump_json(data=self.data, path=self.raw_data_path)
-
         self._compute_lanes()
         self._compute_times()
         self._plot_graph()
@@ -591,14 +553,9 @@ class Something():
         self._compute_nodes()
 
 
-def doit(args, status_data):
-    # Load list of users
-    users_list = utils_users.load_approved_users(args.users_list)
-
+def doit(args):
     something = Something(
-        status_data=status_data,
-        users_list=users_list,
-        info_dir=args.info_dir,
+        data_dir=args.data_dir,
     )
     return something.doit()
 
@@ -609,26 +566,25 @@ def main():
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser.add_argument(
-        "--test-insecure",
+        "--data-dir",
+        help="Directory from where to load YAML data and where to put output SVG",
+    )
+    parser.add_argument(
+        "-d", "--debug",
         action="store_true",
-        help="Use if you want to hide InsecureRequestWarning and other urllib3 warnings",
+        help="Show debug output",
     )
-    parser.add_argument(
-        "--users-list",
-        type=argparse.FileType('r'),
-        required=True,
-        help="File with list of users",
-    )
-    parser.add_argument(
-        "--info-dir",
-        default=f"show_pipelineruns-{re.sub(r'[^a-zA-Z0-9_-]', '-', datetime.datetime.utcnow().replace(tzinfo=datetime.timezone.utc).isoformat())}",
-        help="Directory where to put all the debugging data",
-    )
-    with opl.skelet.test_setup(parser) as (args, status_data):
-        if args.test_insecure:
-            logging.warning("Disabling InsecureRequestWarning and other urllib3 warnings")
-            urllib3.disable_warnings()
-        return doit(args, status_data)
+    args = parser.parse_args()
+
+    fmt = "%(asctime)s %(name)s %(levelname)s %(message)s"
+    if args.debug:
+        logging.basicConfig(format=fmt, level=logging.DEBUG)
+    else:
+        logging.basicConfig(format=fmt)
+
+    logging.debug(f"Args: {args}")
+
+    return doit(args)
 
 
 if __name__ == "__main__":
