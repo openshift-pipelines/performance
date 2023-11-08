@@ -15,6 +15,9 @@ kubectl apply -f pipeline.yaml
 info "Benchmark"
 time ./benchmark-tekton.sh --total "${TEST_TOTAL:-100}" --concurrent "${TEST_CONCURRENT:-10}" --run "${TEST_RUN:-./run.yaml}" --debug
 
+info "Dump Pods"
+kubectl get pods -o=json >pods.json
+
 info "Cleanup"
 if ${TEST_DO_CLEANUP:-true}; then
     kubectl delete --all PipelineRuns

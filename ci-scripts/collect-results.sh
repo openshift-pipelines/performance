@@ -10,12 +10,15 @@ ARTIFACT_DIR=${ARTIFACT_DIR:-artifacts}
 monitoring_collection_data=$ARTIFACT_DIR/benchmark-tekton.json
 monitoring_collection_log=$ARTIFACT_DIR/monitoring-collection.log
 monitoring_collection_dir=$ARTIFACT_DIR/monitoring-collection-raw-data-dir
+creationtimestamp_collection_log=$ARTIFACT_DIR/creationtimestamp-collection.log
 
 info "Collecting artifacts..."
 mkdir -p "${ARTIFACT_DIR}"
 mkdir -p "${monitoring_collection_dir}"
 [ -f tests/scaling-pipelines/benchmark-tekton.json ] && cp tests/scaling-pipelines/benchmark-tekton.json "${ARTIFACT_DIR}/"
-[ -f tests/scaling-pipelines/benchmark-tekton-runs.json ] && cp tests/scaling-pipelines/benchmark-tekton-runs.json "${ARTIFACT_DIR}/"
+[ -f tests/scaling-pipelines/pipelineruns.json ] && cp tests/scaling-pipelines/pipelineruns.json "${ARTIFACT_DIR}/"
+[ -f tests/scaling-pipelines/taskruns.json ] && cp tests/scaling-pipelines/taskruns.json "${ARTIFACT_DIR}/"
+[ -f tests/scaling-pipelines/pods.json ] && cp tests/scaling-pipelines/pods.json "${ARTIFACT_DIR}/"
 
 info "Setting up tool to collect monitoring data..."
 python3 -m venv venv
@@ -45,7 +48,7 @@ if [ -f "$monitoring_collection_data" ]; then
         --prometheus-host "https://$mhost" \
         --prometheus-port 443 \
         --prometheus-token "$(oc whoami -t)" \
-        -d &>"$monitoring_collection_log"
+        -d 2>&1 &>"$monitoring_collection_log"
     set +u
     deactivate
     set -u
@@ -53,3 +56,19 @@ else
     warning "File $monitoring_collection_data not found!"
 fi
 
+info "Collecting TaskRun creationTimestamp -> Pod creationTimestamp difference..."
+if [ -f "$monitoring_collection_data" ] && [ -f "${ARTIFACT_DIR}/taskruns.json" ] && [ -f "${ARTIFACT_DIR}/pods.json" ]; then
+    set +u
+    source venv/bin/activate
+    set -u
+    tools/compare-TaskRun-Pod-creationTimestamp.py \
+        --status-data-file "$monitoring_collection_data" \
+        --taskruns-list "${ARTIFACT_DIR}/taskruns.json" \
+        --pods-list "${ARTIFACT_DIR}/pods.json" \
+        -d 2>&1 &>"$creationtimestamp_collection_log"
+    set +u
+    deactivate
+    set -u
+else
+    warning "Required files not found!"
+fi

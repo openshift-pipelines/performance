@@ -96,7 +96,7 @@ cat <<EOF >$output
     }
 }
 EOF
-echo "$data" >benchmark-tekton-runs.json
+echo "$data" >pipelineruns.json
 
 echo "$(date -Ins --utc) adding stats to data file"
 data_successful=$(echo "$data" | jq --raw-output '.items |= [.[] | . as $a | .status.conditions[] | select(.type == "Succeeded" and .status == "True") | $a]')
@@ -141,6 +141,7 @@ cat $output | jq '.results.PipelineRuns.completionTime.first = "'$pr_completionT
 
 # TaskRuns
 data=$(kubectl get tr -o=json)
+echo "$data" >taskruns.json
 data_successful=$(echo "$data" | jq --raw-output '.items |= [.[] | . as $a | .status.conditions[] | select(.type == "Succeeded" and .status == "True") | $a]')
 
 # TaskRuns total duration (.status.completionTime - .metadata.creationTimestamp)
