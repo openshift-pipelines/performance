@@ -1,12 +1,14 @@
 #!/usr/bin/env python
 
 import argparse
+import collections
 import copy
 import datetime
 import json
 import logging
 import os
 import os.path
+import re
 import sys
 import yaml
 import time
@@ -70,6 +72,9 @@ class Something:
         self.pr_idle_duration = datetime.timedelta(
             0
         )  # total time in PipelineRuns when no TaskRun was running
+        self.pr_conditions = collections.defaultdict(lambda: 0)
+        self.tr_conditions = collections.defaultdict(lambda: 0)
+        self.tr_statuses = collections.defaultdict(lambda: 0)
 
         self._populate(self.data_dir)
         self._merge_taskruns()
@@ -78,7 +83,7 @@ class Something:
     def _merge_taskruns(self):
         for tr in self.data_taskruns:
             if tr["pipelinerun"] not in self.data:
-                logging.warning(
+                logging.info(
                     f"TaskRun {tr['name']} pipelinerun {tr['pipelinerun']} unknown, skipping."
                 )
                 self.tr_skips += 1
@@ -88,7 +93,7 @@ class Something:
                 self.data[tr["pipelinerun"]]["taskRuns"] = {}
 
             if tr["task"] in self.data[tr["pipelinerun"]]["taskRuns"]:
-                logging.warning(
+                logging.info(
                     f"TaskRun {tr['name']} task {tr['task']} already in PipelineRun, strange, skipping."
                 )
                 self.tr_skips += 1
@@ -107,16 +112,14 @@ class Something:
     def _merge_pods(self):
         for pod in self.data_pods:
             if pod["pipelinerun"] not in self.data:
-                logging.warning(
+                logging.info(
                     f"Pod {pod['name']} pipelinerun {pod['pipelinerun']} unknown, skipping."
                 )
                 self.pod_skips += 1
                 continue
 
             if pod["task"] not in self.data[pod["pipelinerun"]]["taskRuns"]:
-                logging.warning(
-                    f"Pod {pod['name']} task {pod['task']} unknown, skipping."
-                )
+                logging.info(f"Pod {pod['name']} task {pod['task']} unknown, skipping.")
                 self.pod_skips += 1
                 continue
 
@@ -124,7 +127,7 @@ class Something:
                 pod["name"]
                 != self.data[pod["pipelinerun"]]["taskRuns"][pod["task"]]["podName"]
             ):
-                logging.warning(
+                logging.info(
                     f"Pod {pod['name']} task labels does not match TaskRun podName, skipping."
                 )
                 self.pod_skips += 1
@@ -162,7 +165,7 @@ class Something:
 
                 for i in data["items"]:
                     if "kind" not in i:
-                        logging.warning("Skipping item because it does not have kind")
+                        logging.info("Skipping item because it does not have kind")
                         continue
 
                     if i["kind"] == "PipelineRun":
@@ -172,7 +175,7 @@ class Something:
                     elif i["kind"] == "Pod":
                         self._populate_pod(i)
                     else:
-                        logging.warning("Skipping item because it has unexpeted kind")
+                        logging.info("Skipping item because it has unexpeted kind")
                         continue
 
     def _populate_pipelinerun(self, pr):
@@ -180,7 +183,7 @@ class Something:
         try:
             pr_name = pr["metadata"]["name"]
         except KeyError as e:
-            logging.warning(
+            logging.info(
                 f"PipelineRun '{str(pr)[:200]}...' missing name, skipping: {e}"
             )
             self.pr_skips += 1
@@ -188,24 +191,38 @@ class Something:
 
         try:
             pr_conditions = pr["status"]["conditions"]
-            pr_creationTimestamp = str2date(pr["metadata"]["creationTimestamp"])
-            pr_completionTime = str2date(pr["status"]["completionTime"])
-            pr_startTime = str2date(pr["status"]["startTime"])
         except KeyError as e:
-            logging.warning(f"PipelineRun {pr_name} missing some fields, skipping: {e}")
+            logging.info(f"PipelineRun {pr_name} missing conditions, skipping: {e}")
+            self.pr_conditions["Missing conditions"] += 1
             self.pr_skips += 1
             return
 
         pr_condition_ok = False
         for c in pr_conditions:
             if c["type"] == "Succeeded":
+                message = re.sub(
+                    r'PipelineRun "[a-z0-9-]+"', 'PipelineRun "REPLACED"', c["message"]
+                )
+                self.pr_conditions[message] += 1
+
                 if c["status"] == "True":
                     pr_condition_ok = True
                 break
+        else:
+            self.pr_conditions["Missing type"] += 1
         if not pr_condition_ok:
-            logging.warning(
+            logging.info(
                 f"PipelineRun {pr_name} is not in right condition, skipping: {pr_conditions}"
             )
+            self.pr_skips += 1
+            return
+
+        try:
+            pr_creationTimestamp = str2date(pr["metadata"]["creationTimestamp"])
+            pr_completionTime = str2date(pr["status"]["completionTime"])
+            pr_startTime = str2date(pr["status"]["startTime"])
+        except KeyError as e:
+            logging.info(f"PipelineRun {pr_name} missing some fields, skipping: {e}")
             self.pr_skips += 1
             return
 
@@ -220,7 +237,7 @@ class Something:
         try:
             tr_name = tr["metadata"]["name"]
         except KeyError as e:
-            logging.warning(f"TaskRun missing name, skipping: {e}, {str(tr)[:200]}")
+            logging.info(f"TaskRun missing name, skipping: {e}, {str(tr)[:200]}")
             self.tr_skips += 1
             return
 
@@ -228,7 +245,7 @@ class Something:
             tr_task = tr["metadata"]["labels"]["tekton.dev/pipelineTask"]
             tr_pipelinerun = tr["metadata"]["labels"]["tekton.dev/pipelineRun"]
         except KeyError as e:
-            logging.warning(
+            logging.info(
                 f"TaskRun {tr_name} missing task or pipelinerun, skipping: {e}"
             )
             self.tr_skips += 1
@@ -236,24 +253,42 @@ class Something:
 
         try:
             tr_conditions = tr["status"]["conditions"]
-            tr_creationTimestamp = str2date(tr["metadata"]["creationTimestamp"])
-            tr_completionTime = str2date(tr["status"]["completionTime"])
-            tr_startTime = str2date(tr["status"]["startTime"])
-            tr_podName = tr["status"]["podName"]
-            tr_namespace = tr["metadata"]["namespace"]
         except KeyError as e:
-            logging.warning(f"TaskRun {tr_name} missing some fields, skipping: {e}")
+            logging.info(f"TaskRun {tr_name} missing conditions, skipping: {e}")
+            self.tr_conditions["Missing conditions"] += 1
             self.tr_skips += 1
             return
 
         tr_condition_ok = False
         for c in tr_conditions:
             if c["type"] == "Succeeded":
+                message = re.sub(
+                    r'TaskRun "[a-z0-9-]+"', 'TaskRun "REPLACED"', c["message"]
+                )
+                self.tr_conditions[message] += 1
                 if c["status"] == "True":
                     tr_condition_ok = True
                 break
+        else:
+            self.tr_conditions["Missing type"] += 1
         if not tr_condition_ok:
-            logging.warning(f"TaskRun {tr_name} is not in right condition, skipping")
+            logging.info(f"TaskRun {tr_name} is not in right condition, skipping")
+            self.tr_skips += 1
+            return
+
+        try:
+            self.tr_statuses[tr["spec"]["statusMessage"]] += 1
+        except KeyError as e:
+            self.tr_statuses["Missing spec.statusMessage"] += 1
+
+        try:
+            tr_creationTimestamp = str2date(tr["metadata"]["creationTimestamp"])
+            tr_completionTime = str2date(tr["status"]["completionTime"])
+            tr_startTime = str2date(tr["status"]["startTime"])
+            tr_podName = tr["status"]["podName"]
+            tr_namespace = tr["metadata"]["namespace"]
+        except KeyError as e:
+            logging.info(f"TaskRun {tr_name} missing some fields, skipping: {e}")
             self.tr_skips += 1
             return
 
@@ -275,7 +310,7 @@ class Something:
         try:
             pod_name = pod["metadata"]["name"]
         except KeyError as e:
-            logging.warning(f"Pod missing name, skipping: {e}, {str(pod)[:200]}")
+            logging.info(f"Pod missing name, skipping: {e}, {str(pod)[:200]}")
             self.pod_skips += 1
             return
 
@@ -283,16 +318,14 @@ class Something:
             pod_pipelinerun = pod["metadata"]["labels"]["tekton.dev/pipelineRun"]
             pod_task = pod["metadata"]["labels"]["tekton.dev/pipelineTask"]
         except KeyError as e:
-            logging.warning(
-                f"Pod {pod_name} missing pipelinerun or task, skipping: {e}"
-            )
+            logging.info(f"Pod {pod_name} missing pipelinerun or task, skipping: {e}")
             self.pod_skips += 1
             return
 
         try:
             pod_node_name = pod["spec"]["nodeName"]
         except KeyError as e:
-            logging.warning(f"Pod {pod_name} missing node name filed, skipping: {e}")
+            logging.info(f"Pod {pod_name} missing node name filed, skipping: {e}")
             self.pod_skips += 1
             return
 
@@ -447,6 +480,9 @@ class Something:
 
         print()
         print(
+            f"During processing, we skipped {self.pr_skips} PipelineRuns, {self.tr_skips} TaskRuns and {self.pod_skips} Pods."
+        )
+        print(
             f"There was {self.pr_count} PipelineRuns and {self.tr_count} TaskRuns and {self.pod_count} Pods."
         )
         print(
@@ -481,7 +517,7 @@ class Something:
                 try:
                     node_name = tr_data["node_name"]
                 except KeyError:
-                    logging.warning(
+                    logging.info(
                         f"TaskRun {tr_name} missing node_name field, skipping."
                     )
                     continue
@@ -506,7 +542,7 @@ class Something:
                 try:
                     node_name = tr_data["node_name"]
                 except KeyError:
-                    logging.warning(
+                    logging.info(
                         f"TaskRun {tr_name} missing node_name field, skipping."
                     )
                     continue
@@ -545,6 +581,29 @@ class Something:
             tabulate.tabulate(
                 table_data,
                 headers=["TaskRun"] + table_keys,
+            )
+        )
+
+    def _show_pr_tr_conditions(self):
+        print("\nPipelineRuns conditions frequency")
+        print(
+            tabulate.tabulate(
+                self.pr_conditions.items(),
+                headers=["Condition message", "Count"],
+            )
+        )
+        print("\nTaskRuns conditions frequency")
+        print(
+            tabulate.tabulate(
+                self.tr_conditions.items(),
+                headers=["Condition message", "Count"],
+            )
+        )
+        print("\nTaskRuns status messages frequency")
+        print(
+            tabulate.tabulate(
+                self.tr_statuses.items(),
+                headers=["Status message", "Count"],
             )
         )
 
@@ -662,6 +721,7 @@ class Something:
         self._compute_lanes()
         self._compute_times()
         self._plot_graph()
+        self._show_pr_tr_conditions()
         self._show_pr_tr_nodes()
         self._compute_nodes()
 
