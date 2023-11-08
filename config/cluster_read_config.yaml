@@ -54,6 +54,10 @@
   monitoring_query: sum(rate(tekton_pipelines_controller_client_latency_sum[1m]) / rate(tekton_pipelines_controller_client_latency_count[1m]))
   monitoring_step: 15
 
+- name: measurements.tekton_pipelines_controller_taskruns_pod_latency_milliseconds
+  monitoring_query: sum(tekton_pipelines_controller_taskruns_pod_latency_milliseconds)
+  monitoring_step: 15
+
 - name: measurements.etcd_request_duration_seconds_average
   monitoring_query: sum(rate(etcd_request_duration_seconds_sum{}[5m])) / sum(rate(etcd_request_duration_seconds_count[5m]))
   monitoring_step: 15
