@@ -61,6 +61,7 @@ class Something:
 
         self.pr_count = 0
         self.tr_count = 0
+        self.pod_count = 0
         self.pr_skips = 0  # how many PipelineRuns we skipped
         self.tr_skips = 0  # how many TaskRuns we skipped
         self.pod_skips = 0  # how many Pods we skipped
@@ -82,6 +83,9 @@ class Something:
                 )
                 self.tr_skips += 1
                 continue
+
+            if "taskRuns" not in self.data[tr["pipelinerun"]]:
+                self.data[tr["pipelinerun"]]["taskRuns"] = {}
 
             if tr["task"] in self.data[tr["pipelinerun"]]["taskRuns"]:
                 logging.warning(
@@ -156,8 +160,6 @@ class Something:
                     logging.info(f"Skipping {datafile} as it does not contain items")
                     continue
 
-                logging.info(f"Loading {datafile}")
-
                 for i in data["items"]:
                     if "kind" not in i:
                         logging.warning("Skipping item because it does not have kind")
@@ -207,17 +209,11 @@ class Something:
             self.pr_skips += 1
             return
 
-        to_be_added = {
+        self.data[pr_name] = {
             "creationTimestamp": pr_creationTimestamp,
             "completionTime": pr_completionTime,
             "start_time": pr_startTime,
         }
-
-        if pr_name not in self.data:
-            self.data[pr_name] = to_be_added
-            self.data[pr_name]["taskRuns"] = {}
-        else:
-            self.data[pr_name].update(to_be_added)
 
     def _populate_taskrun(self, tr):
         """Load TaskRun."""
@@ -421,6 +417,12 @@ class Something:
 
         self.pr_count = len(self.data)
         self.tr_count = sum([len(i["taskRuns"]) for i in self.data.values()])
+        self.pod_count = sum(
+            [
+                len([ii for ii in i["taskRuns"].values() if "node_name" in ii])
+                for i in self.data.values()
+            ]
+        )
 
         for pr_name, pr_times in self.data.items():
             pr_duration = pr_times[end] - pr_times[start]
@@ -443,7 +445,10 @@ class Something:
 
             self.pr_idle_duration += pr_duration - tr_simple_duration
 
-        print(f"There was {self.pr_count} PipelineRuns and {self.tr_count} TaskRuns")
+        print()
+        print(
+            f"There was {self.pr_count} PipelineRuns and {self.tr_count} TaskRuns and {self.pod_count} Pods."
+        )
         print(
             f"In total PipelineRuns took {self.pr_duration} and TaskRuns took {self.tr_duration}, PipelineRuns were idle for {self.pr_idle_duration}"
         )
@@ -568,6 +573,7 @@ class Something:
             return max(entity[end].timestamp(), current_max)
 
         size = max(5, self.pr_count / 2)
+        size = min(size, 100)
         fig, ax = matplotlib.pyplot.subplots(figsize=(size, size))
 
         fig_x_min = sys.maxsize
@@ -650,7 +656,7 @@ class Something:
         ax.grid(True)
 
         # matplotlib.pyplot.show()
-        matplotlib.pyplot.savefig(self.fig_path)
+        matplotlib.pyplot.savefig(self.fig_path, bbox_inches="tight")
 
     def doit(self):
         self._compute_lanes()
