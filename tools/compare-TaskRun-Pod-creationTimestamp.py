@@ -13,7 +13,9 @@ import opl.data
 
 
 def str2date(date_str):
-    return datetime.datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+    date_str = date_str.replace("Z", "+00:00")
+    ###return datetime.datetime.fromisoformat(date_str)
+    return datetime.datetime.strptime(date_str, "%Y-%m-%dT%H:%M:%S+00:00")
 
 
 def load_file(fd):
