@@ -133,7 +133,7 @@ elif [ "$DEPLOYMENT_TYPE" == "upstream" ]; then
     rm -f config.yaml
     oc -n openshift-monitoring extract configmap/cluster-monitoring-config --to=. --keys=config.yaml
     sed -i '/^enableUserWorkload:/d' config.yaml
-    echo "enableUserWorkload: true" >> config.yaml
+    echo -e "\nenableUserWorkload: true" >> config.yaml
     cat config.yaml
     oc -n openshift-monitoring set data configmap/cluster-monitoring-config --from-file=config.yaml
     wait_for_entity_by_selector 300 openshift-user-workload-monitoring StatefulSet operator.prometheus.io/name=user-workload
