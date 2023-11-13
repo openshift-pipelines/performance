@@ -168,26 +168,14 @@ EOF
 
     info "Configure resources for tekton-pipelines-controller: $DEPLOYMENT_PIPELINES_CONTROLLER_RESOURCES"
     wait_for_entity_by_selector 300 tekton-pipelines pod app=tekton-pipelines-controller
-    if [ -n "$pipelines_controller_resources_requests_cpu" ]; then
-        kubectl -n tekton-pipelines set resources deployment/tekton-pipelines-controller \
-            -c tekton-pipelines-controller \
-            --requests "cpu=$pipelines_controller_resources_requests_cpu"
-    fi
-    if [ -n "$pipelines_controller_resources_requests_memory" ]; then
-        kubectl -n tekton-pipelines set resources deployment/tekton-pipelines-controller \
-            -c tekton-pipelines-controller \
-            --requests "memory=$pipelines_controller_resources_requests_memory"
-    fi
-    if [ -n "$pipelines_controller_resources_limits_cpu" ]; then
-        kubectl -n tekton-pipelines set resources deployment/tekton-pipelines-controller \
-            -c tekton-pipelines-controller \
-            --limits "cpu=$pipelines_controller_resources_limits_cpu"
-    fi
-    if [ -n "$pipelines_controller_resources_limits_memory" ]; then
-        kubectl -n tekton-pipelines set resources deployment/tekton-pipelines-controller \
-            -c tekton-pipelines-controller \
-            --limits "memory=$pipelines_controller_resources_limits_memory"
-    fi
+    pipelines_controller_resources_requests_cpu="${pipelines_controller_resources_requests_cpu:-0}"
+    pipelines_controller_resources_requests_memory="${pipelines_controller_resources_requests_memory:-0}"
+    pipelines_controller_resources_limits_cpu="${pipelines_controller_resources_limits_cpu:-0}"
+    pipelines_controller_resources_limits_memory="${pipelines_controller_resources_limits_memory:-0}"
+    kubectl -n tekton-pipelines set resources deployment/tekton-pipelines-controller \
+        --requests "cpu=$pipelines_controller_resources_requests_cpu,memory=$pipelines_controller_resources_requests_memory" \
+        --limits "cpu=$pipelines_controller_resources_limits_cpu,memory=$pipelines_controller_resources_limits_memory" \
+        -c tekton-pipelines-controller
 
     info "Wait for deployment to finish"
     wait_for_entity_by_selector 300 tekton-pipelines pod app=tekton-pipelines-webhook
