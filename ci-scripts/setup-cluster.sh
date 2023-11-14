@@ -84,18 +84,20 @@ EOF
     else
         info "Configure resources for tekton-pipelines-controller: $DEPLOYMENT_PIPELINES_CONTROLLER_RESOURCES"
         wait_for_entity_by_selector 300 "" TektonConfig openshift-pipelines.tekton.dev/sa-created=true
+        resources_json="{}"
         if [ -n "$pipelines_controller_resources_requests_cpu" ]; then
-            kubectl patch TektonConfig/config --type merge --patch '{"spec":{"pipeline":{"options":{"deployments":{"tekton-pipelines-controller":{"spec":{"template":{"spec":{"containers":[{"name":"tekton-pipelines-controller","resources":{"requests":{"cpu":"'"$pipelines_controller_resources_requests_cpu"'"}}}]}}}}}}}}}'
+            resources_json=$(echo "$resources_json" | jq -c ".requests.cpu=\"$pipelines_controller_resources_requests_cpu\"")
         fi
         if [ -n "$pipelines_controller_resources_requests_memory" ]; then
-            kubectl patch TektonConfig/config --type merge --patch '{"spec":{"pipeline":{"options":{"deployments":{"tekton-pipelines-controller":{"spec":{"template":{"spec":{"containers":[{"name":"tekton-pipelines-controller","resources":{"requests":{"memory":"'"$pipelines_controller_resources_requests_memory"'"}}}]}}}}}}}}}'
+            resources_json=$(echo "$resources_json" | jq -c ".requests.memory=\"$pipelines_controller_resources_requests_memory\"")
         fi
         if [ -n "$pipelines_controller_resources_limits_cpu" ]; then
-            kubectl patch TektonConfig/config --type merge --patch '{"spec":{"pipeline":{"options":{"deployments":{"tekton-pipelines-controller":{"spec":{"template":{"spec":{"containers":[{"name":"tekton-pipelines-controller","resources":{"limits":{"cpu":"'"$pipelines_controller_resources_limits_cpu"'"}}}]}}}}}}}}}'
+            resources_json=$(echo "$resources_json" | jq -c ".limits.cpu=\"$pipelines_controller_resources_limits_cpu\"")
         fi
         if [ -n "$pipelines_controller_resources_limits_memory" ]; then
-            kubectl patch TektonConfig/config --type merge --patch '{"spec":{"pipeline":{"options":{"deployments":{"tekton-pipelines-controller":{"spec":{"template":{"spec":{"containers":[{"name":"tekton-pipelines-controller","resources":{"limits":{"memory":"'"$pipelines_controller_resources_limits_memory"'"}}}]}}}}}}}}}'
+            resources_json=$(echo "$resources_json" | jq -c ".limits.memory=\"$pipelines_controller_resources_limits_memory\"")
         fi
+        kubectl patch TektonConfig/config --type merge --patch '{"spec":{"pipeline":{"options":{"deployments":{"tekton-pipelines-controller":{"spec":{"template":{"spec":{"containers":[{"name":"tekton-pipelines-controller","resources":'"$resources_json"'}]}}}}}}}}}'
     fi
 
     info "Wait for deployment to finish"
