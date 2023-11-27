@@ -98,6 +98,14 @@ EOF
             resources_json=$(echo "$resources_json" | jq -c ".limits.memory=\"$pipelines_controller_resources_limits_memory\"")
         fi
         kubectl patch TektonConfig/config --type merge --patch '{"spec":{"pipeline":{"options":{"deployments":{"tekton-pipelines-controller":{"spec":{"template":{"spec":{"containers":[{"name":"tekton-pipelines-controller","resources":'"$resources_json"'}]}}}}}}}}}'
+
+        info "Configure HA: $DEPLOYMENT_PIPELINES_CONTROLLER_HA_BUCKETS"
+        if [ -n "$DEPLOYMENT_PIPELINES_CONTROLLER_HA_BUCKETS" ]; then
+            kubectl patch TektonConfig/config --type merge --patch '{"spec":{"pipeline":{"performance":{"disable-ha":false,"buckets":'"$DEPLOYMENT_PIPELINES_CONTROLLER_HA_BUCKETS"'}}}}'
+            kubectl patch TektonConfig/config --type merge --patch '{"spec":{"pipeline":{"options":{"deployments":{"tekton-pipelines-controller":{"spec":{"replicas":'"$DEPLOYMENT_PIPELINES_CONTROLLER_HA_BUCKETS"'}}}}}}}'
+            kubectl -n openshift-pipelines scale deployment/tekton-pipelines-controller --replicas "$DEPLOYMENT_PIPELINES_CONTROLLER_HA_BUCKETS"
+            kubectl delete -n openshift-pipelines $(kubectl get leases -n openshift-pipelines -o name | grep tekton-pipelines-controller)
+        fi
     fi
 
     info "Wait for deployment to finish"
