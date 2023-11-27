@@ -51,6 +51,8 @@ pipelines_controller_resources_requests_memory="$( echo "$DEPLOYMENT_PIPELINES_C
 pipelines_controller_resources_limits_cpu="$( echo "$DEPLOYMENT_PIPELINES_CONTROLLER_RESOURCES" | cut -d "/" -f 3 )"
 pipelines_controller_resources_limits_memory="$( echo "$DEPLOYMENT_PIPELINES_CONTROLLER_RESOURCES" | cut -d "/" -f 4 )"
 
+DEPLOYMENT_PIPELINES_CONTROLLER_HA_BUCKETS="${DEPLOYMENT_PIPELINES_CONTROLLER_HA_BUCKETS:-}"
+
 info "Deploy pipelines $DEPLOYMENT_TYPE/$DEPLOYMENT_VERSION"
 if [ "$DEPLOYMENT_TYPE" == "downstream" ]; then
 
