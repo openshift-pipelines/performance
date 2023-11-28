@@ -85,7 +85,6 @@ EOF
         warning "Configure resources for tekton-pipelines-controller is supported since 1.12"
     else
         info "Configure resources for tekton-pipelines-controller: $DEPLOYMENT_PIPELINES_CONTROLLER_RESOURCES"
-        wait_for_entity_by_selector 300 "" TektonConfig openshift-pipelines.tekton.dev/sa-created=true
         resources_json="{}"
         if [ -n "$pipelines_controller_resources_requests_cpu" ]; then
             resources_json=$(echo "$resources_json" | jq -c ".requests.cpu=\"$pipelines_controller_resources_requests_cpu\"")
@@ -99,12 +98,15 @@ EOF
         if [ -n "$pipelines_controller_resources_limits_memory" ]; then
             resources_json=$(echo "$resources_json" | jq -c ".limits.memory=\"$pipelines_controller_resources_limits_memory\"")
         fi
+        wait_for_entity_by_selector 300 "" TektonConfig openshift-pipelines.tekton.dev/sa-created=true
         kubectl patch TektonConfig/config --type merge --patch '{"spec":{"pipeline":{"options":{"deployments":{"tekton-pipelines-controller":{"spec":{"template":{"spec":{"containers":[{"name":"tekton-pipelines-controller","resources":'"$resources_json"'}]}}}}}}}}}'
 
         info "Configure HA: $DEPLOYMENT_PIPELINES_CONTROLLER_HA_BUCKETS"
         if [ -n "$DEPLOYMENT_PIPELINES_CONTROLLER_HA_BUCKETS" ]; then
+            wait_for_entity_by_selector 300 "" TektonConfig openshift-pipelines.tekton.dev/sa-created=true
             kubectl patch TektonConfig/config --type merge --patch '{"spec":{"pipeline":{"performance":{"disable-ha":false,"buckets":'"$DEPLOYMENT_PIPELINES_CONTROLLER_HA_BUCKETS"'}}}}'
             kubectl patch TektonConfig/config --type merge --patch '{"spec":{"pipeline":{"options":{"deployments":{"tekton-pipelines-controller":{"spec":{"replicas":'"$DEPLOYMENT_PIPELINES_CONTROLLER_HA_BUCKETS"'}}}}}}}'
+            wait_for_entity_by_selector 300 openshift-pipelines deployment app.kubernetes.io/name=controller,app.kubernetes.io/part-of=tekton-pipelines
             kubectl -n openshift-pipelines scale deployment/tekton-pipelines-controller --replicas "$DEPLOYMENT_PIPELINES_CONTROLLER_HA_BUCKETS"
             kubectl delete -n openshift-pipelines $(kubectl get leases -n openshift-pipelines -o name | grep tekton-pipelines-controller)
         fi
