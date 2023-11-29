@@ -108,6 +108,8 @@ EOF
             kubectl patch TektonConfig/config --type merge --patch '{"spec":{"pipeline":{"options":{"deployments":{"tekton-pipelines-controller":{"spec":{"replicas":'"$DEPLOYMENT_PIPELINES_CONTROLLER_HA_BUCKETS"'}}}}}}}'
             wait_for_entity_by_selector 300 openshift-pipelines deployment app.kubernetes.io/name=controller,app.kubernetes.io/part-of=tekton-pipelines
             kubectl -n openshift-pipelines scale deployment/tekton-pipelines-controller --replicas "$DEPLOYMENT_PIPELINES_CONTROLLER_HA_BUCKETS"
+            wait_for_entity_by_selector 300 openshift-pipelines pod app=tekton-pipelines-controller
+            kubectl -n openshift-pipelines wait --for=condition=ready --timeout=300s pod -l app=tekton-pipelines-controller
             kubectl delete -n openshift-pipelines $(kubectl get leases -n openshift-pipelines -o name | grep tekton-pipelines-controller)
         fi
     fi
