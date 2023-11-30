@@ -18,7 +18,7 @@ time ./benchmark-tekton.sh --total "${TEST_TOTAL:-100}" --concurrent "${TEST_CON
 info "Dump Pods"
 kubectl get pods -o=json >pods.json
 
-info "Cleanup"
+info "Cleanup PipelineRuns: $TEST_DO_CLEANUP"
 if ${TEST_DO_CLEANUP:-true}; then
     kubectl delete --all PipelineRuns
 fi
