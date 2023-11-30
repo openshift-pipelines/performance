@@ -48,7 +48,7 @@ if [ -f "$monitoring_collection_data" ]; then
         --prometheus-host "https://$mhost" \
         --prometheus-port 443 \
         --prometheus-token "$(oc whoami -t)" \
-        -d 2>&1 &>"$monitoring_collection_log"
+        -d &>"$monitoring_collection_log"
     set +u
     deactivate
     set -u
@@ -65,7 +65,7 @@ if [ -f "$monitoring_collection_data" ] && [ -f "${ARTIFACT_DIR}/taskruns.json" 
         --status-data-file "$monitoring_collection_data" \
         --taskruns-list "${ARTIFACT_DIR}/taskruns.json" \
         --pods-list "${ARTIFACT_DIR}/pods.json" \
-        -d 2>&1 &>"$creationtimestamp_collection_log"
+        -d &>"$creationtimestamp_collection_log"
     set +u
     deactivate
     set -u
