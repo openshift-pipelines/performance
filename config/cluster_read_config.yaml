@@ -177,7 +177,7 @@
 {% macro pod_info(namespace, deployment, container) -%}
 # Gather info about pod configuration
 - name: parameters.cluster.pods.{{ deployment }}-{{ container }}.count
-  command: oc -n {{ namespace }} get deployment/{{ deployment }} -o json | jq '.spec | if has("replicas") then .replicas else 1 end'
+  command: oc -n {{ namespace }} get deployment/{{ deployment }} -o json | jq '.spec | if has("replicas") then .replicas else -1 end'
 - name: parameters.cluster.pods.{{ deployment }}-{{ container }}.resources
   command: oc -n {{ namespace }} get deployment/{{ deployment }} -o json | jq '.spec.template.spec.containers | map(select(.name == "{{ container }}"))[0].resources'
   output: json
