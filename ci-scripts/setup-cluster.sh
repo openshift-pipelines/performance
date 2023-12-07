@@ -51,7 +51,11 @@ pipelines_controller_resources_requests_memory="$( echo "$DEPLOYMENT_PIPELINES_C
 pipelines_controller_resources_limits_cpu="$( echo "$DEPLOYMENT_PIPELINES_CONTROLLER_RESOURCES" | cut -d "/" -f 3 )"
 pipelines_controller_resources_limits_memory="$( echo "$DEPLOYMENT_PIPELINES_CONTROLLER_RESOURCES" | cut -d "/" -f 4 )"
 
-DEPLOYMENT_PIPELINES_CONTROLLER_HA_BUCKETS="${DEPLOYMENT_PIPELINES_CONTROLLER_HA_BUCKETS:-}"
+DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS="${DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS:-}"
+if [ -n "$DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS" ]; then
+    pipelines_controller_ha_buckets=$(( DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS * 2 ))
+    pipelines_controller_ha_buckets=$(( pipelines_controller_ha_buckets > 10 ? 10 : pipelines_controller_ha_buckets ))
+fi
 
 info "Deploy pipelines $DEPLOYMENT_TYPE/$DEPLOYMENT_VERSION"
 if [ "$DEPLOYMENT_TYPE" == "downstream" ]; then
@@ -101,16 +105,31 @@ EOF
         wait_for_entity_by_selector 300 "" TektonConfig openshift-pipelines.tekton.dev/sa-created=true
         kubectl patch TektonConfig/config --type merge --patch '{"spec":{"pipeline":{"options":{"deployments":{"tekton-pipelines-controller":{"spec":{"template":{"spec":{"containers":[{"name":"tekton-pipelines-controller","resources":'"$resources_json"'}]}}}}}}}}}'
 
-        info "Configure HA: $DEPLOYMENT_PIPELINES_CONTROLLER_HA_BUCKETS"
-        if [ -n "$DEPLOYMENT_PIPELINES_CONTROLLER_HA_BUCKETS" ]; then
+        info "Configure HA: $DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS"
+        if [ -n "$DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS" ]; then
+            # Wait for TektonConfig to exist
             wait_for_entity_by_selector 300 "" TektonConfig openshift-pipelines.tekton.dev/sa-created=true
-            kubectl patch TektonConfig/config --type merge --patch '{"spec":{"pipeline":{"performance":{"disable-ha":false,"buckets":'"$DEPLOYMENT_PIPELINES_CONTROLLER_HA_BUCKETS"'}}}}'
-            kubectl patch TektonConfig/config --type merge --patch '{"spec":{"pipeline":{"options":{"deployments":{"tekton-pipelines-controller":{"spec":{"replicas":'"$DEPLOYMENT_PIPELINES_CONTROLLER_HA_BUCKETS"'}}}}}}}'
+            # Patch TektonConfig with replicas and buckets
+            kubectl patch TektonConfig/config --type merge --patch '{"spec":{"pipeline":{"performance":{"disable-ha":false,"buckets":'"$pipelines_controller_ha_buckets"'}}}}'
+            kubectl patch TektonConfig/config --type merge --patch '{"spec":{"pipeline":{"options":{"deployments":{"tekton-pipelines-controller":{"spec":{"replicas":'"$DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS"'}}}}}}}'
+            # Wait for pipelines-controller deployment to appear
             wait_for_entity_by_selector 300 openshift-pipelines deployment app.kubernetes.io/name=controller,app.kubernetes.io/part-of=tekton-pipelines
-            kubectl -n openshift-pipelines scale deployment/tekton-pipelines-controller --replicas "$DEPLOYMENT_PIPELINES_CONTROLLER_HA_BUCKETS"
+            # Scale up pipelines-controller
+            kubectl -n openshift-pipelines scale deployment/tekton-pipelines-controller --replicas "$DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS"
+            # Wait for pods to come up
             wait_for_entity_by_selector 300 openshift-pipelines pod app=tekton-pipelines-controller
             kubectl -n openshift-pipelines wait --for=condition=ready --timeout=300s pod -l app=tekton-pipelines-controller
+            # Delete leases
             kubectl delete -n openshift-pipelines $(kubectl get leases -n openshift-pipelines -o name | grep tekton-pipelines-controller)
+            # Delete pods
+            kubectl -n openshift-pipelines delete pod -l app=tekton-pipelines-controller
+            # Wait for pods to come up
+            wait_for_entity_by_selector 300 openshift-pipelines pod app=tekton-pipelines-controller
+            kubectl -n openshift-pipelines wait --for=condition=ready --timeout=300s pod -l app=tekton-pipelines-controller
+            # Check if all replicas were assigned some buckets
+            for p in $( kubectl -n openshift-pipelines get pods -l app=tekton-pipelines-controller -o name ); do
+                kubectl -n openshift-pipelines logs --prefix "$p" | grep 'successfully acquired lease'
+            done
         fi
     fi
 
