@@ -1,0 +1,61 @@
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: pipeline-build-image
+spec:
+  params:
+  - name: GIT_REPO
+    type: string
+    description: git repository to clone and build image from
+  - name: IMAGE
+    type: string
+    description: image to build and push
+  - name: REVISION
+    description: Revision to checkout. (branch, tag, sha, ref, etc...)
+    type: string
+    default: "main"
+  - name: SKIP_PUSH
+    description: Skip push the built image
+    type: string
+    default: "false"
+  workspaces:
+  - name: source
+  tasks:
+  - name: clone-repo
+    taskRef:
+      name: git-clone
+      kind: ClusterTask
+    workspaces:
+    - name: output
+      workspace: source
+    params:
+    - name: url
+      value: "$(params.GIT_REPO)"
+    - name: revision
+      value: "$(params.REVISION)"
+  - name: run-tests
+    runAfter:
+    - clone-repo
+    taskSpec:
+      steps:
+      - image: registry.access.redhat.com/ubi8/go-toolset:1.20
+        script: cd $(workspaces.source.path) && go test ./...
+    workspaces:
+    - name: source
+      workspace: source
+  - name: build-and-push
+    runAfter:
+    - run-tests
+    taskRef:
+      name: buildah
+      kind: ClusterTask
+    params:
+    - name: IMAGE
+      value: "$(params.IMAGE)"
+    - name: SKIP_PUSH
+      value: "$(params.SKIP_PUSH)"
+    - name: TLSVERIFY
+      value: "false"
+    workspaces:
+    - name: source
+      workspace: source

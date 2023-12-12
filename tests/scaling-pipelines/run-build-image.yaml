@@ -1,0 +1,21 @@
+apiVersion: tekton.dev/v1beta1
+kind: PipelineRun
+metadata:
+  generateName: buildah-
+spec:
+  params:
+  - name: GIT_REPO
+    value: "http://build-image-nginx.utils.svc/golang-docker-build-tutorial.git"
+  - name: IMAGE
+    value: "image-registry.openshift-image-registry.svc:5000/example/golang-docker:concaf"
+  workspaces:
+  - name: source
+    volumeClaimTemplate:
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 1Gi
+  pipelineRef:
+    name: pipeline-build-image
