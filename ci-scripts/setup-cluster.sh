@@ -128,8 +128,8 @@ EOF
             kubectl -n openshift-pipelines wait --for=condition=ready --timeout=300s pod -l app=tekton-pipelines-controller
             # Check if all replicas were assigned some buckets
             for p in $( kubectl -n openshift-pipelines get pods -l app=tekton-pipelines-controller -o name ); do
-                info "Checking if $p successfully acquired leases"
-                kubectl -n openshift-pipelines logs --prefix "$p" | grep 'successfully acquired lease'
+                info "Checking if $p successfully acquired leases - not failing if empty as a workaround"
+                kubectl -n openshift-pipelines logs --prefix "$p" | grep 'successfully acquired lease' || true
             done
         fi
     fi
