@@ -39,7 +39,6 @@ if [ -f "$monitoring_collection_data" ]; then
     mstart=$(date --utc --date "$(status_data.py --status-data-file "$monitoring_collection_data" --get results.started)" --iso-8601=seconds)
     mend=$(date --utc --date "$(status_data.py --status-data-file "$monitoring_collection_data" --get results.ended)" --iso-8601=seconds)
     mhost=$(kubectl -n openshift-monitoring get route -l app.kubernetes.io/name=thanos-query -o json | jq --raw-output '.items[0].spec.host')
-    python -V   # debug
     status_data.py \
         --status-data-file "$monitoring_collection_data" \
         --additional ./config/cluster_read_config.yaml \
