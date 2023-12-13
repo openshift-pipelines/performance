@@ -25,6 +25,10 @@ elif [ "$TEST_RUN" == "./run-build-image.yaml" ]; then
     oc -n utils adm policy add-scc-to-user privileged -z build-image-nginx
     oc -n utils patch deployment/build-image-nginx --type=json -p '[{"op":"replace","path":"/spec/template/spec/containers/0/securityContext", "value":{"privileged":true}}]'
     oc -n utils set sa deploy build-image-nginx build-image-nginx
+    debug "Waiting for build-image-nginx pods"
+    kubectl -n utils get pod -l app=build-image-nginx
+    sleep 5   # debug
+    kubectl -n utils get pod -l app=build-image-nginx
     kubectl -n utils wait --for=condition=ready --timeout=300s pod -l app=build-image-nginx
 fi
 
