@@ -12,7 +12,9 @@ function cleanup() {
         -e 's/TaskRun "[a-zA-Z0-9-]\+" was cancelled/TaskRun "..." was cancelled/' \
         -e 's/task run pod "[a-zA-Z0-9-]\+"/task run pod "..."/' \
         -e 's/containers with \(unready\|incomplete\) status: \[[a-zA-Z0-9 -]\+\]/containers with unready status: [...]/' \
-        -e 's/Maybe missing or invalid Task [a-zA-Z0-9-]\+\+\/[a-zA-Z0-9-]\+/Maybe missing or invalid Task ...\/.../'
+        -e 's/Maybe missing or invalid Task [a-zA-Z0-9-]\+\+\/[a-zA-Z0-9-]\+/Maybe missing or invalid Task ...\/.../' \
+        -e 's/"[a-zA-Z0-9-]\+" exited with code/"..." exited with code/' \
+        -e 's/for logs run: kubectl -n benchmark logs [a-zA-Z0-9-]\+ -c [a-zA-Z0-9-]\+/for logs run: kubectl -n benchmark logs ... -c .../'
 }
 
 
@@ -29,13 +31,15 @@ for file in "pipelineruns.json" "taskruns.json" "pods.json"; do
         continue
     fi
 
-    echo -e "\n# Processing $path:"
+    echo -e "\n#### Processing $path:"
 
     #cat "$path" | jq --raw-output '.items[] | (.metadata.name as $name | .status.conditions | map(($name, .type, .status, .reason, .message)) | @csv)'
     types=$( cat $path | jq --raw-output '.items[] | .status.conditions[] | .type' | sort -u )
 
     for t in $types; do
-        echo -e "\n## Condition $t:"
+        echo -e "\n##### Condition $t:"
+        echo "\`\`\`"
         cat $path | jq --raw-output '.items[] | .status.conditions[] | select(.type | contains("'"$t"'")) | .message' | cleanup | sort | uniq -c | sed -e 's/\s\+/ /g' -e 's/^ //' -e 's/ $//' | sort -nr
+        echo "\`\`\`"
     done
 done
