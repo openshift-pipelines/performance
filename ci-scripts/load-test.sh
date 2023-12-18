@@ -19,12 +19,8 @@ if [ "$TEST_RUN" == "./run.yaml" ]; then
 elif [ "$TEST_RUN" == "./run-build-image.yaml" ]; then
     kubectl apply -f pipeline-build-image.yaml
     if kubectl create ns utils; then
-        kubectl -n utils create deployment build-image-nginx --image=quay.io/rhcloudperfscale/openshift-pipelines_performance-utils-build-image-nginx --replicas=1 --port=8000
+        kubectl -n utils create deployment build-image-nginx --image=quay.io/rhcloudperfscale/git-http-smart-hosting --replicas=1 --port=8000
         kubectl -n utils expose deployment/build-image-nginx --port=80 --target-port=8080 --name=build-image-nginx
-        oc -n utils create sa build-image-nginx
-        oc -n utils adm policy add-scc-to-user privileged -z build-image-nginx
-        oc -n utils patch deployment/build-image-nginx --type=json -p '[{"op":"replace","path":"/spec/template/spec/containers/0/securityContext", "value":{"privileged":true}}]'
-        oc -n utils set sa deploy build-image-nginx build-image-nginx
         kubectl -n utils rollout status --watch --timeout=300s deployment/build-image-nginx
         kubectl -n utils wait --for=condition=ready --timeout=300s pod -l app=build-image-nginx
     else
