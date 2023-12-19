@@ -7,7 +7,7 @@ spec:
   - name: GIT_REPO
     value: "http://build-image-nginx.utils.svc/golang-docker-build-tutorial.git"
   - name: IMAGE
-    value: "image-registry.openshift-image-registry.svc:5000/example/golang-docker:concaf"
+    value: "image-registry.openshift-image-registry.svc.cluster.local:5000/benchmark/golang-docker-build-tutorial"
   workspaces:
   - name: source
     volumeClaimTemplate:
