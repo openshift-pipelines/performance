@@ -6,7 +6,10 @@ set -o pipefail
 
 source "$(dirname "$0")/lib.sh"
 
+TEST_TOTAL="${TEST_TOTAL:-100}"
+TEST_CONCURRENT="${TEST_CONCURRENT:-10}"
 TEST_RUN="${TEST_RUN:-./run.yaml}"
+TEST_TIMEOUT="${TEST_TIMEOUT:-18000}"   # 5 hours
 
 info "Setup"
 cd tests/scaling-pipelines/
@@ -29,7 +32,7 @@ elif [ "$TEST_RUN" == "./run-build-image.yaml" ]; then
 fi
 
 info "Benchmark"
-time ./benchmark-tekton.sh --total "${TEST_TOTAL:-100}" --concurrent "${TEST_CONCURRENT:-10}" --run "${TEST_RUN:-./run.yaml}" --debug
+time ./benchmark-tekton.sh --total "${TEST_TOTAL}" --concurrent "${TEST_CONCURRENT}" --run "${TEST_RUN}" --timeout "${TEST_TIMEOUT}" --debug
 
 info "Dump Pods"
 kubectl get pods -o=json >pods.json

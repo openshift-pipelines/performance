@@ -1,12 +1,13 @@
 #!/bin/bash
 
 script_name=$(basename "$0")
-short=t:c:r:dh
-long=total:,concurrent:,run:,debug,help
+short=t:c:r:o:dh
+long=total:,concurrent:,run:,timeout:,debug,help
 
 total=10000
 concurrent=100
 run="./run.yaml"
+timeout=0
 debug=false
 
 if ! type jq >/dev/null; then
@@ -30,6 +31,9 @@ Script needs following options
 --run            optional default value is
                  https://raw.githubusercontent.com/tektoncd/pipeline/main/examples/v1/pipelineruns/using_context_variables.yaml
 
+--timeout        optional, how many seconds to to let the test run overall, use 0 for no limit,
+                 default value is 0
+
 --debug          optional default value is false
 
 EOF
@@ -42,6 +46,7 @@ while :; do
         -t | --total        )   total=$2;                                              shift 2                          ;;
         -c | --concurrent   )   concurrent=$2;                                         shift 2                          ;;
         -r | --run          )   run=$2;                                                shift 2                          ;;
+        -o | --timeout      )   timeout=$2;                                            shift 2                          ;;
         -d | --debug        )   debug=true;                                            shift                            ;;
         -h | --help         )   echo "${usage}" 1>&2;                                  exit                             ;;
         --                  )   shift;                                                 break                            ;;
@@ -51,6 +56,7 @@ done
 
 
 started=$(date -Ins --utc)
+started_ts=$(date +%s)
 while true; do
     # When you run with `--total 1000`, final JSON have almost 7MB.
     # Maybe we can use this to get the size down:
@@ -68,6 +74,15 @@ while true; do
     remaining=$((${total} - ${all}))
     needed=$((${concurrent} - ${running} - ${pending}))
     [[ ${needed} -gt ${remaining} ]] && needed=${remaining}
+
+    if [ "${timeout}" -gt 0 ]; then
+        now_ts=$(date +%s)
+        elapsed=$((${now_ts} - ${started_ts}))
+        if [ "${elapsed}" -gt "${timeout}" ]; then
+            echo "$(date -Ins --utc) after ${elapsed}s exceeded ${timeout}s timeout, bye"
+            break
+        fi
+    fi
 
     if [ "${needed}" -gt 0 ]; then
         ${debug} && echo "$(date -Ins --utc) creating ${needed} runs to raise concurrency to ${concurrent}"
@@ -91,7 +106,8 @@ cat <<EOF >$output
         "test": {
             "total": $total,
             "concurrent": $concurrent,
-            "run": "$run"
+            "run": "$run",
+            "timeout": "$timeout"
         }
     }
 }
@@ -99,7 +115,7 @@ EOF
 echo "$data" >pipelineruns.json
 
 echo "$(date -Ins --utc) adding stats to data file"
-data_successful=$(echo "$data" | jq --raw-output '.items |= [.[] | . as $a | .status.conditions[] | select(.type == "Succeeded" and .status == "True") | $a]')
+data_successful=$(echo "$data" | jq --raw-output '.items |= [.[] | . as $a | .status.conditions | if . == null then [] else . end | .[] | select(.type == "Succeeded" and .status == "True") | $a]')
 
 # PipelineRuns total duration (.status.completionTime - .metadata.creationTimestamp)
 prs_avg=$(echo "$data_successful" | jq --raw-output '[.items[] | ((.status.completionTime | fromdate) - (.metadata.creationTimestamp | fromdate))] | add / length')
@@ -120,9 +136,13 @@ prs_max=$(echo "$data_successful" | jq --raw-output '[.items[] | ((.status.compl
 cat $output | jq '.results.PipelineRuns.running.min = '$prs_min' | .results.PipelineRuns.running.avg = '$prs_avg' | .results.PipelineRuns.running.max = '$prs_max'' >"$$.json" && mv -f "$$.json" "$output"
 
 # PipelineRuns succeeded and failed count
-prs_succeeded=$(echo "$data" | jq --raw-output '[.items[] | .status.conditions[] | select(.type == "Succeeded" and .status == "True")] | length')
-prs_failed=$(echo "$data" | jq --raw-output '[.items[] | .status.conditions[] | select(.type == "Succeeded" and .status != "True")] | length')
-cat $output | jq '.results.PipelineRuns.count.succeeded = '$prs_succeeded' | .results.PipelineRuns.count.failed = '$prs_failed'' >"$$.json" && mv -f "$$.json" "$output"
+prs_succeeded=$(echo "$data" | jq --raw-output '[.items[] | .status.conditions | if . == null then [] else . end | .[] | select(.type == "Succeeded" and .status == "True" and .reason == "Succeeded")] | length')
+prs_failed=$(echo "$data" | jq --raw-output '[.items[] | .status.conditions | if . == null then [] else . end | .[] | select(.type == "Succeeded" and .status != "True" and .reason != "Running")] | length')
+prs_remaining=$remaining
+prs_pending=$pending
+prs_running=$running
+echo 'DEBUG: .results.PipelineRuns.count.succeeded = "'$prs_succeeded'" | .results.PipelineRuns.count.failed = "'$prs_failed'" | .results.PipelineRuns.count.remaining = "'$prs_remaining'" | .results.PipelineRuns.count.pending = "'$prs_pending'" | .results.PipelineRuns.count.running = "'$prs_running'"'
+cat $output | jq '.results.PipelineRuns.count.succeeded = "'$prs_succeeded'" | .results.PipelineRuns.count.failed = "'$prs_failed'" | .results.PipelineRuns.count.remaining = "'$prs_remaining'" | .results.PipelineRuns.count.pending = "'$prs_pending'" | .results.PipelineRuns.count.running = "'$prs_running'"' >"$$.json" && mv -f "$$.json" "$output"
 
 # PipelineRuns .metadata.creationTimestamp first and last
 pr_creationTimestamp_first=$(echo "$data" | jq --raw-output '[.items[] | .metadata.creationTimestamp] | sort | first')
@@ -142,7 +162,7 @@ cat $output | jq '.results.PipelineRuns.completionTime.first = "'$pr_completionT
 # TaskRuns
 data=$(kubectl get tr -o=json)
 echo "$data" >taskruns.json
-data_successful=$(echo "$data" | jq --raw-output '.items |= [.[] | . as $a | .status.conditions[] | select(.type == "Succeeded" and .status == "True") | $a]')
+data_successful=$(echo "$data" | jq --raw-output '.items |= [.[] | . as $a | .status.conditions | if . == null then [] else . end | .[] | select(.type == "Succeeded" and .status == "True") | $a]')
 
 # TaskRuns total duration (.status.completionTime - .metadata.creationTimestamp)
 trs_avg=$(echo "$data_successful" | jq --raw-output '[.items[] | ((.status.completionTime | fromdate) - (.metadata.creationTimestamp | fromdate))] | add / length')
