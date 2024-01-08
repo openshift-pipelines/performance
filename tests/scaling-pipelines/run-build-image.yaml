@@ -3,19 +3,37 @@ kind: PipelineRun
 metadata:
   generateName: buildah-
 spec:
-  params:
-  - name: GIT_REPO
-    value: "http://build-image-nginx.utils.svc/golang-docker-build-tutorial.git"
-  - name: IMAGE
-    value: "image-registry.openshift-image-registry.svc.cluster.local:5000/benchmark/golang-docker-build-tutorial"
-  workspaces:
-  - name: source
-    volumeClaimTemplate:
-      spec:
-        accessModes:
-          - ReadWriteOnce
-        resources:
-          requests:
-            storage: 1Gi
   pipelineRef:
     name: pipeline-build-image
+
+  params:
+    - name: GIT_REPO
+      value: "http://build-image-nginx.utils.svc/golang-docker-build-tutorial.git"
+    - name: IMAGE
+      value: "image-registry.openshift-image-registry.svc.cluster.local:5000/benchmark/golang-docker-build-tutorial"
+      ###value: "registry.utils.svc.cluster.local:5000/benchmark/golang-docker-build-tutorial"
+    - name: TLSVERIFY
+      value: "false"
+
+  workspaces:
+
+    - name: source
+      volumeClaimTemplate:
+        spec:
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 1Gi
+
+    ###- name: sslcertdir
+    ###  configMap:
+    ###    name: registry-ca
+    ###    defaultMode: 420
+    ###    items:
+    ###      - key: "registry.key"
+    ###        path: "ca.crt"
+
+    ###- name: dockerconfig
+    ###  secret:
+    ###    secretName: dockerconfig-secret
