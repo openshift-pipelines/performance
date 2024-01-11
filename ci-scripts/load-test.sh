@@ -29,6 +29,18 @@ elif [ "$TEST_RUN" == "./run-build-image.yaml" ]; then
     else
         debug "Skipping initial config as namespace utils already exists"
     fi
+elif [ "$TEST_RUN" == "./run-image-signing.yaml" ]; then
+    [ -d push-fake-image ] || git clone https://github.com/jhutar/push-fake-image.git
+    kubectl apply -f push-fake-image/pipeline.yaml
+    # SA to talk to internal registry
+    oc -n benchmark create serviceaccount perf-test-registry-sa
+    oc policy add-role-to-user registry-viewer system:serviceaccount:benchmark:perf-test-registry-sa   # pull
+    oc policy add-role-to-user registry-editor system:serviceaccount:benchmark:perf-test-registry-sa   # push
+    dockerconfig_secret_name=$( oc -n benchmark get serviceaccount perf-test-registry-sa -o json | jq --raw-output '.imagePullSecrets[0].name' )
+    TEST_RUN="./push-fake-image/run-modified.yaml"
+    cat ./push-fake-image/run.yaml | sed "s/DOCKERCONFIG_SECRET_NAME/$dockerconfig_secret_name/g" >$TEST_RUN
+else
+    fatal "Unknown TEST_RUN"
 fi
 
 info "Benchmark"
