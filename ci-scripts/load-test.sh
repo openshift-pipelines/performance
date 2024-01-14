@@ -32,19 +32,48 @@ elif [ "$TEST_RUN" == "./run-build-image.yaml" ]; then
 elif [ "$TEST_RUN" == "./run-image-signing.yaml" ]; then
     [ -d push-fake-image ] || git clone https://github.com/jhutar/push-fake-image.git
     kubectl apply -f push-fake-image/pipeline.yaml
+    # Configure Chains as per https://tekton.dev/docs/chains/signed-provenance-tutorial/#configuring-tekton-chains
+    COSIGN_PASSWORD=reset cosign generate-key-pair k8s://openshift-pipelines/signing-secrets
+    kubectl patch TektonConfig/config --type='merge' -p='{"spec":{"chain":{"artifacts.taskrun.format": "slsa/v1"}}}'
+    kubectl patch TektonConfig/config --type='merge' -p='{"spec":{"chain":{"artifacts.taskrun.storage": "oci"}}}'
+    kubectl patch TektonConfig/config --type='merge' -p='{"spec":{"chain":{"artifacts.oci.storage": "oci"}}}'
+    kubectl patch TektonConfig/config --type='merge' -p='{"spec":{"chain":{"transparency.enabled": "false"}}}'   # this is the only difference from the config
+    oc -n openshift-pipelines rollout restart deployment/tekton-chains-controller
+    oc -n openshift-pipelines rollout status deployment/tekton-chains-controller
+    oc -n openshift-pipelines wait --for=condition=ready --timeout=300s pod -l app.kubernetes.io/part-of=tekton-chains
+    # ImageStreamTag to push to
+    oc -n benchmark create imagestream test
     # SA to talk to internal registry
     oc -n benchmark create serviceaccount perf-test-registry-sa
     oc policy add-role-to-user registry-viewer system:serviceaccount:benchmark:perf-test-registry-sa   # pull
     oc policy add-role-to-user registry-editor system:serviceaccount:benchmark:perf-test-registry-sa   # push
+    # Customized PipelineRun
     dockerconfig_secret_name=$( oc -n benchmark get serviceaccount perf-test-registry-sa -o json | jq --raw-output '.imagePullSecrets[0].name' )
     TEST_RUN="./push-fake-image/run-modified.yaml"
     cat ./push-fake-image/run.yaml | sed "s/DOCKERCONFIG_SECRET_NAME/$dockerconfig_secret_name/g" >$TEST_RUN
+    # Signatures monitoring
+    ./push-fake-image/measure-signed.py --server "$( oc whoami --show-server )" --namespace benchmark --token "$( oc whoami -t )" --insecure --save ./measure-signed.csv &
+    measure_signed_pid=$!
 else
     fatal "Unknown TEST_RUN"
 fi
 
-info "Benchmark"
+info "Benchmark ${TEST_TOTAL}/${TEST_CONCURRENT}/${TEST_RUN}/${TEST_TIMEOUT}"
 time ./benchmark-tekton.sh --total "${TEST_TOTAL}" --concurrent "${TEST_CONCURRENT}" --run "${TEST_RUN}" --timeout "${TEST_TIMEOUT}" --debug
+
+if [ -n "$measure_signed_pid" ]; then
+    debug "Stopping ./push-fake-image/measure-signed.py PID $measure_signed_pid"
+    kill "$measure_signed_pid"
+
+    debug "Collecting info about imagestreamtags"
+    oc -n benchmark get imagestreamtags.image.openshift.io -o json >imagestreamtags.json
+    count_all=$( cat imagestreamtags.json | jq --raw-output '.items | length' )
+    count_signatures=$( cat imagestreamtags.json | jq --raw-output '.items | map(select(.metadata.name | endswith(".sig"))) | length' )
+    count_attestations=$( cat imagestreamtags.json | jq --raw-output '.items | map(select(.metadata.name | endswith(".att"))) | length' )
+    count_plain=$( cat imagestreamtags.json | jq --raw-output '.items | map(select((.metadata.name | endswith(".sig") | not) and (.metadata.name | endswith(".att") | not))) | length' )
+    cat "benchmark-tekton.json" | jq '.results.imagestreamtags.sig = '$count_signatures' | .results.imagestreamtags.att = '$count_attestations' | .results.imagestreamtags.plain = '$count_plain' | .results.imagestreamtags.all = '$count_all'' >"$$.json" && mv -f "$$.json" "benchmark-tekton.json"
+    debug "Got these counts of imagestreamtags: all=${count_all}, plain=${count_plain}, signatures=${count_signatures}, attestations=${count_attestations}"
+fi
 
 info "Dump Pods"
 kubectl get pods -o=json >pods.json
