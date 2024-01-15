@@ -20,6 +20,7 @@ mkdir -p "${monitoring_collection_dir}"
 [ -f tests/scaling-pipelines/taskruns.json ] && cp tests/scaling-pipelines/taskruns.json "${ARTIFACT_DIR}/"
 [ -f tests/scaling-pipelines/pods.json ] && cp tests/scaling-pipelines/pods.json "${ARTIFACT_DIR}/"
 [ -f tests/scaling-pipelines/imagestreamtags.json ] && cp tests/scaling-pipelines/imagestreamtags.json "${ARTIFACT_DIR}/"
+[ -f tests/scaling-pipelines/measure-signed.csv ] && cp tests/scaling-pipelines/measure-signed.csv "${ARTIFACT_DIR}/"
 
 info "Setting up tool to collect monitoring data..."
 python3 -m venv venv
