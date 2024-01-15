@@ -66,7 +66,7 @@ time ./benchmark-tekton.sh --total "${TEST_TOTAL}" --concurrent "${TEST_CONCURRE
 
 if [ -n "$measure_signed_pid" ]; then
     debug "Stopping ./push-fake-image/measure-signed.py PID $measure_signed_pid"
-    kill "$measure_signed_pid"
+    kill "$measure_signed_pid" || true
 
     debug "Collecting info about imagestreamtags"
     oc -n benchmark get imagestreamtags.image.openshift.io -o json >imagestreamtags.json
