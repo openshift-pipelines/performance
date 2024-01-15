@@ -135,7 +135,8 @@ counter=0
 
 # Fetch JSON files from main test that runs every 12 hours
 for job in "scaling-pipelines-upstream-stable-daily" "scaling-pipelines-upstream-nightly-daily"; do
-    job_history="$JOB_BASE/periodic-ci-openshift-pipelines-performance-master-$job"
+    job_history="$JOB_BASE/periodic-ci-openshift-pipelines-performance-main-$job"
+    info "Looking into job history: ${job_history}"
     for i in $(curl -SsL "$job_history" | grep -Eo '[0-9]{19}' | sort -V | uniq | tail -n 10); do
         f="$job_history/$i/artifacts/$job/openshift-pipelines-scaling-pipelines/artifacts/benchmark-tekton.json"
         out="$CACHE_DIR/$i.benchmark-tekton.json"
