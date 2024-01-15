@@ -11,6 +11,8 @@ TEST_CONCURRENT="${TEST_CONCURRENT:-10}"
 TEST_RUN="${TEST_RUN:-./run.yaml}"
 TEST_TIMEOUT="${TEST_TIMEOUT:-18000}"   # 5 hours
 
+measure_signed_pid=""
+
 info "Setup"
 cd tests/scaling-pipelines/
 kubectl create ns benchmark
