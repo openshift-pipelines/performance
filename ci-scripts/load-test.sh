@@ -35,6 +35,7 @@ elif [ "$TEST_RUN" == "./run-image-signing.yaml" ]; then
     [ -d push-fake-image ] || git clone https://github.com/jhutar/push-fake-image.git
     kubectl apply -f push-fake-image/pipeline.yaml
     # Configure Chains as per https://tekton.dev/docs/chains/signed-provenance-tutorial/#configuring-tekton-chains
+    wait_for_entity_by_selector 300 openshift-pipelines secret app.kubernetes.io/part-of=tekton-chains,operator.tekton.dev/operand-name=tektoncd-chains
     COSIGN_PASSWORD=reset cosign generate-key-pair k8s://openshift-pipelines/signing-secrets
     kubectl patch TektonConfig/config --type='merge' -p='{"spec":{"chain":{"artifacts.taskrun.format": "slsa/v1"}}}'
     kubectl patch TektonConfig/config --type='merge' -p='{"spec":{"chain":{"artifacts.taskrun.storage": "oci"}}}'
