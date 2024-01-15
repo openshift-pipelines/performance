@@ -6,45 +6,6 @@ set -o pipefail
 
 source "$(dirname "$0")/lib.sh"
 
-function entity_by_selector_exists() {
-    local ns
-    local entity
-    local l
-    local count
-
-    ns="$1"
-    entity="$2"
-    l="$3"
-    count=$( kubectl -n "$ns" get "$entity" -l "$l" -o name 2>/dev/null | wc -l )
-
-    debug "Number of $entity entities in $ns with label $l: $count"
-    [ "$count" -gt 0 ]
-}
-
-function wait_for_entity_by_selector() {
-    local timeout
-    local ns
-    local entity
-    local l
-    local before
-    local now
-
-    timeout="$1"
-    ns="$2"
-    entity="$3"
-    l="$4"
-    before=$(date --utc +%s)
-
-    while ! entity_by_selector_exists "$ns" "$entity" "$l"; do
-        now=$(date --utc +%s)
-        if [[ $(( now - before )) -ge "$timeout" ]]; then
-            fatal "Required $entity did not appeared before timeout"
-        fi
-        debug "Still not ready ($(( now - before ))/$timeout), waiting and trying again"
-        sleep 3
-    done
-}
-
 DEPLOYMENT_PIPELINES_CONTROLLER_RESOURCES="${DEPLOYMENT_PIPELINES_CONTROLLER_RESOURCES:-1/2Gi/1/2Gi}"   # In form of "requests.cpu/requests.memory/limits.cpu/limits.memory", use "///" to skip this
 pipelines_controller_resources_requests_cpu="$( echo "$DEPLOYMENT_PIPELINES_CONTROLLER_RESOURCES" | cut -d "/" -f 1 )"
 pipelines_controller_resources_requests_memory="$( echo "$DEPLOYMENT_PIPELINES_CONTROLLER_RESOURCES" | cut -d "/" -f 2 )"
