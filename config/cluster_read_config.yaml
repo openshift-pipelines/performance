@@ -198,8 +198,8 @@
 
 {% elif DEPLOYMENT_TYPE == 'upstream' %}
 
-{% set deployments = ['tekton-events-controller','tekton-pipelines-controller','tekton-pipelines-webhook'] %}
-{% set containers = ['tekton-events-controller','tekton-pipelines-controller','webhook'] %}
+{% set deployments = ['tekton-events-controller','tekton-pipelines-controller','tekton-pipelines-webhook','tekton-chains-controller'] %}
+{% set containers = ['tekton-events-controller','tekton-pipelines-controller','webhook','tekton-chains-controller'] %}
 {% set namespace = 'tekton-pipelines' %}
 
 {% else %}
