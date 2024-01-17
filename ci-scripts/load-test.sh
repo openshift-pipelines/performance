@@ -47,38 +47,34 @@ elif [ "$TEST_RUN" == "./run-build-image.yaml" ]; then
         debug "Skipping initial config as namespace utils already exists"
     fi
 elif [ "$TEST_RUN" == "./run-image-signing.yaml" ] || [ "$TEST_RUN" == "./run-image-signing-bigbang.yaml" ]; then
-    if ! oc -n benchmark get imagestream/test 2>/dev/null; then
-        [ -d push-fake-image ] || git clone https://github.com/jhutar/push-fake-image.git
-        kubectl apply -f push-fake-image/pipeline.yaml
-        # Configure Chains as per https://tekton.dev/docs/chains/signed-provenance-tutorial/#configuring-tekton-chains
-        kubectl patch TektonConfig/config --type='merge' -p='{"spec":{"chain":{"artifacts.taskrun.format": "slsa/v1"}}}'
-        kubectl patch TektonConfig/config --type='merge' -p='{"spec":{"chain":{"artifacts.taskrun.storage": "oci"}}}'
-        kubectl patch TektonConfig/config --type='merge' -p='{"spec":{"chain":{"artifacts.oci.storage": "oci"}}}'
-        kubectl patch TektonConfig/config --type='merge' -p='{"spec":{"chain":{"transparency.enabled": "false"}}}'   # this is the only difference from the docs
+    [ -d push-fake-image ] || git clone https://github.com/jhutar/push-fake-image.git
+    kubectl apply -f push-fake-image/pipeline.yaml
+    # Configure Chains as per https://tekton.dev/docs/chains/signed-provenance-tutorial/#configuring-tekton-chains
+    kubectl patch TektonConfig/config --type='merge' -p='{"spec":{"chain":{"artifacts.taskrun.format": "slsa/v1"}}}'
+    kubectl patch TektonConfig/config --type='merge' -p='{"spec":{"chain":{"artifacts.taskrun.storage": "oci"}}}'
+    kubectl patch TektonConfig/config --type='merge' -p='{"spec":{"chain":{"artifacts.oci.storage": "oci"}}}'
+    kubectl patch TektonConfig/config --type='merge' -p='{"spec":{"chain":{"transparency.enabled": "false"}}}'   # this is the only difference from the docs
 
-        # Create signing-secrets secret
-        cosign_generate_key_pair_secret
+    # Create signing-secrets secret
+    cosign_generate_key_pair_secret
 
-        # Wait for Chains controller to come up
-        wait_for_entity_by_selector 300 openshift-pipelines deployment app.kubernetes.io/name=controller,app.kubernetes.io/part-of=tekton-chains
-        oc -n openshift-pipelines rollout restart deployment/tekton-chains-controller
-        oc -n openshift-pipelines rollout status deployment/tekton-chains-controller
-        oc -n openshift-pipelines wait --for=condition=ready --timeout=300s pod -l app.kubernetes.io/part-of=tekton-chains
+    # Wait for Chains controller to come up
+    wait_for_entity_by_selector 300 openshift-pipelines deployment app.kubernetes.io/name=controller,app.kubernetes.io/part-of=tekton-chains
+    oc -n openshift-pipelines rollout restart deployment/tekton-chains-controller
+    oc -n openshift-pipelines rollout status deployment/tekton-chains-controller
+    oc -n openshift-pipelines wait --for=condition=ready --timeout=300s pod -l app.kubernetes.io/part-of=tekton-chains
 
-        # ImageStreamTag to push to
-        oc -n benchmark create imagestream test
+    # ImageStreamTag to push to
+    oc -n benchmark create imagestream test
 
-        # SA to talk to internal registry
-        oc -n benchmark create serviceaccount perf-test-registry-sa
-        oc policy add-role-to-user registry-viewer system:serviceaccount:benchmark:perf-test-registry-sa   # pull
-        oc policy add-role-to-user registry-editor system:serviceaccount:benchmark:perf-test-registry-sa   # push
+    # SA to talk to internal registry
+    oc -n benchmark create serviceaccount perf-test-registry-sa
+    oc policy add-role-to-user registry-viewer system:serviceaccount:benchmark:perf-test-registry-sa   # pull
+    oc policy add-role-to-user registry-editor system:serviceaccount:benchmark:perf-test-registry-sa   # push
 
-        # Customized PipelineRun
-        dockerconfig_secret_name=$( oc -n benchmark get serviceaccount perf-test-registry-sa -o json | jq --raw-output '.imagePullSecrets[0].name' )
-        cat ./push-fake-image/run.yaml | sed "s/DOCKERCONFIG_SECRET_NAME/$dockerconfig_secret_name/g" >$TEST_RUN
-    else
-        debug "Skipping initial config as imagestream/test is already there"
-    fi
+    # Customized PipelineRun
+    dockerconfig_secret_name=$( oc -n benchmark get serviceaccount perf-test-registry-sa -o json | jq --raw-output '.imagePullSecrets[0].name' )
+    cat ./push-fake-image/run.yaml | sed "s/DOCKERCONFIG_SECRET_NAME/$dockerconfig_secret_name/g" >$TEST_RUN
 else
     fatal "Unknown TEST_RUN"
 fi
