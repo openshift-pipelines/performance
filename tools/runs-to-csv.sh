@@ -38,5 +38,9 @@ find . -name benchmark-tekton.json -print0 | while IFS= read -r -d '' filename; 
         .measurements.cluster_cpu_usage_seconds_total_rate.mean,
         .measurements.cluster_memory_usage_rss_total.mean,
         .measurements.scheduler_pending_pods_count.mean
-    ] | @csv'
+        ] | @csv' \
+        && rc=0 || rc=1
+    if [[ "$rc" -ne 0 ]]; then
+        echo "ERROR failed on ${filename}"
+    fi
 done
