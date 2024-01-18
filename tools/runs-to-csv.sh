@@ -43,6 +43,7 @@ find . -name benchmark-tekton.json -print0 | while IFS= read -r -d '' filename; 
         .measurements.etcd_request_duration_seconds_average.mean,
         .measurements.cluster_cpu_usage_seconds_total_rate.mean,
         .measurements.cluster_memory_usage_rss_total.mean,
+        .measurements.workers_avg_cpu_usage_percentage.mean,
         .measurements.scheduler_pending_pods_count.mean
         ] | @csv' \
         && rc=0 || rc=1
