@@ -13,11 +13,15 @@ set -o nounset
 set -o errexit
 set -o pipefail
 
-source "$(dirname "$0")/lib.sh"
+source "$(dirname "$0")/../ci-scripts/lib.sh"
 
 start_dir="$1"
 output_dir="$2"
 separate_graphs=true
+tabulate_graphs=true
+force_width_graphs=0   # or use number bigger than 0 to force it
+terminal_graphs=svg   # or use pngcairo
+file_format_graphs=svg
 
 if ! type -p gnuplot; then
     fatal "Please install GnuPlot"
@@ -59,29 +63,38 @@ for f in $myfiles; do
         set key autotitle columnhead   # basically just to skip first line
         set style data lines
         set title '$ff'
-        set terminal pngcairo linewidth 2
+        set terminal $terminal_graphs linewidth 2
         set key noenhanced   # do not interpret underscores as text formatting
         set title noenhanced"
-    output_width=$(( myoutput_width / mydirs_count ))
+    if [ "$force_width_graphs" -gt 0 ]; then
+        output_width=$force_width_graphs
+    else
+        output_width=$(( myoutput_width / mydirs_count ))
+    fi
 
     if $separate_graphs; then
         echo "<h2>$ff</h2>" >>"$myoutput"
-        echo "<table><tr>" >>"$myoutput"
+        $tabulate_graphs && echo "<table><tr>" >>"$myoutput"
 
+        i=1
         for d in $mydirs; do
-            title=$( _get_title "$d" )
-            output="$ff-$( echo "$title" | sed 's/[^a-zA-Z0-9-]/_/g' ).png"
+            title="$( _get_title "$d" ) iteration $i"
+            output="$ff-$( echo "$title" | sed 's/[^a-zA-Z0-9-]/_/g' )-$i.$file_format_graphs"
             script_one="$script\nset output '$output_dir/graphs/$output'\nplot"
             script_one+=" '$d/$f' title '$title',"
 
             echo -e "$script_one" | gnuplot || true
 
-            echo "<td><img src='graphs/$output' alt='Graph for $ff and $title' width='$output_width'/></td>" >>"$myoutput"
+            $tabulate_graphs && echo "<td>" >>"$myoutput"
+            echo "<img src='graphs/$output' alt='Graph for $ff and $title' width='$output_width'/>" >>"$myoutput"
+            $tabulate_graphs && echo "</td>" >>"$myoutput"
+
+            let i+=1
         done
 
-        echo "</tr></table>" >>"$myoutput"
+        $tabulate_graphs && echo "</tr></table>" >>"$myoutput"
     else
-        output="$ff.png"
+        output="$ff.$file_format_graphs"
         script+="\nset output '$output_dir/graphs/$output'"
         script+="\nplot"
         for d in $mydirs; do
