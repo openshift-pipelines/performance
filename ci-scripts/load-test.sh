@@ -130,7 +130,7 @@ if [ -n "$measure_signed_pid" ]; then
 
     # Only now, when all imagestreamtags are in, we can consider the test done
     last_pushed=$( cat imagestreamtags.json | jq --raw-output '.items | sort_by(.metadata.creationTimestamp) | last | .metadata.creationTimestamp' )
-    cat "benchmark-tekton.json" | jq '.results.ended = '$last_pushed'' >"$$.json" && mv -f "$$.json" "benchmark-tekton.json"
+    cat "benchmark-tekton.json" | jq '.results.ended = "'"$last_pushed"'"' >"$$.json" && mv -f "$$.json" "benchmark-tekton.json"
     debug "Configured test end time to match when last imagestreamtag was created: $last_pushed"
 
     info "Stopping ./push-fake-image/measure-signed.py PID $measure_signed_pid"
