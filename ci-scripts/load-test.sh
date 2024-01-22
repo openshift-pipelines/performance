@@ -22,7 +22,6 @@ function cosign_generate_key_pair_secret() {
         debug "Waiting for next attempt for creation of signing-secrets secret"
         # Few steps to get us to simple state
         oc -n openshift-pipelines get secrets/signing-secrets || true
-        oc -n openshift-pipelines get secrets/signing-secrets -o yaml || true
         oc -n openshift-pipelines delete secrets/signing-secrets || true
         sleep 10
     done
