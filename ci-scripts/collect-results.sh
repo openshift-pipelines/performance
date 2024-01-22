@@ -10,6 +10,8 @@ ARTIFACT_DIR=${ARTIFACT_DIR:-artifacts}
 monitoring_collection_data=$ARTIFACT_DIR/benchmark-tekton.json
 monitoring_collection_log=$ARTIFACT_DIR/monitoring-collection.log
 monitoring_collection_dir=$ARTIFACT_DIR/monitoring-collection-raw-data-dir
+tekton_pipelines_controller_log=$ARTIFACT_DIR/tekton-pipelines-controller.log
+tekton_chains_controller_log=$ARTIFACT_DIR/tekton-chains-controller.log
 creationtimestamp_collection_log=$ARTIFACT_DIR/creationtimestamp-collection.log
 
 info "Collecting artifacts..."
@@ -21,6 +23,10 @@ mkdir -p "${monitoring_collection_dir}"
 [ -f tests/scaling-pipelines/pods.json ] && cp tests/scaling-pipelines/pods.json "${ARTIFACT_DIR}/"
 [ -f tests/scaling-pipelines/imagestreamtags.json ] && cp tests/scaling-pipelines/imagestreamtags.json "${ARTIFACT_DIR}/"
 [ -f tests/scaling-pipelines/measure-signed.csv ] && cp tests/scaling-pipelines/measure-signed.csv "${ARTIFACT_DIR}/"
+
+info "Collecting logs..."
+oc -n openshift-pipelines logs --tail=-1 --all-containers=true --max-log-requests=10 -l app.kubernetes.io/name=controller,app.kubernetes.io/part-of=tekton-pipelines,app=tekton-pipelines-controller >"$tekton_pipelines_controller_log" || true
+oc -n openshift-pipelines logs --tail=-1 --all-containers=true --max-log-requests=10 -l app.kubernetes.io/name=controller,app.kubernetes.io/part-of=tekton-chains,app=tekton-chains-controller >"$tekton_chains_controller_log" || true
 
 info "Setting up tool to collect monitoring data..."
 python3 -m venv venv
