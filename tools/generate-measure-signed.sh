@@ -20,9 +20,13 @@ mkdir -p "$output_dir/graphs/"
 columns_to_names="
 2 all
 3 succeeded
-4 signed
-5 unsigned
-6 guessed avg
+4 signed true
+5 signed false
+6 unsigned
+7 guessed avg
+8 guessed avg count
+9 latency created succeeded
+10 latency succeeded signed
 "
 myoutput="$output_dir/dashboard.html"
 
@@ -53,7 +57,7 @@ for path_grepper in "run-1000-20" "run-1000-40" "run-1000-60" "run-1000-80" "run
     echo "<h1>Graphs for $path_grepper</h1>" >>"$myoutput"
     data_files=$( find . -type f -name measure-signed.csv | grep "$path_grepper" )
     path_title_part=$( echo "$path_grepper" | sed 's/[^a-zA-Z0-9]/_/g' )
-    for column in 2 3 4 6; do
+    for column in 2 3 4 5 7 9 10; do
         column_name=$( echo "$columns_to_names" | grep "^$column " | sed 's/^[0-9]\+ //' )
         column_title_part=$( echo "$column_name" | sed 's/[^a-zA-Z0-9]/_/g' )
         output_file="graphs/graphs-$path_title_part-$column_title_part.png"
@@ -74,13 +78,14 @@ for path_grepper in "run-1000-20" "run-1000-40" "run-1000-60" "run-1000-80" "run
     script="$( script_base "$path_grepper - measure-signed" "$output_file" )"
     script="$script '$output_dir/measure-signed-$path_title_part.csv' using 2,"
     script="$script '$output_dir/measure-signed-$path_title_part.csv' using 3,"
-    script="$script '$output_dir/measure-signed-$path_title_part.csv' using 4"
+    script="$script '$output_dir/measure-signed-$path_title_part.csv' using 4,"
+    script="$script '$output_dir/measure-signed-$path_title_part.csv' using 5"
     echo -e "$script" | gnuplot
     html_img "Graph for $path_grepper - measure-signed" "$output_file" >>"$myoutput"
 
     output_file="graphs/graphs-$path_title_part-measure-signed-guessed-avg.png"
     script="$( script_base "$path_grepper - measure-signed guessed avg" "$output_file" )"
-    script="$script '$output_dir/measure-signed-$path_title_part.csv' using 6"
+    script="$script '$output_dir/measure-signed-$path_title_part.csv' using 7"
     echo -e "$script" | gnuplot
     html_img "Graph for $path_grepper - measure-signed guessed avg" "$output_file" >>"$myoutput"
 done
@@ -105,20 +110,29 @@ done
 echo -e "$script" | gnuplot
 html_img "Graph for summary - measure-signed succeeded" "$output_file" >>"$myoutput"
 
-output_file="graphs/graphs-summary-measure-signed-signed.png"
-script="$( script_base "summary - measure-signed signed" "$output_file" )"
+output_file="graphs/graphs-summary-measure-signed-signed-true.png"
+script="$( script_base "summary - measure-signed signed true" "$output_file" )"
 for path_grepper in "run-1000-20" "run-1000-40" "run-1000-60" "run-1000-80" "run-1000-100"; do
     path_title_part=$( echo "$path_grepper" | sed 's/[^a-zA-Z0-9]/_/g' )
     script="$script '$output_dir/measure-signed-$path_title_part.csv' using 4 title '$path_grepper',"
 done
 echo -e "$script" | gnuplot
-html_img "Graph for summary - measure-signed signed" "$output_file" >>"$myoutput"
+html_img "Graph for summary - measure-signed signed true" "$output_file" >>"$myoutput"
+
+output_file="graphs/graphs-summary-measure-signed-signed-false.png"
+script="$( script_base "summary - measure-signed signed false" "$output_file" )"
+for path_grepper in "run-1000-20" "run-1000-40" "run-1000-60" "run-1000-80" "run-1000-100"; do
+    path_title_part=$( echo "$path_grepper" | sed 's/[^a-zA-Z0-9]/_/g' )
+    script="$script '$output_dir/measure-signed-$path_title_part.csv' using 5 title '$path_grepper',"
+done
+echo -e "$script" | gnuplot
+html_img "Graph for summary - measure-signed signed true" "$output_file" >>"$myoutput"
 
 output_file="graphs/graphs-summary-measure-signed-guessed-avg.png"
 script="$( script_base "summary - measure-signed guessed avg" "$output_file" )"
 for path_grepper in "run-1000-20" "run-1000-40" "run-1000-60" "run-1000-80" "run-1000-100"; do
     path_title_part=$( echo "$path_grepper" | sed 's/[^a-zA-Z0-9]/_/g' )
-    script="$script '$output_dir/measure-signed-$path_title_part.csv' using 6 title '$path_grepper',"
+    script="$script '$output_dir/measure-signed-$path_title_part.csv' using 7 title '$path_grepper',"
 done
 echo -e "$script" | gnuplot
 html_img "Graph for summary - measure-signed guessed avg" "$output_file" >>"$myoutput"
@@ -127,7 +141,7 @@ output_file="graphs/graphs-summary-measure-latency-created-succeeded.png"
 script="$( script_base "summary - measure-signed latency created succeeded" "$output_file" )"
 for path_grepper in "run-1000-20" "run-1000-40" "run-1000-60" "run-1000-80" "run-1000-100"; do
     path_title_part=$( echo "$path_grepper" | sed 's/[^a-zA-Z0-9]/_/g' )
-    script="$script '$output_dir/measure-signed-$path_title_part.csv' using 8 title '$path_grepper',"
+    script="$script '$output_dir/measure-signed-$path_title_part.csv' using 9 title '$path_grepper',"
 done
 echo -e "$script" | gnuplot
 html_img "Graph for summary - measure-signed latency created succeeded" "$output_file" >>"$myoutput"
@@ -136,7 +150,7 @@ output_file="graphs/graphs-summary-measure-signed-latency-succeeded-signed.png"
 script="$( script_base "summary - measure-signed latency succeeded signed" "$output_file" )"
 for path_grepper in "run-1000-20" "run-1000-40" "run-1000-60" "run-1000-80" "run-1000-100"; do
     path_title_part=$( echo "$path_grepper" | sed 's/[^a-zA-Z0-9]/_/g' )
-    script="$script '$output_dir/measure-signed-$path_title_part.csv' using 9 title '$path_grepper',"
+    script="$script '$output_dir/measure-signed-$path_title_part.csv' using 10 title '$path_grepper',"
 done
 echo -e "$script" | gnuplot
 html_img "Graph for summary - measure-signed latency succeeded signed" "$output_file" >>"$myoutput"

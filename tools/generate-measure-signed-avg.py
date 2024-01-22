@@ -9,7 +9,7 @@ import csv
 
 output_file = sys.argv[-1]   # last param is output file name
 data = []
-keys = ["all", "succeeded", "signed", "unsigned", "guessed avg", "guessed from count", "latency created succeeded", "latency succeeded signed"]
+keys = ["all", "succeeded", "signed true", "signed false", "unsigned", "guessed avg", "guessed from count", "latency created succeeded", "latency succeeded signed"]
 
 for file in sys.argv[1:-1]:   # first param is script name, last is output file name
     print(f"Loading file {file}")
