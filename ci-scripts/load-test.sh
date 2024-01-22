@@ -125,8 +125,14 @@ if [ -n "$measure_signed_pid" ]; then
             sleep 10
         fi
     done
+
     cat "benchmark-tekton.json" | jq '.results.imagestreamtags.sig = '$count_signatures' | .results.imagestreamtags.att = '$count_attestations' | .results.imagestreamtags.plain = '$count_plain' | .results.imagestreamtags.all = '$count_all'' >"$$.json" && mv -f "$$.json" "benchmark-tekton.json"
     debug "Got these counts of imagestreamtags: all=${count_all}, plain=${count_plain}, signatures=${count_signatures}, attestations=${count_attestations}"
+
+    # Only now, when all imagestreamtags are in, we can consider the test done
+    last_pushed=$( cat imagestreamtags.json | jq --raw-output '.items | sort_by(.metadata.creationTimestamp) | last | .metadata.creationTimestamp' )
+    cat "benchmark-tekton.json" | jq '.results.ended = '$last_pushed'' >"$$.json" && mv -f "$$.json" "benchmark-tekton.json"
+    debug "Configured test end time to match when last imagestreamtag was created: $last_pushed"
 
     info "Stopping ./push-fake-image/measure-signed.py PID $measure_signed_pid"
     kill "$measure_signed_pid" || true
