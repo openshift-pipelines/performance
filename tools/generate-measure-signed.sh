@@ -69,7 +69,7 @@ for path_grepper in "run-1000-20" "run-1000-40" "run-1000-60" "run-1000-80" "run
     done
 
     info "Creating measure-signed graphs"
-    ../../tools/generate-measure-signed-avg.py $( find . -type f -name measure-signed.csv | grep "$path_grepper" ) "$output_dir/measure-signed-$path_title_part.csv"
+    "$(dirname "$0")"/generate-measure-signed-avg.py $( find . -type f -name measure-signed.csv | grep "$path_grepper" ) "$output_dir/measure-signed-$path_title_part.csv"
     output_file="graphs/graphs-$path_title_part-measure-signed.png"
     script="$( script_base "$path_grepper - measure-signed" "$output_file" )"
     script="$script '$output_dir/measure-signed-$path_title_part.csv' using 2,"
@@ -122,6 +122,24 @@ for path_grepper in "run-1000-20" "run-1000-40" "run-1000-60" "run-1000-80" "run
 done
 echo -e "$script" | gnuplot
 html_img "Graph for summary - measure-signed guessed avg" "$output_file" >>"$myoutput"
+
+output_file="graphs/graphs-summary-measure-latency-created-succeeded.png"
+script="$( script_base "summary - measure-signed latency created succeeded" "$output_file" )"
+for path_grepper in "run-1000-20" "run-1000-40" "run-1000-60" "run-1000-80" "run-1000-100"; do
+    path_title_part=$( echo "$path_grepper" | sed 's/[^a-zA-Z0-9]/_/g' )
+    script="$script '$output_dir/measure-signed-$path_title_part.csv' using 8 title '$path_grepper',"
+done
+echo -e "$script" | gnuplot
+html_img "Graph for summary - measure-signed latency created succeeded" "$output_file" >>"$myoutput"
+
+output_file="graphs/graphs-summary-measure-signed-latency-succeeded-signed.png"
+script="$( script_base "summary - measure-signed latency succeeded signed" "$output_file" )"
+for path_grepper in "run-1000-20" "run-1000-40" "run-1000-60" "run-1000-80" "run-1000-100"; do
+    path_title_part=$( echo "$path_grepper" | sed 's/[^a-zA-Z0-9]/_/g' )
+    script="$script '$output_dir/measure-signed-$path_title_part.csv' using 9 title '$path_grepper',"
+done
+echo -e "$script" | gnuplot
+html_img "Graph for summary - measure-signed latency succeeded signed" "$output_file" >>"$myoutput"
 
 echo "</body></html>" >>"$myoutput"
 

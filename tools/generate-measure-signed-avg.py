@@ -9,7 +9,7 @@ import csv
 
 output_file = sys.argv[-1]   # last param is output file name
 data = []
-keys = ["all", "succeeded", "signed", "unsigned", "guessed avg", "guessed from count"]
+keys = ["all", "succeeded", "signed", "unsigned", "guessed avg", "guessed from count", "latency created succeeded", "latency succeeded signed"]
 
 for file in sys.argv[1:-1]:   # first param is script name, last is output file name
     print(f"Loading file {file}")
@@ -25,7 +25,8 @@ for file in sys.argv[1:-1]:   # first param is script name, last is output file 
                 data.append(current)
 
             for key in keys:
-                current["sums"][key] += float(row[key])
+                if row[key] != "":
+                    current["sums"][key] += float(row[key])
                 current["counts"][key] += 1
 
 print(f"Saving summary to {output_file}")
