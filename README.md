@@ -21,10 +21,14 @@ Run the test:
 
     export TEST_TOTAL="100"
     export TEST_CONCURRENT="10"
-    export TEST_RUN="./run.yaml"   # pick this scenario or some below
-    # export TEST_RUN="./run-build-image.yaml"
-    # export TEST_RUN="./run-image-signing.yaml"
-    # export TEST_RUN="./run-image-signing-bigbang.yaml"
+    export TEST_SCENARIO="math"   # pick this scenario or some of these below
+    # export TEST_SCENARIO="build"
+    # export TEST_SCENARIO="signing-ongoing"
+    # export TEST_SCENARIO="signing-bigbang"
+    ### export TEST_RUN="./run.yaml"   # pick this scenario or some below
+    ### # export TEST_RUN="./run-build-image.yaml"
+    ### # export TEST_RUN="./run-image-signing.yaml"
+    ### # export TEST_RUN="./run-image-signing-bigbang.yaml"
     export TEST_DO_CLEANUP="false"
     ci-scripts/load-test.sh
 
@@ -37,15 +41,15 @@ Collect the results:
 
 We can run multiple scenarios. These are configured via `TEST_RUN` environment variable. This is what each supported workload actually does:
 
-### ./run.yaml
+### math
 
 This scenario is supposed to stress Pipelines controller and OpenShift scheduler.
 
-This runs total number of `TEST_TOTAL` PipelineRuns with concurrency `TEST_CONCURRENT`. It uses basic math Pipeline that contains of 4 simple Tasks.
+This runs total number of `TEST_TOTAL` PipelineRuns with concurrency `TEST_CONCURRENT`. It uses basic math Pipeline that consists of 4 simple Tasks.
 
 This supports running on both upstream and downstream.
 
-### ./run-build-image.yaml
+### build
 
 This scenario is supposed to stress the cluster itself.
 
@@ -53,21 +57,21 @@ It deploys container serving a git repository with simple NodeJS application. It
 
 This was tested on downstream, but might work on upstream as well.
 
-### ./run-image-signing.yaml
+### signing-ongoing
 
 This scenario is supposed to stress both Pipelines and Chains controller at the same time.
 
-It uses simple Pipeline with just one Task generates random data of a given size and pushes it to internal registry. It also measures how quickly the TaskRun gets signed annotation and also collects some additional data.
+It uses simple Pipeline with just one Task that generates random data of a given size and pushes it to internal registry. It also measures how quickly the TaskRun gets signed annotation and also collects some additional data.
 
-This scenario supports runs on downstreams only.
+This scenario runs on downstream only.
 
-### ./run-image-signing-bigbang.yaml
+### signing-bigbang
 
 This scenario is supposed to stress Chains controller.
 
 It uses same Pipeline as previous one, but Chains controller is enabled only after all PipelineRuns are finished, so when Chains controller starts, it has `TEST_TOTAL` images to be signed waiting for it.
 
-This scenario supports runs on downstreams only.
+This scenario runs on downstream only.
 
 
 ## How perf&scale CI works
