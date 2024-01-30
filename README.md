@@ -25,10 +25,6 @@ Run the test:
     # export TEST_SCENARIO="build"
     # export TEST_SCENARIO="signing-ongoing"
     # export TEST_SCENARIO="signing-bigbang"
-    ### export TEST_RUN="./run.yaml"   # pick this scenario or some below
-    ### # export TEST_RUN="./run-build-image.yaml"
-    ### # export TEST_RUN="./run-image-signing.yaml"
-    ### # export TEST_RUN="./run-image-signing-bigbang.yaml"
     export TEST_DO_CLEANUP="false"
     ci-scripts/load-test.sh
 
