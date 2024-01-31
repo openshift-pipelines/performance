@@ -15,6 +15,7 @@ measure_signed_pid=""
 
 info "General setup"
 cd tests/scaling-pipelines/
+kubectl create ns utils
 kubectl create ns benchmark
 kubectl config set-context --current --namespace=benchmark
 
@@ -23,6 +24,8 @@ if [[ "$TEST_SCENARIO" == "signing-ongoing" ]] || [[ "$TEST_SCENARIO" == "signin
     [[ -d push-fake-image ]] || git clone https://github.com/jhutar/push-fake-image.git
     [[ -d scenario/signing-ongoing ]] || ln -s $( pwd )/push-fake-image/scenario/signing-ongoing scenario/signing-ongoing
     [[ -d scenario/signing-bigbang ]] || ln -s $( pwd )/push-fake-image/scenario/signing-bigbang scenario/signing-bigbang
+    [[ -d scenario/signing-standoci-bigbang ]] || ln -s $( pwd )/push-fake-image/scenario/signing-standoci-bigbang scenario/signing-standoci-bigbang
+    [[ -d scenario/signing-tekton-bigbang ]] || ln -s $( pwd )/push-fake-image/scenario/signing-tekton-bigbang scenario/signing-tekton-bigbang
 fi
 
 info "Setup for $TEST_SCENARIO scenario"
