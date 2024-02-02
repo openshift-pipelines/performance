@@ -1,0 +1,32 @@
+apiVersion: tekton.dev/v1beta1
+kind: PipelineRun
+metadata:
+  generateName: push-fake-image-
+spec:
+  pipelineRef:
+    name: push-fake-image
+  podTemplate:
+    imagePullSecrets:
+      - name: "DOCKERCONFIG_SECRET_NAME"
+
+  params:
+    - name: SIZE
+      value: "1k"
+    - name: IMAGE
+      value: "IMAGE_NAME"
+      ###value: "image-registry.openshift-image-registry.svc.cluster.local:5000/benchmark/test:$(context.pipelineRun.name)"
+      ###value: "registry.utils.svc.cluster.local:5000/benchmark/golang-docker-build-tutorial"
+
+  workspaces:
+
+    ###- name: source
+    ###  volumeClaimTemplate:
+    ###    spec:
+    ###      accessModes:
+    ###        - ReadWriteOnce
+    ###      resources:
+    ###        requests:
+    ###          storage: 1Gi
+    - name: dockerconfig
+      secret:
+        secretName: "DOCKERCONFIG_SECRET_NAME"

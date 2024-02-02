@@ -7,6 +7,3 @@ OLD/
 artifacts/
 
 tests/scaling-pipelines/push-fake-image/
-
-tests/scaling-pipelines/scenario/signing-bigbang
-tests/scaling-pipelines/scenario/signing-ongoing

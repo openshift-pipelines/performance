@@ -1,0 +1,90 @@
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: rhcloudperfscale-puller-pull-secret
+  labels:
+    app: registry
+    robot_user: "rhcloudperfscale_puller"
+data:
+  .dockerconfigjson: ewogICJhdXRocyI6IHsKICAgICJxdWF5LmlvIjogewogICAgICAiYXV0aCI6ICJjbWhqYkc5MVpIQmxjbVp6WTJGc1pTdHdkV3hzWlhJNk1WUkJTMDQzU0ZoTU9WQlRNME5IVHpWQ1JqSlVPRVpPUnpCTldURTBORU16TUVvNU5sUkRSRTR6VFZSR1RsazBXRm8yT1V0WFRrODRSRUpDUWxVd1dnPT0iLAogICAgICAiZW1haWwiOiAiIgogICAgfQogIH0KfQ==
+type: kubernetes.io/dockerconfigjson
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: registry
+  name: registry
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: registry
+  template:
+    metadata:
+      labels:
+        app: registry
+    spec:
+      imagePullSecrets:
+        - name: rhcloudperfscale-puller-pull-secret
+      containers:
+        - name: registry
+          image: quay.io/rhcloudperfscale/docker-registry
+          resources:
+            requests:
+              cpu: "1000m"
+              memory: "2Gi"
+            limits:
+              cpu: "1000m"
+              memory: "2Gi"
+          ports:
+            - containerPort: 5000
+          env:
+            - name: REGISTRY_HTTP_TLS_CERTIFICATE
+              value: "/certs/registry.crt"
+            - name: REGISTRY_HTTP_TLS_KEY
+              value: "/certs/registry.key"
+            - name: REGISTRY_AUTH
+              value: "htpasswd"
+            - name: REGISTRY_AUTH_HTPASSWD_REALM
+              value: "Registry Realm"
+            - name: REGISTRY_AUTH_HTPASSWD_PATH
+              value: "/auth/htpasswd"
+          volumeMounts:
+            - name: registry-certs
+              mountPath: "/certs"
+              readOnly: true
+            - name: registry-auth
+              mountPath: "/auth"
+              readOnly: true
+            - name: registry-data
+              mountPath: /var/lib/registry
+              subPath: registry
+      volumes:
+        - name: registry-certs
+          secret:
+            secretName: registry-certs
+        - name: registry-auth
+          secret:
+            secretName: registry-auth
+        - name: registry-data
+          emptyDir:
+            sizeLimit: 10Gi
+          #persistentVolumeClaim:
+          #  claimName: registry-data-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: registry
+  labels:
+    app: registry
+spec:
+  selector:
+    app: registry
+  ports:
+    - name: registry-tcp
+      protocol: TCP
+      port: 5000
+      targetPort: 5000

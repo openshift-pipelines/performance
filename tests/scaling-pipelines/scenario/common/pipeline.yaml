@@ -1,0 +1,105 @@
+---
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: push-fake-image
+spec:
+  description: "This Tekton Task and Pipeline are just pushing fake container image. They are meant for testing artifact signing performance by Tekton Chains."
+  params:
+    - name: SIZE
+      type: string
+      default: "100"
+      description: "Size of the payload to generate and push that 'dd' understands, so e.g. 1G is fine as well"
+    - name: IMAGE
+      type: string
+      default: "localhost:5000/$(context.pipelineRun.namespace)/$(context.pipelineRun.name)"
+      description: Payload push target
+    - name: MEDIA_TYPE
+      type: string
+      default: "application/vnd.oci.image.layer.v1.tar"
+      description: Push payload with this media type
+  results:
+    - name: IMAGE_URL
+      description: "Target payload"
+    - name: IMAGE_DIGEST
+      description: "Targget digest"
+  workspaces:
+    ###- name: source
+    - name: dockerconfig
+      description: >-
+        An optional workspace that allows providing a .docker/config.json file
+        for oras to access the container registry.
+        The file should be placed at the root of the Workspace with name config.json.
+      optional: true
+      readOnly: true
+  steps:
+    - name: push-fake-image
+      image: quay.io/rhcloudperfscale/push-fake-image
+      script: |
+        #!/usr/bin/env bash
+        set -eux
+
+        dd if=/dev/urandom of=/var/lib/containers/payload.data bs=$(params.SIZE) count=1 iflag=fullblock
+
+        export HOME=/tmp
+        if [ "$(workspaces.dockerconfig.bound)" = "true" ]; then
+          # # This does not work for me
+          # # https://oras.land/docs/how_to_guides/authentication
+          # mkdir -p /tmp/.docker/
+          # ln -s "$(workspaces.dockerconfig.path)/.dockercfg" /tmp/.docker/config.json
+
+          docker_config_file="$(workspaces.dockerconfig.path)/.dockercfg"
+          [ -r "$(workspaces.dockerconfig.path)/.dockerconfigjson" ] && docker_config_file="$(workspaces.dockerconfig.path)/.dockerconfigjson"
+
+          registry=$( echo "$(params.IMAGE)" | cut -d '/' -f 1 )
+          username=$( cat "$docker_config_file" | jq --raw-output '.auths."'"$registry"'".username // ."'"$registry"'".username' )
+          cat "$docker_config_file" \
+            | jq --raw-output '.auths."'"$registry"'".password // ."'"$registry"'".password' \
+            | oras login --insecure --username "$username" --password-stdin "$registry"
+        fi
+
+        oras push --insecure "$(params.IMAGE)" "/var/lib/containers/payload.data:$(params.MEDIA_TYPE)" \
+          | tee /tmp/LOG
+
+        echo -n "$(params.IMAGE)" > "$(results.IMAGE_URL.path)"
+        grep '^Digest:' /tmp/LOG | cut -d ' ' -f 2 > "$(results.IMAGE_DIGEST.path)"
+      volumeMounts:
+        - name: varlibcontainers
+          mountPath: /var/lib/containers
+  volumes:
+    - name: varlibcontainers
+      emptyDir: {}
+---
+apiVersion: tekton.dev/v1
+kind: Pipeline
+metadata:
+  name: push-fake-image
+spec:
+  workspaces:
+    ###- name: source
+    - name: dockerconfig
+      optional: true
+  params:
+    - name: SIZE
+      type: string
+      default: "100"
+    - name: IMAGE
+      type: string
+      default: "localhost:5000/$(context.pipelineRun.namespace)/$(context.pipelineRun.name)"
+    - name: MEDIA_TYPE
+      type: string
+      default: "application/vnd.oci.image.layer.v1.tar"
+  tasks:
+    - name: push-fake-image
+      taskRef:
+        name: push-fake-image
+      workspaces:
+        - name: dockerconfig
+          workspace: dockerconfig
+      params:
+        - name: SIZE
+          value: "$(params.SIZE)"
+        - name: IMAGE
+          value: "$(params.IMAGE)"
+        - name: MEDIA_TYPE
+          value: "$(params.MEDIA_TYPE)"

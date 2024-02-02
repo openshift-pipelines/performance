@@ -25,6 +25,7 @@ Run the test:
     # export TEST_SCENARIO="build"
     # export TEST_SCENARIO="signing-ongoing"
     # export TEST_SCENARIO="signing-bigbang"
+    # ...and more
     export TEST_DO_CLEANUP="false"
     ci-scripts/load-test.sh
 
@@ -35,39 +36,9 @@ Collect the results:
 
 ## What scenarios are there
 
-We can run multiple scenarios. These are configured via `TEST_RUN` environment variable. This is what each supported workload actually does:
-
-### math
-
-This scenario is supposed to stress Pipelines controller and OpenShift scheduler.
-
-This runs total number of `TEST_TOTAL` PipelineRuns with concurrency `TEST_CONCURRENT`. It uses basic math Pipeline that consists of 4 simple Tasks.
-
-This supports running on both upstream and downstream.
-
-### build
-
-This scenario is supposed to stress the cluster itself.
-
-It deploys container serving a git repository with simple NodeJS application. It uses Pipeline that clones that repo, builds it and pushes to internal registry.
-
-This was tested on downstream, but might work on upstream as well.
-
-### signing-ongoing
-
-This scenario is supposed to stress both Pipelines and Chains controller at the same time.
-
-It uses simple Pipeline with just one Task that generates random data of a given size and pushes it to internal registry. It also measures how quickly the TaskRun gets signed annotation and also collects some additional data.
-
-This scenario runs on downstream only.
-
-### signing-bigbang
-
-This scenario is supposed to stress Chains controller.
-
-It uses same Pipeline as previous one, but Chains controller is enabled only after all PipelineRuns are finished, so when Chains controller starts, it has `TEST_TOTAL` images to be signed waiting for it.
-
-This scenario runs on downstream only.
+You can run multiple different scenarios.
+These are configured via `TEST_SCENARIO` environment variable.
+To learn what each scenario does, check readme files in `tests/scaling-pipelines/scenario/` subfolders.
 
 
 ## How perf&scale CI works
