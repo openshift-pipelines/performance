@@ -81,8 +81,16 @@
   monitoring_query: sum(tekton_pipelines_controller_taskruns_pod_latency_milliseconds)
   monitoring_step: 15
 
+- name: measurements.apiserver_request_total_rate
+  monitoring_query: sum(rate(apiserver_request_total{}[5m]))
+  monitoring_step: 15
+
 - name: measurements.etcd_request_duration_seconds_average
   monitoring_query: sum(rate(etcd_request_duration_seconds_sum{}[5m])) / sum(rate(etcd_request_duration_seconds_count[5m]))
+  monitoring_step: 15
+
+- name: measurements.etcd_mvcc_db_total_size_in_bytes_average
+  monitoring_query: avg(etcd_mvcc_db_total_size_in_bytes)
   monitoring_step: 15
 
 - name: measurements.cluster_network_bytes_total
