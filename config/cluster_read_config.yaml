@@ -1,7 +1,4 @@
-- name: measurements.tekton_pipelines_controller_running_pipelineruns_count
-  monitoring_query: sum(tekton_pipelines_controller_running_pipelineruns_count)
-  monitoring_step: 15
-
+# Cluster resources related metrics
 - name: measurements.storage_count_attachable_volumes_in_use
   monitoring_query: sum(storage_count_attachable_volumes_in_use)
   monitoring_step: 15
@@ -57,6 +54,29 @@
   monitoring_query: sum(scheduler_pending_pods)
   monitoring_step: 15
 
+- name: measurements.cluster_network_bytes_total
+  monitoring_query: sum(irate(container_network_receive_bytes_total{cluster="",namespace=~".*"}[5m])) + sum(irate(container_network_transmit_bytes_total{cluster="",namespace=~".*"}[5m]))
+  monitoring_step: 15
+
+- name: measurements.cluster_network_receive_bytes_total
+  monitoring_query: sum(irate(container_network_receive_bytes_total{cluster="",namespace=~".*"}[5m]))
+  monitoring_step: 15
+
+- name: measurements.cluster_network_transmit_bytes_total
+  monitoring_query: sum(irate(container_network_transmit_bytes_total{cluster="",namespace=~".*"}[5m]))
+  monitoring_step: 15
+
+- name: measurements.node_disk_io_time_seconds_total
+  monitoring_query: sum(irate(node_disk_io_time_seconds_total{cluster="",namespace=~".*"}[5m]))
+  monitoring_step: 15
+
+
+
+# Tekton related metrics
+- name: measurements.tekton_pipelines_controller_running_pipelineruns_count
+  monitoring_query: sum(tekton_pipelines_controller_running_pipelineruns_count)
+  monitoring_step: 15
+
 - name: measurements.tekton_tekton_pipelines_controller_workqueue_depth
   monitoring_query: sum(tekton_pipelines_controller_workqueue_depth)
   monitoring_step: 15
@@ -81,6 +101,9 @@
   monitoring_query: sum(tekton_pipelines_controller_taskruns_pod_latency_milliseconds)
   monitoring_step: 15
 
+
+
+# Cluster API server related metrics
 - name: measurements.apiserver_request_total_rate
   monitoring_query: sum(rate(apiserver_request_total{}[5m]))
   monitoring_step: 15
@@ -91,22 +114,6 @@
 
 - name: measurements.etcd_mvcc_db_total_size_in_bytes_average
   monitoring_query: avg(etcd_mvcc_db_total_size_in_bytes)
-  monitoring_step: 15
-
-- name: measurements.cluster_network_bytes_total
-  monitoring_query: sum(irate(container_network_receive_bytes_total{cluster="",namespace=~".*"}[5m])) + sum(irate(container_network_transmit_bytes_total{cluster="",namespace=~".*"}[5m]))
-  monitoring_step: 15
-
-- name: measurements.cluster_network_receive_bytes_total
-  monitoring_query: sum(irate(container_network_receive_bytes_total{cluster="",namespace=~".*"}[5m]))
-  monitoring_step: 15
-
-- name: measurements.cluster_network_transmit_bytes_total
-  monitoring_query: sum(irate(container_network_transmit_bytes_total{cluster="",namespace=~".*"}[5m]))
-  monitoring_step: 15
-
-- name: measurements.node_disk_io_time_seconds_total
-  monitoring_query: sum(irate(node_disk_io_time_seconds_total{cluster="",namespace=~".*"}[5m]))
   monitoring_step: 15
 
 
