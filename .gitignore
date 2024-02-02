@@ -7,3 +7,10 @@ OLD/
 artifacts/
 
 tests/scaling-pipelines/push-fake-image/
+
+tests/scaling-pipelines/benchmark-tekton.json
+tests/scaling-pipelines/cosign.pub
+tests/scaling-pipelines/measure-signed.csv
+tests/scaling-pipelines/pipelineruns.json
+tests/scaling-pipelines/pods.json
+tests/scaling-pipelines/taskruns.json
