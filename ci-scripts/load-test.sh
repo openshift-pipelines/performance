@@ -22,6 +22,7 @@ kubectl config set-context --current --namespace=benchmark
 if [[ "$TEST_SCENARIO" == "signing-ongoing" ]] || [[ "$TEST_SCENARIO" == "signing-bigbang" ]]; then
     info "Cloning required repo"
     [[ -d push-fake-image ]] || git clone https://github.com/jhutar/push-fake-image.git
+    [[ -d scenario/common ]] || ln -s $( pwd )/push-fake-image/scenario/common scenario/common
     [[ -d scenario/signing-ongoing ]] || ln -s $( pwd )/push-fake-image/scenario/signing-ongoing scenario/signing-ongoing
     [[ -d scenario/signing-bigbang ]] || ln -s $( pwd )/push-fake-image/scenario/signing-bigbang scenario/signing-bigbang
     [[ -d scenario/signing-standoci-bigbang ]] || ln -s $( pwd )/push-fake-image/scenario/signing-standoci-bigbang scenario/signing-standoci-bigbang
