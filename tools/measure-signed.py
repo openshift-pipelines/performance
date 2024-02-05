@@ -206,16 +206,17 @@ def main():
                     # Guess signing duration
                     completed_time = None
                     signed_time = None
-                    for item in row["object"]["metadata"]["managedFields"]:
-                        if item["manager"] == "openshift-pipelines-controller" \
-                           and "f:status" in item["fieldsV1"] \
-                           and "f:completionTime" in item["fieldsV1"]["f:status"]:
-                            completed_time = parsedate(item["time"])
-                        if item["manager"] == "openshift-pipelines-chains-controller" \
-                           and "f:metadata" in item["fieldsV1"] \
-                           and "f:annotations" in item["fieldsV1"]["f:metadata"] \
-                           and "f:chains.tekton.dev/signed" in item["fieldsV1"]["f:metadata"]["f:annotations"]:
-                            signed_time = parsedate(item["time"])
+                    if "managedFields" in row["object"]["metadata"]:
+                        for item in row["object"]["metadata"]["managedFields"]:
+                            if item["manager"] == "openshift-pipelines-controller" \
+                               and "f:status" in item["fieldsV1"] \
+                               and "f:completionTime" in item["fieldsV1"]["f:status"]:
+                                completed_time = parsedate(item["time"])
+                            if item["manager"] == "openshift-pipelines-chains-controller" \
+                               and "f:metadata" in item["fieldsV1"] \
+                               and "f:annotations" in item["fieldsV1"]["f:metadata"] \
+                               and "f:chains.tekton.dev/signed" in item["fieldsV1"]["f:metadata"]["f:annotations"]:
+                                signed_time = parsedate(item["time"])
                     if completed_time is not None and signed_time is not None:
                         taskruns_sig_duration.append((signed_time - completed_time).total_seconds())
 
