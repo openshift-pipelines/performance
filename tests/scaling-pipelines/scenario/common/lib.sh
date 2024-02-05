@@ -85,7 +85,6 @@ function chains_setup_tekton_tekton_() {
 function chains_start() {
     info "Enabling Chains"
     cosign_generate_key_pair_secret   # it was removed when we disabled Chains
-    cat "benchmark-tekton.json" | jq '.results.started = "'"$( date -Iseconds --utc )"'"' >"$$.json" && mv -f "$$.json" "benchmark-tekton.json"
     kubectl patch TektonConfig/config --type='merge' -p='{"spec":{"chain":{"disabled": false}}}'
 }
 
@@ -162,11 +161,6 @@ function imagestreamtags_wait() {
 
     cat "benchmark-tekton.json" | jq '.results.imagestreamtags.sig = '$count_signatures' | .results.imagestreamtags.att = '$count_attestations' | .results.imagestreamtags.plain = '$count_plain' | .results.imagestreamtags.all = '$count_all'' >"$$.json" && mv -f "$$.json" "benchmark-tekton.json"
     debug "Got these counts of imagestreamtags: all=${count_all}, plain=${count_plain}, signatures=${count_signatures}, attestations=${count_attestations}"
-
-    # Only now, when all imagestreamtags are in, we can consider the test done
-    last_pushed=$( cat imagestreamtags.json | jq --raw-output '.items | sort_by(.metadata.creationTimestamp) | last | .metadata.creationTimestamp' )
-    cat "benchmark-tekton.json" | jq '.results.ended = "'"$last_pushed"'"' >"$$.json" && mv -f "$$.json" "benchmark-tekton.json"
-    debug "Configured test end time to match when last imagestreamtag was created: $last_pushed"
 }
 
 function measure_signed_wait() {
@@ -194,4 +188,20 @@ function internal_registry_cleanup() {
         oc -n benchmark delete serviceaccount/perf-test-registry-sa
         oc -n benchmark delete imagestreamtags/test
     fi
+}
+
+function set_started_now() {
+    cat "benchmark-tekton.json" | jq '.results.started = "'"$( date -Iseconds --utc )"'"' >"$$.json" && mv -f "$$.json" "benchmark-tekton.json"
+    debug "Set test started time"
+}
+
+function set_ended_now() {
+    cat "benchmark-tekton.json" | jq '.results.ended = "'"$(  date -Iseconds --utc )"'"' >"$$.json" && mv -f "$$.json" "benchmark-tekton.json"
+    debug "Set test ended time"
+}
+
+function set_ended_last_imagestreamtag() {
+    last_pushed=$( cat imagestreamtags.json | jq --raw-output '.items | sort_by(.metadata.creationTimestamp) | last | .metadata.creationTimestamp' )
+    cat "benchmark-tekton.json" | jq '.results.ended = "'"$last_pushed"'"' >"$$.json" && mv -f "$$.json" "benchmark-tekton.json"
+    debug "Set test ended time to be when last imagestreamtag was created"
 }
