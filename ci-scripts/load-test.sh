@@ -8,7 +8,7 @@ source "$(dirname "$0")/lib.sh"
 
 TEST_TOTAL="${TEST_TOTAL:-100}"
 TEST_CONCURRENT="${TEST_CONCURRENT:-10}"
-TEST_RUN="${TEST_RUN:-./run.yaml}"
+TEST_SCENARIO="${TEST_SCENARIO:-math}"
 TEST_TIMEOUT="${TEST_TIMEOUT:-18000}"   # 5 hours
 
 measure_signed_pid=""
@@ -24,12 +24,6 @@ TEST_PIPELINE="scenario/$TEST_SCENARIO/pipeline.yaml"
 TEST_RUN="scenario/$TEST_SCENARIO/run.yaml"
 [ -f scenario/$TEST_SCENARIO/setup.sh ] && source scenario/$TEST_SCENARIO/setup.sh
 kubectl apply -f "$TEST_PIPELINE"
-
-if [ "$TEST_RUN" == "./run-image-signing-bigbang.yaml" ]; then
-    info "Disabling Chains"   # note this removes signing-secrets secret
-    kubectl patch TektonConfig/config --type='merge' -p='{"spec":{"chain":{"disabled": true}}}'
-    sleep 5
-fi
 
 info "Benchmark ${TEST_TOTAL} | ${TEST_CONCURRENT} | ${TEST_RUN} | ${TEST_TIMEOUT}"
 time ./benchmark-tekton.sh --total "${TEST_TOTAL}" --concurrent "${TEST_CONCURRENT}" --run "${TEST_RUN}" --timeout "${TEST_TIMEOUT}" --debug
