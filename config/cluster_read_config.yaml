@@ -256,3 +256,4 @@
 # Collect data for API pods
 {{ monitor_pod('openshift-apiserver', 'apiserver', 15) }}
 {{ monitor_pod('openshift-kube-apiserver', 'kube-apiserver', 15, pod_suffix_regex='-ip-.+') }}
+{{ monitor_pod('openshift-etcd', 'etcd-rhosd', 15, pod_suffix_regex='-.+') }}
