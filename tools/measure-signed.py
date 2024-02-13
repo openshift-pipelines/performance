@@ -7,6 +7,7 @@ import datetime
 import json
 import logging
 import logging.handlers
+import pkg_resources
 import requests
 import signal
 import sys
@@ -148,7 +149,13 @@ def main():
     verify = not args.insecure
 
     if args.insecure:
-        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+        # https://stackoverflow.com/questions/27981545/suppress-insecurerequestwarning-unverified-https-request-is-being-made-in-pytho
+        requests_version = pkg_resources.parse_version(requests.__version__)
+        border_version = pkg_resources.parse_version("2.16.0")
+        if requests_version < border_version:
+            requests.packages.urllib3.disable_warnings(requests.packages.urllib3.exceptions.InsecureRequestWarning)
+        else:
+            urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
     with open(args.save, "w") as fd:
         csv_writer = csv.writer(fd)
