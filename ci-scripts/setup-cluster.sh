@@ -189,6 +189,10 @@ else
 fi
 
 info "Deploying event exporter"
+if oc -n openshift-monitoring get configmap/cluster-monitoring-config; then
+    oc -n openshift-monitoring get configmap/cluster-monitoring-config -o yaml
+    oc -n openshift-monitoring delete configmap/cluster-monitoring-config
+fi
 oc -n openshift-monitoring create configmap cluster-monitoring-config --from-literal="config.yaml=enableUserWorkload: true"
 wait_for_entity_by_selector 300 openshift-user-workload-monitoring pod app.kubernetes.io/component=prometheus,app.kubernetes.io/instance=user-workload,app.kubernetes.io/name=prometheus
 kubectl -n openshift-user-workload-monitoring wait --for=condition=ready --timeout=300s pod -l app.kubernetes.io/component=prometheus,app.kubernetes.io/instance=user-workload,app.kubernetes.io/name=prometheus
