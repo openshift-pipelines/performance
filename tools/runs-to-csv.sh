@@ -62,6 +62,8 @@ find . -name benchmark-tekton.json -print0 | while IFS= read -r -d '' filename; 
         .measurements.apiserver.memory.mean,
         .measurements."kube-apiserver".cpu.mean,
         .measurements."kube-apiserver".memory.mean
+        .measurements.event_exporter_event_count_all_sum.range,
+        .measurements.event_exporter_event_count_benchmark_sum.range
         ] | @csv' \
         && rc=0 || rc=1
     if [[ "$rc" -ne 0 ]]; then

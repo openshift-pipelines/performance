@@ -118,6 +118,33 @@
 
 
 
+# Event exporter metrics (`rate(...)` does not work for me as expected here, so using just sum)
+- name: measurements.event_exporter_event_count_all_sum
+  monitoring_query: sum(kube_event_count{})
+  monitoring_step: 30
+
+- name: measurements.event_exporter_event_count_benchmark_sum
+  monitoring_query: sum(kube_event_count{involved_object_namespace="benchmark"})
+  monitoring_step: 30
+
+- name: measurements.event_exporter_event_count_benchmark_Pod
+  monitoring_query: sum(kube_event_count{involved_object_namespace="benchmark", involved_object_kind="Pod"})
+  monitoring_step: 30
+
+- name: measurements.event_exporter_event_count_benchmark_TaskRun
+  monitoring_query: sum(kube_event_count{involved_object_namespace="benchmark", involved_object_kind="TaskRun"})
+  monitoring_step: 30
+
+- name: measurements.event_exporter_event_count_benchmark_PipelineRun
+  monitoring_query: sum(kube_event_count{involved_object_namespace="benchmark", involved_object_kind="PipelineRun"})
+  monitoring_step: 30
+
+- name: measurements.event_exporter_event_count_benchmark_reason_FinalizerUpdate
+  monitoring_query: sum(kube_event_count{involved_object_namespace="benchmark", reason="FinalizerUpdate"})
+  monitoring_step: 30
+
+
+
 # Interesting CI environment variables
 {% for var in [
   'BUILD_ID',

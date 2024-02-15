@@ -187,3 +187,108 @@ else
     fatal "Unknown deployment type '$DEPLOYMENT_TYPE'"
 
 fi
+
+info "Deploying event exporter"
+oc -n openshift-monitoring create configmap cluster-monitoring-config --from-literal="config.yaml=enableUserWorkload: true"
+wait_for_entity_by_selector 300 openshift-user-workload-monitoring pod app.kubernetes.io/component=prometheus,app.kubernetes.io/instance=user-workload,app.kubernetes.io/name=prometheus
+kubectl -n openshift-user-workload-monitoring wait --for=condition=ready --timeout=300s pod -l app.kubernetes.io/component=prometheus,app.kubernetes.io/instance=user-workload,app.kubernetes.io/name=prometheus
+oc create namespace event-exporter
+cat <<EOF | kubectl -n event-exporter apply -f -
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: event-exporter
+  labels:
+    app: event-exporter
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app: event-exporter
+  name: event-exporter
+subjects:
+  - kind: ServiceAccount
+    name: event-exporter
+    namespace: event-exporter
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: view
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: event-exporter
+  name: event-exporter
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app: event-exporter
+  strategy:
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+        prometheus.io/path: /metrics
+        prometheus.io/port: '9102'
+        prometheus.io/scrape: 'true'
+      labels:
+        app: event-exporter
+    spec:
+      containers:
+        - name: event-exporter
+          image: 'quay.io/rhcloudperfscale/caicloud-event-exporter:v1.0.0'
+          imagePullPolicy: Always
+          args:
+            - --eventType=Warning
+            - --eventType=Normal
+          ports:
+            - containerPort: 9102
+              name: http
+          resources:
+            limits:
+              cpu: 250m
+              memory: 100Mi
+            requests:
+              cpu: 250m
+              memory: 100Mi
+      serviceAccountName: event-exporter
+      terminationGracePeriodSeconds: 30
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: event-exporter
+  name: event-exporter
+spec:
+  ports:
+    - name: http
+      port: 9102
+      targetPort: 9102
+  selector:
+    app: event-exporter
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  labels:
+    app: event-exporter
+  name: event-exporter
+spec:
+  endpoints:
+    - interval: 30s
+      port: http
+      scheme: http
+  selector:
+    matchLabels:
+      app: event-exporter
+...
+EOF
+wait_for_entity_by_selector 300 event-exporter pod app=event-exporter
+kubectl -n event-exporter wait --for=condition=ready --timeout=300s pod -l app=event-exporter
