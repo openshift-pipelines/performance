@@ -204,6 +204,7 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: event-exporter
+  namespace: event-exporter
   labels:
     app: event-exporter
 ---
