@@ -18,6 +18,12 @@ if [ -n "$DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS" ]; then
     pipelines_controller_ha_buckets=$(( pipelines_controller_ha_buckets > 10 ? 10 : pipelines_controller_ha_buckets ))
 fi
 
+DEPLOYMENT_CHAINS_CONTROLLER_HA_REPLICAS="${DEPLOYMENT_CHAINS_CONTROLLER_HA_REPLICAS:-}"
+if [ -n "$DEPLOYMENT_CHAINS_CONTROLLER_HA_REPLICAS" ]; then
+    chains_controller_ha_buckets=$(( DEPLOYMENT_CHAINS_CONTROLLER_HA_REPLICAS * 2 ))
+    chains_controller_ha_buckets=$(( chains_controller_ha_buckets > 10 ? 10 : chains_controller_ha_buckets ))
+fi
+
 info "Deploy pipelines $DEPLOYMENT_TYPE/$DEPLOYMENT_VERSION"
 if [ "$DEPLOYMENT_TYPE" == "downstream" ]; then
 
@@ -89,6 +95,33 @@ EOF
             kubectl -n openshift-pipelines wait --for=condition=ready --timeout=300s pod -l app=tekton-pipelines-controller
             # Check if all replicas were assigned some buckets
             for p in $( kubectl -n openshift-pipelines get pods -l app=tekton-pipelines-controller -o name ); do
+                info "Checking if $p successfully acquired leases - not failing if empty as a workaround"
+                kubectl -n openshift-pipelines logs --prefix "$p" | grep 'successfully acquired lease' || true
+            done
+        fi
+
+        info "Configure Chains HA: $DEPLOYMENT_CHAINS_CONTROLLER_HA_REPLICAS"
+        if [ -n "$DEPLOYMENT_CHAINS_CONTROLLER_HA_REPLICAS" ]; then
+            # Wait for TektonConfig to exist
+            wait_for_entity_by_selector 300 "" TektonConfig openshift-pipelines.tekton.dev/sa-created=true
+            # Patch TektonConfig with replicas and buckets
+            kubectl patch TektonConfig/config --type merge --patch '{"spec":{"chain":{"options":{"deployments":{"tekton-chains-controller":{"spec":{"replicas":'"$DEPLOYMENT_CHAINS_CONTROLLER_HA_REPLICAS"'}}},"configMaps":{"tekton-chains-config-leader-election":{"data":{"buckets":'"$chains_controller_ha_buckets"'}}}}}}}'
+            # Wait for pipelines-controller deployment to appear
+            wait_for_entity_by_selector 300 openshift-pipelines deployment app.kubernetes.io/name=controller,app.kubernetes.io/part-of=tekton-chains
+            # Scale up pipelines-controller
+            kubectl -n openshift-pipelines scale deployment/tekton-chains-controller --replicas "$DEPLOYMENT_CHAINS_CONTROLLER_HA_REPLICAS"
+            # Wait for pods to come up
+            wait_for_entity_by_selector 300 openshift-pipelines pod app=tekton-chains-controller
+            kubectl -n openshift-pipelines wait --for=condition=ready --timeout=300s pod -l app=tekton-chains-controller
+            # Delete leases
+            kubectl delete -n openshift-pipelines $(kubectl get leases -n openshift-pipelines -o name | grep tekton-chains-controller)
+            # Delete pods
+            kubectl -n openshift-pipelines delete pod -l app=tekton-chains-controller
+            # Wait for pods to come up
+            wait_for_entity_by_selector 300 openshift-pipelines pod app=tekton-chains-controller
+            kubectl -n openshift-pipelines wait --for=condition=ready --timeout=300s pod -l app=tekton-chains-controller
+            # Check if all replicas were assigned some buckets
+            for p in $( kubectl -n openshift-pipelines get pods -l app=tekton-chains-controller -o name ); do
                 info "Checking if $p successfully acquired leases - not failing if empty as a workaround"
                 kubectl -n openshift-pipelines logs --prefix "$p" | grep 'successfully acquired lease' || true
             done
