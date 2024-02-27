@@ -104,17 +104,17 @@ EOF
         if [ -n "$DEPLOYMENT_CHAINS_CONTROLLER_HA_REPLICAS" ]; then
             # Wait for TektonConfig to exist
             wait_for_entity_by_selector 300 "" TektonConfig openshift-pipelines.tekton.dev/sa-created=true
-            # Patch TektonConfig with replicas and buckets
-            kubectl patch TektonConfig/config --type merge --patch '{"spec":{"chain":{"options":{"deployments":{"tekton-chains-controller":{"spec":{"replicas":'"$DEPLOYMENT_CHAINS_CONTROLLER_HA_REPLICAS"'}}},"configMaps":{"tekton-chains-config-leader-election":{"data":{"buckets":'"$chains_controller_ha_buckets"'}}}}}}}'
-            # Wait for pipelines-controller deployment to appear
+            # Patch TektonConfig with replicas and buckets for ha
+            kubectl patch TektonConfig/config --type merge --patch '{"spec":{"chain":{"options":{"deployments":{"tekton-chains-controller":{"spec":{"replicas":'"$DEPLOYMENT_CHAINS_CONTROLLER_HA_REPLICAS"'}}},"configMaps":{"tekton-chains-config-leader-election":{"data":{"buckets":"'$chains_controller_ha_buckets'"}}}}}}}'
+            # Wait for chains-controller deployment to appear
             wait_for_entity_by_selector 300 openshift-pipelines deployment app.kubernetes.io/name=controller,app.kubernetes.io/part-of=tekton-chains
-            # Scale up pipelines-controller
+            # Scale up chains-controller
             kubectl -n openshift-pipelines scale deployment/tekton-chains-controller --replicas "$DEPLOYMENT_CHAINS_CONTROLLER_HA_REPLICAS"
             # Wait for pods to come up
             wait_for_entity_by_selector 300 openshift-pipelines pod app=tekton-chains-controller
             kubectl -n openshift-pipelines wait --for=condition=ready --timeout=300s pod -l app=tekton-chains-controller
             # Delete leases
-            kubectl delete -n openshift-pipelines $(kubectl get leases -n openshift-pipelines -o name | grep tekton-chains-controller)
+            kubectl delete -n openshift-pipelines $(kubectl get leases -n openshift-pipelines -o name | grep tektoncd.chains)
             # Delete pods
             kubectl -n openshift-pipelines delete pod -l app=tekton-chains-controller
             # Wait for pods to come up
