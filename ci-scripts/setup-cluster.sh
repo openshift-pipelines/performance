@@ -134,6 +134,9 @@ EOF
     wait_for_entity_by_selector 300 openshift-pipelines pod app=tekton-pipelines-webhook
     kubectl -n openshift-pipelines wait --for=condition=ready --timeout=300s pod -l app=tekton-pipelines-webhook
 
+    info "Disable pruner"
+    kubectl patch TektonConfig/config --type merge --patch '{"spec":{"pruner":{"disabled":true}}}'
+
     info "Deployment finished"
     kubectl -n openshift-pipelines get pods
 
