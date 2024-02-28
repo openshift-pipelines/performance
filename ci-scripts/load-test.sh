@@ -15,7 +15,6 @@ measure_signed_pid=""
 
 info "General setup"
 cd tests/scaling-pipelines/
-kubectl create ns utils
 kubectl create ns benchmark
 kubectl config set-context --current --namespace=benchmark
 

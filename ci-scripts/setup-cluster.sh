@@ -334,3 +334,6 @@ spec:
 EOF
 wait_for_entity_by_selector 300 event-exporter pod app=event-exporter
 kubectl -n event-exporter wait --for=condition=ready --timeout=300s pod -l app=event-exporter
+
+info "Create namespace 'utils' some scenarios use"
+kubectl create ns utils
