@@ -14,6 +14,7 @@ Setup the OpenShift cluster (assuming `oc login ...` happened already):
     export DEPLOYMENT_TYPE="downstream"
     export DEPLOYMENT_VERSION="1.13"
     export DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS=""
+    export DEPLOYMENT_CHAINS_CONTROLLER_HA_REPLICAS=""
     export DEPLOYMENT_PIPELINES_CONTROLLER_RESOURCES="1/2Gi/1/2Gi"
     ci-scripts/setup-cluster.sh
 

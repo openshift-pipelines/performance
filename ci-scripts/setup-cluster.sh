@@ -72,7 +72,7 @@ EOF
         wait_for_entity_by_selector 300 "" TektonConfig openshift-pipelines.tekton.dev/sa-created=true
         kubectl patch TektonConfig/config --type merge --patch '{"spec":{"pipeline":{"options":{"deployments":{"tekton-pipelines-controller":{"spec":{"template":{"spec":{"containers":[{"name":"tekton-pipelines-controller","resources":'"$resources_json"'}]}}}}}}}}}'
 
-        info "Configure HA: $DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS"
+        info "Configure Pipelines HA: $DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS"
         if [ -n "$DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS" ]; then
             # Wait for TektonConfig to exist
             wait_for_entity_by_selector 300 "" TektonConfig openshift-pipelines.tekton.dev/sa-created=true
