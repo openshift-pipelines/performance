@@ -19,6 +19,7 @@ Setup the OpenShift cluster (assuming `oc login ...` happened already):
 
 Run the test:
 
+    export TEST_DO_CLEANUP="false"
     export TEST_TOTAL="100"
     export TEST_CONCURRENT="10"
     export TEST_SCENARIO="math"   # pick this scenario or some of these below
@@ -26,7 +27,6 @@ Run the test:
     # export TEST_SCENARIO="signing-ongoing"
     # export TEST_SCENARIO="signing-bigbang"
     # ...and more
-    export TEST_DO_CLEANUP="false"
     ci-scripts/load-test.sh
 
 Collect the results:
