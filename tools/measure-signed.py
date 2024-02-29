@@ -57,7 +57,7 @@ def sigterm_handler(_signo, _stack_frame):
 def parsedate(string):
     try:
         return datetime.datetime.fromisoformat(string)
-    except AttributeError:
+    except (AttributeError, ValueError):
         out = datetime.datetime.strptime(string, "%Y-%m-%dT%H:%M:%SZ")
         out = out.replace(tzinfo=datetime.timezone.utc)
         return out
@@ -171,7 +171,15 @@ def main():
                 # Older Python workaround
                 now = datetime.datetime.utcnow().replace(tzinfo=datetime.timezone.utc)
 
-            response = session.get(url, headers=headers, verify=verify, timeout=100)
+            while True:
+                try:
+                    response = session.get(url, headers=headers, verify=verify, timeout=100)
+                except requests.exceptions.ChunkedEncodingError as e:
+                    logging.warning(f"Failed getting data: {e}")
+                    time.sleep(3)
+                else:
+                    break
+
             response.raise_for_status()
             data = response.json()
             logging.debug(f"Obtained {len(response.content)} bytes of data with {response.status_code} status code")

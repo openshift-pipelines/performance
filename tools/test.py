@@ -138,7 +138,7 @@ class EventsWatcher():
                     self._kwargs["resource_version"] = None
                 else:
                     raise
-            except urllib3.exceptions.ReadTimeoutError as e:
+            except (urllib3.exceptions.ReadTimeoutError, urllib3.exceptions.ProtocolError) as e:
                 logging.warning(f"Watch failed with: {e}, retrying")
 
     def __iter__(self):
@@ -153,6 +153,8 @@ class EventsWatcher():
 
         if self.args.dump_events_file is not None:
             self._dump_events_fd.write(json.dumps(event) + "\n")
+
+        self.counter += 1
 
         return event
 
