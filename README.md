@@ -35,6 +35,33 @@ Collect the results:
     ci-scripts/collect-results.sh
 
 
+## Dependencies
+
+This is what I did recently on RHEL9 to make test run:
+
+    # Packages
+    rpm -ivh https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm
+    dnf install tmux python3-pip jq parallel git-core
+
+    # kubectl
+    curl -Lso /usr/local/bin/kubectl https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl
+    chmod +x /usr/local/bin/kubectl
+
+    # oc from https://access.redhat.com/downloads/content/290
+    curl -o oc-4.15.0-linux.tar.gz -L "https://access.cdn.redhat.com/content/origin/files/sha256/f0/f0.../oc-4.15.0-linux.tar.gz?user=...&_auth_=..."
+    tar xzf oc-4.15.0-linux.tar.gz
+    cp oc /usr/local/bin/oc
+    chmod +x /usr/local/bin/oc
+
+    # cosign
+    curl -O -L "https://github.com/sigstore/cosign/releases/latest/download/cosign-linux-amd64"
+    mv cosign-linux-amd64 /usr/local/bin/cosign
+    chmod +x /usr/local/bin/cosign
+
+    # Login to OCP cluster
+    oc login https://...:6443 --username ... --password ... --insecure-skip-tls-verify
+
+
 ## What scenarios are there
 
 You can run multiple different scenarios.

@@ -198,6 +198,16 @@ def doit(args):
                     else:
                         pipelineruns[pr_name]["outcome"] = "unknown"
 
+        # Determine signature
+        try:
+            annotations = find("object.metadata.annotations", event)
+        except KeyError:
+            if "signed" not in pipelineruns[pr_name]:
+                pipelineruns[pr_name]["signed"] = "unknown"
+        else:
+            if "chains.tekton.dev/signed" in annotations:
+                pipelineruns[pr_name]["signed"] = annotations["chains.tekton.dev/signed"]
+
         # Count some stats
         total = len(pipelineruns)
         if events_watcher.counter % 100 == 0:
@@ -205,7 +215,9 @@ def doit(args):
             running = len([i for i in pipelineruns.values() if i["state"] == "running"])
             pending = len([i for i in pipelineruns.values() if i["state"] == "pending"])
             should_be_started = min(args.concurrent - running - pending, args.total - total)
-            print({"finished": finished, "running": running, "pending": pending, "total": total, "should_be_started": should_be_started})
+            signed_true = len([i for i in pipelineruns.values() if "signed" in i and i["signed"] == "true"])
+            signed_false = len([i for i in pipelineruns.values() if "signed" in i and i["signed"] == "false"])
+            print({"finished": finished, "running": running, "pending": pending, "total": total, "should_be_started": should_be_started, "signed_true": signed_true, "signed_false": signed_false})
 
         if total >= args.total:
             print("DONE")
