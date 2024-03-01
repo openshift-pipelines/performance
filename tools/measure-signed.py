@@ -174,7 +174,7 @@ def main():
             while True:
                 try:
                     response = session.get(url, headers=headers, verify=verify, timeout=100)
-                except requests.exceptions.ChunkedEncodingError as e:
+                except (requests.exceptions.ChunkedEncodingError, requests.exceptions.ConnectionError) as e:
                     logging.warning(f"Failed getting data: {e}")
                     time.sleep(3)
                 else:
