@@ -26,7 +26,7 @@ function chains_setup_generic() {
     local artifacts_taskrun_format="$2"
     local artifacts_oci_storage="$3"
 
-    info "Setting up Chains with tekton/tekton"
+    info "Setting up Chains with $artifacts_pipelinerun_format/$artifacts_taskrun_format/$artifacts_oci_storage"
 
     # Configure Chains similar to https://tekton.dev/docs/chains/signed-provenance-tutorial/#configuring-tekton-chains
     kubectl patch TektonConfig/config \
@@ -69,6 +69,7 @@ function chains_setup_generic() {
     wait_for_entity_by_selector 300 openshift-pipelines deployment app.kubernetes.io/name=controller,app.kubernetes.io/part-of=tekton-chains
     oc -n openshift-pipelines rollout restart deployment/tekton-chains-controller
     oc -n openshift-pipelines rollout status deployment/tekton-chains-controller
+    wait_for_entity_by_selector 300 openshift-pipelines pod app.kubernetes.io/part-of=tekton-chains
     oc -n openshift-pipelines wait --for=condition=ready --timeout=300s pod -l app.kubernetes.io/part-of=tekton-chains
 }
 
@@ -170,6 +171,7 @@ function measure_signed_wait() {
 }
 
 function measure_signed_start() {
+    expecte="${1:-$TEST_TOTAL}"
     info "Starting measure-signed.py to monitor signatures"
     ../../tools/measure-signed.py --server "$( oc whoami --show-server )" --namespace "benchmark" --token "$( oc whoami -t )" --insecure --save "./measure-signed.csv" --expect-signatures "$TEST_TOTAL" --status-data-file "benchmark-tekton.json" --verbose &
     measure_signed_pid=$!
@@ -204,4 +206,22 @@ function set_ended_last_imagestreamtag() {
     last_pushed=$( cat imagestreamtags.json | jq --raw-output '.items | sort_by(.metadata.creationTimestamp) | last | .metadata.creationTimestamp' )
     cat "benchmark-tekton.json" | jq '.results.ended = "'"$last_pushed"'"' >"$$.json" && mv -f "$$.json" "benchmark-tekton.json"
     debug "Set test ended time to be when last imagestreamtag was created"
+}
+
+function generate_more_start() {
+    local total="$1"
+    local concurrent="$2"
+    local run="$3"
+    local timeout="$4"
+    info "Generate more ${total} | ${concurrent} | ${run} | ${timeout}"
+    time ./benchmark-tekton.sh --total "${total}" --concurrent "${concurrent}" --run "${run}" --timeout "${timeout}" --debug &
+    generate_more_pid=$!
+    echo "$generate_more_pid" >./generate-more.pid
+    debug "Started generating PRs with PID $generate_more_pid"
+}
+
+function generate_more_wait() {
+    info "Waiting for generating PRs to quit PID $( cat ./generate-more.pid )"
+    wait "$( cat ./generate-more.pid )"
+    info "Now generating PRs finished PID $( cat ./generate-more.pid )"
 }

@@ -23,6 +23,7 @@ Run the test:
     export TEST_DO_CLEANUP="false"
     export TEST_TOTAL="100"
     export TEST_CONCURRENT="10"
+    export TEST_TIMEOUT=18000
     export TEST_SCENARIO="math"   # pick this scenario or some of these below
     # export TEST_SCENARIO="build"
     # export TEST_SCENARIO="signing-ongoing"
