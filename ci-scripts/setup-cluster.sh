@@ -86,10 +86,13 @@ EOF
             # Wait for pods to come up
             wait_for_entity_by_selector 300 openshift-pipelines pod app=tekton-pipelines-controller
             kubectl -n openshift-pipelines wait --for=condition=ready --timeout=300s pod -l app=tekton-pipelines-controller
-            # Delete leases
-            kubectl delete -n openshift-pipelines $(kubectl get leases -n openshift-pipelines -o name | grep tekton-pipelines-controller)
             # Delete pods
             kubectl -n openshift-pipelines delete pod -l app=tekton-pipelines-controller
+            # Wait for pods to come up
+            kubectl -n openshift-pipelines wait --for=condition=ready pod -l app=tekton-pipelines-controller
+            # Delete leases
+            kubectl delete -n openshift-pipelines $(kubectl get leases -n openshift-pipelines -o name | grep tekton-pipelines-controller)
+
             # Wait for pods to come up
             wait_for_entity_by_selector 300 openshift-pipelines pod app=tekton-pipelines-controller
             kubectl -n openshift-pipelines wait --for=condition=ready --timeout=300s pod -l app=tekton-pipelines-controller
@@ -113,12 +116,12 @@ EOF
             # Wait for pods to come up
             wait_for_entity_by_selector 300 openshift-pipelines pod app=tekton-chains-controller
             kubectl -n openshift-pipelines wait --for=condition=ready --timeout=300s pod -l app=tekton-chains-controller
-            # Delete leases
-            kubectl delete -n openshift-pipelines $(kubectl get leases -n openshift-pipelines -o name | grep tektoncd.chains)
             # Delete pods
             kubectl -n openshift-pipelines delete pod -l app=tekton-chains-controller
             # Wait for pods to come up
-            wait_for_entity_by_selector 300 openshift-pipelines pod app=tekton-chains-controller
+            kubectl -n openshift-pipelines wait --for=condition=ready pod -l app=tekton-chains-controller
+            # Delete leases
+            kubectl delete -n openshift-pipelines $(kubectl get leases -n openshift-pipelines -o name | grep tektoncd.chains)
             kubectl -n openshift-pipelines wait --for=condition=ready --timeout=300s pod -l app=tekton-chains-controller
             # Check if all replicas were assigned some buckets
             for p in $( kubectl -n openshift-pipelines get pods -l app=tekton-chains-controller -o name ); do
