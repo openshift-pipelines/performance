@@ -88,7 +88,6 @@ while true; do
         ${debug} && echo "$(date -Ins --utc) creating ${needed} runs to raise concurrency to ${concurrent}"
         parallel --will-cite -N0 kubectl create -f $run  2>&1 >/dev/null ::: $(seq 1 ${needed})
     fi
-    echo "$(date -Ins --utc) done with this cycle"
     sleep 1
 done
 ended=$(date -Ins --utc)
