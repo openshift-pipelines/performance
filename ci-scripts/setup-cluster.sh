@@ -81,8 +81,6 @@ EOF
             kubectl patch TektonConfig/config --type merge --patch '{"spec":{"pipeline":{"options":{"deployments":{"tekton-pipelines-controller":{"spec":{"replicas":'"$DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS"'}}}}}}}'
             # Wait for pipelines-controller deployment to appear
             wait_for_entity_by_selector 300 openshift-pipelines deployment app.kubernetes.io/name=controller,app.kubernetes.io/part-of=tekton-pipelines
-            # Scale up pipelines-controller
-            kubectl -n openshift-pipelines scale deployment/tekton-pipelines-controller --replicas "$DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS"
             # Wait for pods to come up
             wait_for_entity_by_selector 300 openshift-pipelines pod app=tekton-pipelines-controller "$DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS"
             kubectl -n openshift-pipelines wait --for=condition=ready --timeout=300s pod -l app=tekton-pipelines-controller
@@ -111,8 +109,6 @@ EOF
             kubectl patch TektonConfig/config --type merge --patch '{"spec":{"chain":{"options":{"deployments":{"tekton-chains-controller":{"spec":{"replicas":'"$DEPLOYMENT_CHAINS_CONTROLLER_HA_REPLICAS"'}}},"configMaps":{"tekton-chains-config-leader-election":{"data":{"buckets":"'$chains_controller_ha_buckets'"}}}}}}}'
             # Wait for chains-controller deployment to appear
             wait_for_entity_by_selector 300 openshift-pipelines deployment app.kubernetes.io/name=controller,app.kubernetes.io/part-of=tekton-chains
-            # Scale up chains-controller
-            kubectl -n openshift-pipelines scale deployment/tekton-chains-controller --replicas "$DEPLOYMENT_CHAINS_CONTROLLER_HA_REPLICAS"
             # Wait for pods to come up
             wait_for_entity_by_selector 300 openshift-pipelines pod app=tekton-chains-controller "$DEPLOYMENT_CHAINS_CONTROLLER_HA_REPLICAS"
             kubectl -n openshift-pipelines wait --for=condition=ready --timeout=300s pod -l app=tekton-chains-controller
