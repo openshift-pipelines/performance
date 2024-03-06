@@ -3,6 +3,7 @@
 
 import argparse
 import collections
+import concurrent.futures
 import datetime
 import json
 import kubernetes
@@ -14,6 +15,7 @@ import pkg_resources
 import requests
 import sys
 import time
+import threading
 import urllib3
 
 
@@ -81,18 +83,9 @@ class EventsWatcher():
         # Either we will process events from OCP cluster or from file (for debugging)
         if self.args.load_events_file is None:
             kubernetes.config.load_kube_config()
-            self._api_instance = kubernetes.client.CustomObjectsApi()
-            self._func = self._api_instance.list_namespaced_custom_object
-            self._kwargs = {
-                "group": "tekton.dev",
-                "version": "v1",
-                "namespace": "benchmark",
-                "plural": "pipelineruns",
-                "pretty": False,
-                "limit": 10,
-                "timeout_seconds": 100,   # server timeout
-                "_request_timeout": 100,   # client timeout
-            }
+            self._api_instance = None
+            self._func = None
+            self._kwargs = None
             self._watch = kubernetes.watch.Watch()
         else:
             assert os.path.isreadable(self.args.load_events_file)
@@ -101,11 +94,11 @@ class EventsWatcher():
         if self.args.dump_events_file is not None:
             self._dump_events_fd = open("data.json", "w")
 
-    def _create_iterator(self):
-        if self.args.load_events_file is None:
-            return iter(self._watch.stream(self._func, **self._kwargs))
-        else:
-            return iter(open(self.args.load_events_file, "r"))
+    ###def _create_iterator(self):
+    ###    if self.args.load_events_file is None:
+    ###        return iter(self._watch.stream(self._func, **self._kwargs))
+    ###    else:
+    ###        return iter(open(self.args.load_events_file, "r"))
 
     def _safe_stream_retry(self):
         """
@@ -159,71 +152,149 @@ class EventsWatcher():
         return event
 
 
-def doit(args):
-    pipelineruns = collections.defaultdict(dict)
+class PRsEventsWatcher(EventsWatcher):
 
-    events_watcher = EventsWatcher(args)
-    for event in events_watcher:
+    def __init__(self, args):
+        super().__init__(args)
+        self._api_instance = kubernetes.client.CustomObjectsApi()
+        self._func = self._api_instance.list_namespaced_custom_object
+        self._kwargs = {
+            "group": "tekton.dev",
+            "version": "v1",
+            "namespace": "benchmark",
+            "plural": "pipelineruns",
+            "pretty": False,
+            "limit": 10,
+            "timeout_seconds": 100,   # server timeout
+            "_request_timeout": 100,   # client timeout
+        }
+
+
+class TRsEventsWatcher(EventsWatcher):
+
+    def __init__(self, args):
+        super().__init__(args)
+        self._api_instance = kubernetes.client.CustomObjectsApi()
+        self._func = self._api_instance.list_namespaced_custom_object
+        self._kwargs = {
+            "group": "tekton.dev",
+            "version": "v1",
+            "namespace": "benchmark",
+            "plural": "taskruns",
+            "pretty": False,
+            "limit": 10,
+            "timeout_seconds": 100,   # server timeout
+            "_request_timeout": 100,   # client timeout
+        }
+
+
+def process_events_thread(watcher, data, lock):
+    for event in watcher:
+        ###logging.debug(f"Processing event: {json.dumps(event)}")
         try:
-            pr_name = find("object.metadata.name", event)
+            e_name = find("object.metadata.name", event)
         except KeyError as e:
             logging.warning(f"Missing name in {json.dumps(event)}: {e} => skipping it")
             continue
 
-        # Collect timestamps if we do not have it already
-        for path in ["object.metadata.creationTimestamp", "object.status.startTime", "object.status.completionTime"]:
-            name = path.split(".")[-1]
-            if name not in pipelineruns[pr_name]:
-                try:
-                    response = find(path, event)
-                except KeyError:
-                    pass
-                else:
-                    pipelineruns[pr_name][name] = response
-
-        # Determine state and possibly outcome
-        try:
-            conditions = find("object.status.conditions", event)
-        except KeyError:
-            pipelineruns[pr_name]["state"] = "pending"
-        else:
-            if conditions[0]["status"] == "Unknown":
-                pipelineruns[pr_name]["state"] = "running"
-            elif conditions[0]["status"] != "Unknown":
-                pipelineruns[pr_name]["state"] = "finished"
-
-                if conditions[0]["type"] == "Succeeded":
-                    if conditions[0]["status"] == "True" and conditions[0]["reason"] == "Succeeded":
-                        pipelineruns[pr_name]["outcome"] = "succeeded"
-                    elif conditions[0]["status"] != "True" and conditions[0]["reason"] != "Succeeded":
-                        pipelineruns[pr_name]["outcome"] = "failed"
+        with lock:
+            # Collect timestamps if we do not have it already
+            for path in ["object.metadata.creationTimestamp", "object.status.startTime", "object.status.completionTime"]:
+                name = path.split(".")[-1]
+                if name not in data[e_name]:
+                    try:
+                        response = find(path, event)
+                    except KeyError:
+                        pass
                     else:
-                        pipelineruns[pr_name]["outcome"] = "unknown"
+                        data[e_name][name] = response
 
-        # Determine signature
-        try:
-            annotations = find("object.metadata.annotations", event)
-        except KeyError:
-            if "signed" not in pipelineruns[pr_name]:
-                pipelineruns[pr_name]["signed"] = "unknown"
-        else:
-            if "chains.tekton.dev/signed" in annotations:
-                pipelineruns[pr_name]["signed"] = annotations["chains.tekton.dev/signed"]
+            # Determine state and possibly outcome
+            try:
+                conditions = find("object.status.conditions", event)
+            except KeyError:
+                data[e_name]["state"] = "pending"
+            else:
+                if conditions[0]["status"] == "Unknown":
+                    data[e_name]["state"] = "running"
+                elif conditions[0]["status"] != "Unknown":
+                    data[e_name]["state"] = "finished"
 
-        # Count some stats
-        total = len(pipelineruns)
-        if events_watcher.counter % 100 == 0:
+                    if conditions[0]["type"] == "Succeeded":
+                        if conditions[0]["status"] == "True" and conditions[0]["reason"] == "Succeeded":
+                            data[e_name]["outcome"] = "succeeded"
+                        elif conditions[0]["status"] != "True" and conditions[0]["reason"] != "Succeeded":
+                            data[e_name]["outcome"] = "failed"
+                        else:
+                            data[e_name]["outcome"] = "unknown"
+
+            # Determine signature
+            try:
+                annotations = find("object.metadata.annotations", event)
+            except KeyError:
+                if "signed" not in data[e_name]:
+                    data[e_name]["signed"] = "unknown"
+            else:
+                if "chains.tekton.dev/signed" in annotations:
+                    data[e_name]["signed"] = annotations["chains.tekton.dev/signed"]
+
+
+def counter_thread(args, pipelineruns, pipelineruns_lock, taskruns, taskruns_lock):
+    while True:
+        with pipelineruns_lock:
+            total = len(pipelineruns)
             finished = len([i for i in pipelineruns.values() if i["state"] == "finished"])
             running = len([i for i in pipelineruns.values() if i["state"] == "running"])
             pending = len([i for i in pipelineruns.values() if i["state"] == "pending"])
-            should_be_started = min(args.concurrent - running - pending, args.total - total)
+            if args.concurrent > 0:
+                should_be_started = min(args.concurrent - running - pending, args.total - total)
+            else:
+                should_be_started = 0
             signed_true = len([i for i in pipelineruns.values() if "signed" in i and i["signed"] == "true"])
             signed_false = len([i for i in pipelineruns.values() if "signed" in i and i["signed"] == "false"])
-            print({"finished": finished, "running": running, "pending": pending, "total": total, "should_be_started": should_be_started, "signed_true": signed_true, "signed_false": signed_false})
+            prs = {"finished": finished, "running": running, "pending": pending, "total": total, "should_be_started": should_be_started, "signed_true": signed_true, "signed_false": signed_false}
 
-        if total >= args.total:
-            print("DONE")
-            break
+        with taskruns_lock:
+            total = len(taskruns)
+            finished = len([i for i in taskruns.values() if i["state"] == "finished"])
+            running = len([i for i in taskruns.values() if i["state"] == "running"])
+            pending = len([i for i in taskruns.values() if i["state"] == "pending"])
+            signed_true = len([i for i in taskruns.values() if "signed" in i and i["signed"] == "true"])
+            signed_false = len([i for i in taskruns.values() if "signed" in i and i["signed"] == "false"])
+            trs = {"finished": finished, "running": running, "pending": pending, "total": total, "should_be_started": should_be_started, "signed_true": signed_true, "signed_false": signed_false}
+
+        logging.info(f"{now().isoformat()} PipelineRuns: {json.dumps(prs)}, TaskRuns: {json.dumps(trs)}")
+
+        if prs["total"] >= args.total:
+            return
+
+        time.sleep(10)
+
+
+def doit(args):
+    pipelineruns = collections.defaultdict(dict)
+    pipelineruns_lock = threading.Lock()
+    pipelineruns_watcher = PRsEventsWatcher(args)
+
+    taskruns = collections.defaultdict(dict)
+    taskruns_lock = threading.Lock()
+    taskruns_watcher = TRsEventsWatcher(args)
+
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        pipelineruns_future = executor.submit(process_events_thread, pipelineruns_watcher, pipelineruns, pipelineruns_lock)
+        print(pipelineruns_future)
+        taskruns_future = executor.submit(process_events_thread, taskruns_watcher, taskruns, taskruns_lock)
+        print(taskruns_future)
+        counter_future = executor.submit(counter_thread, args, pipelineruns, pipelineruns_lock, taskruns, taskruns_lock)
+        print(counter_future)
+    #    if total >= args.total:
+    #        print("DONE")
+    #        break
+
+    r = counter_future.result()
+    pipelineruns_future.cancel()
+    taskruns_future.cancel()
+    print(r)
 
     with open(args.output_file, "w") as fd:
         json.dump(pipelineruns, fd)
@@ -231,24 +302,24 @@ def doit(args):
 
 def main():
     parser = argparse.ArgumentParser(
-        prog="Tekton benchmark test",
-        description="Track number of running PipelineRuns TODO",
+        prog="Tekton monitoring and benchmark test",
+        description="Track number of running PipelineRuns and TaskRuns and optionally keep given paralelism",
     )
     parser.add_argument(
         "--concurrent",
-        help="How many concurrent PipelineRuns to run?",
-        default=10,
+        help="How many concurrent PipelineRuns to run? Defaults to 0 meaning we will not start more PRs.",
+        default=0,
         type=int,
     )
     parser.add_argument(
         "--total",
-        help="How many PipelineRuns to to create?",
+        help="Quit once there is this many PipelineRuns.",
         default=100,
         type=int,
     )
     parser.add_argument(
         "--run",
-        help="PipelineRun file",
+        help="PipelineRun file. Only relevant if we are going to start more PipelineRuns (see --concurrent option).",
         type=str,
     )
     parser.add_argument(
