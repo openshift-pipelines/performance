@@ -17,6 +17,7 @@ import sys
 import time
 import threading
 import urllib3
+import yaml
 
 
 def setup_logger(stderr_log_lvl, log_file):
@@ -190,7 +191,7 @@ class TRsEventsWatcher(EventsWatcher):
 
 def process_events_thread(watcher, data, lock):
     for event in watcher:
-        ###logging.debug(f"Processing event: {json.dumps(event)}")
+        logging.debug(f"Processing event: {json.dumps(event)[:100]}...")
         try:
             e_name = find("object.metadata.name", event)
         except KeyError as e:
@@ -239,7 +240,29 @@ def process_events_thread(watcher, data, lock):
                     data[e_name]["signed"] = annotations["chains.tekton.dev/signed"]
 
 
+def start_pipelinerun_thread(body):
+    logging.debug("Starting PipelineRun creation")
+    kubernetes.config.load_kube_config()
+    api_instance = kubernetes.client.CustomObjectsApi()
+    kwargs = {
+        "group": "tekton.dev",
+        "version": "v1beta1",
+        "namespace": "benchmark",
+        "plural": "pipelineruns",
+        "_request_timeout": 300,   # client timeout
+    }
+    response = api_instance.create_namespaced_custom_object(body=body, **kwargs)
+    logging.debug(f"Created PipelineRun: {response}")
+
+
+
 def counter_thread(args, pipelineruns, pipelineruns_lock, taskruns, taskruns_lock):
+    creation_threads = []
+
+    if args.concurrent > 0:
+        with open(args.run, "r") as fd:
+            run_to_start = yaml.load(fd, Loader=yaml.Loader)
+
     while True:
         with pipelineruns_lock:
             total = len(pipelineruns)
@@ -261,9 +284,35 @@ def counter_thread(args, pipelineruns, pipelineruns_lock, taskruns, taskruns_loc
             pending = len([i for i in taskruns.values() if i["state"] == "pending"])
             signed_true = len([i for i in taskruns.values() if "signed" in i and i["signed"] == "true"])
             signed_false = len([i for i in taskruns.values() if "signed" in i and i["signed"] == "false"])
-            trs = {"finished": finished, "running": running, "pending": pending, "total": total, "should_be_started": should_be_started, "signed_true": signed_true, "signed_false": signed_false}
+            trs = {"finished": finished, "running": running, "pending": pending, "total": total, "signed_true": signed_true, "signed_false": signed_false}
 
-        logging.info(f"{now().isoformat()} PipelineRuns: {json.dumps(prs)}, TaskRuns: {json.dumps(trs)}")
+        logging.info(f">>>>> PipelineRuns: {json.dumps(prs)}, TaskRuns: {json.dumps(trs)}")
+
+        if prs["should_be_started"] > 0:
+            logging.debug(f"Starting {prs['should_be_started']} threads")
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                creation_threads = set()
+                logging.warning("STARTING THREADS")
+                for _ in range(prs["should_be_started"]):
+                    logging.warning("STARTING ONE")
+                    creation_threads.add(executor.submit(start_pipelinerun_thread, run_to_start))
+
+                for done, not_done in concurrent.futures.wait(creation_threads, timeout=3):
+                    logging.warning(f"DONE: {done}")
+                    logging.warning(f"NOT DONE: {not_done}")
+                    for future in not_done:
+                        future.cancel()
+                ###for future in concurrent.futures.as_completed(creation_threads):
+                ###    logging.warning(f"DONE {future}")
+                ###    try:
+                ###        result = future.result()
+                ###    except Exception as e:
+                ###        logging.debug(f"Thread exception: {e}")
+                ###    else:
+                ###        logging.debug(f"Thread result: {result}")
+                logging.warning("DONE ALL")
+
+        logging.info(f">>>>> PipelineRuns: {json.dumps(prs)}, TaskRuns: {json.dumps(trs)}")
 
         if prs["total"] >= args.total:
             return
@@ -282,19 +331,18 @@ def doit(args):
 
     with concurrent.futures.ThreadPoolExecutor() as executor:
         pipelineruns_future = executor.submit(process_events_thread, pipelineruns_watcher, pipelineruns, pipelineruns_lock)
-        print(pipelineruns_future)
         taskruns_future = executor.submit(process_events_thread, taskruns_watcher, taskruns, taskruns_lock)
-        print(taskruns_future)
         counter_future = executor.submit(counter_thread, args, pipelineruns, pipelineruns_lock, taskruns, taskruns_lock)
-        print(counter_future)
-    #    if total >= args.total:
-    #        print("DONE")
-    #        break
 
-    r = counter_future.result()
-    pipelineruns_future.cancel()
-    taskruns_future.cancel()
-    print(r)
+        logging.warning("DONE STARTING MAIN THREADS")
+
+        r = counter_future.result()
+        print(r)
+
+        assert not pipelineruns_future.done(), "PRs tracking thread survived"
+        pipelineruns_future.cancel()
+        assert not taskruns_future.done(), "TRs tracking thread survived"
+        taskruns_future.cancel()
 
     with open(args.output_file, "w") as fd:
         json.dump(pipelineruns, fd)
