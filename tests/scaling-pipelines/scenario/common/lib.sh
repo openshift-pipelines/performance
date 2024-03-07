@@ -67,8 +67,6 @@ function chains_setup_generic() {
 
     # Wait for Chains controller to come up
     wait_for_entity_by_selector 300 openshift-pipelines deployment app.kubernetes.io/name=controller,app.kubernetes.io/part-of=tekton-chains
-    oc -n openshift-pipelines rollout restart deployment/tekton-chains-controller
-    oc -n openshift-pipelines rollout status deployment/tekton-chains-controller
     wait_for_entity_by_selector 300 openshift-pipelines pod app.kubernetes.io/part-of=tekton-chains
     oc -n openshift-pipelines wait --for=condition=ready --timeout=300s pod -l app.kubernetes.io/part-of=tekton-chains
 }
