@@ -71,14 +71,23 @@ def find(path, data):
     return rv
 
 
+class DateTimeEncoder(json.JSONEncoder):
+    def default(self, o):
+        if isinstance(o, datetime.datetime):
+            return o.isoformat()
+
+        return json.JSONEncoder.default(self, o)
+
+
 class EventsWatcher():
 
-    def __init__(self, args):
+    def __init__(self, args, stop_event):
         """
         Watch indefinetely.
         """
         self.logger = logging.getLogger(self.__class__.__name__)
         self.args = args
+        self.stop_event = stop_event
         self.counter = 0   # how many event we have returned
 
         # Either we will process events from OCP cluster or from file (for debugging)
@@ -95,43 +104,52 @@ class EventsWatcher():
         if self.args.dump_events_file is not None:
             self._dump_events_fd = open("data.json", "w")
 
-    ###def _create_iterator(self):
-    ###    if self.args.load_events_file is None:
-    ###        return iter(self._watch.stream(self._func, **self._kwargs))
-    ###    else:
-    ###        return iter(open(self.args.load_events_file, "r"))
-
-    def _safe_stream_retry(self):
+    def _safe_stream(self):
         """
         Iterate through events, skipping these without resource version.
         If watch just ends (no more events), retry it.
-        """
-        while True:
-            for event in self._watch.stream(self._func, **self._kwargs):
-                try:
-                    self._kwargs["resource_version"] = event["object"]["metadata"]["resourceVersion"]
-                except KeyError as e:
-                    self.logger.warning(f"Missing resource version in {json.dumps(e)} => skipping it")
-                    continue
-                yield event
-
-            self.logger.warning(f"Watch failed (last resource version {self._kwargs['resource_version']}), retrying")
-
-    def _safe_stream(self):
-        """
         Catch unimportant issues and retries as needed.
         """
         while True:
+            if self.stop_event.is_set():
+                self.logger.info(f"Was asked to stop, bye!")
+                return
+
             try:
-                for event in self._safe_stream_retry():
+
+                iterator = self._watch.stream(self._func, **self._kwargs)
+                while True:
+                    event = next(iterator, None)
+
+                    # If there are no new events, check if we are supposed to quit and if not, check events queue again
+                    if event is None:
+                        if self.stop_event.is_set():
+                            self.logger.info(f"Was asked to stop, bye!")
+                            return
+
+                        time.sleep(0.1)
+                        continue
+
+                    # Remember resource_version if it is there, if it is missing, ignore event.
+                    try:
+                        self._kwargs["resource_version"] = event["object"]["metadata"]["resourceVersion"]
+                    except KeyError as e:
+                        self.logger.warning(f"Missing resource version in {json.dumps(e)} => skipping it")
+                        continue
+
                     yield event
+
+                self.logger.warning(f"Watch ended (last resource version {self._kwargs['resource_version']}), retrying")
+
             except kubernetes.client.exceptions.ApiException as e:
+
                 if e.status == 410:   # Resource too old
                     e_text = str(e).replace("\n", "")
                     self.logger.warning(f"Watch failed with: {e_text}, resetting resource_version")
                     self._kwargs["resource_version"] = None
                 else:
                     raise
+
             except (urllib3.exceptions.ReadTimeoutError, urllib3.exceptions.ProtocolError) as e:
                 logging.warning(f"Watch failed with: {e}, retrying")
 
@@ -143,7 +161,19 @@ class EventsWatcher():
         return self
 
     def __next__(self):
-        event = next(self.iterator)
+        while True:
+            event = next(self.iterator, None)
+            if event is None:
+                # No data, let's check if we are supposed to quit.
+                if self.stop_event.is_set():
+                    self.logger.info(f"Was asked to stop, bye!")
+                    raise StopIteration("Was asked to stop, bye!")
+
+                self.logger.debug(f"Waiting for next event")
+                time.sleep(0.1)
+            else:
+                # We have the data, yay! Let's go on.
+                break
 
         if self.args.dump_events_file is not None:
             self._dump_events_fd.write(json.dumps(event) + "\n")
@@ -155,8 +185,8 @@ class EventsWatcher():
 
 class PRsEventsWatcher(EventsWatcher):
 
-    def __init__(self, args):
-        super().__init__(args)
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
         self._api_instance = kubernetes.client.CustomObjectsApi()
         self._func = self._api_instance.list_namespaced_custom_object
         self._kwargs = {
@@ -166,15 +196,15 @@ class PRsEventsWatcher(EventsWatcher):
             "plural": "pipelineruns",
             "pretty": False,
             "limit": 10,
-            "timeout_seconds": 100,   # server timeout
-            "_request_timeout": 100,   # client timeout
+            "timeout_seconds": 10,   # server timeout
+            "_request_timeout": 10,   # client timeout
         }
 
 
 class TRsEventsWatcher(EventsWatcher):
 
-    def __init__(self, args):
-        super().__init__(args)
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
         self._api_instance = kubernetes.client.CustomObjectsApi()
         self._func = self._api_instance.list_namespaced_custom_object
         self._kwargs = {
@@ -184,8 +214,8 @@ class TRsEventsWatcher(EventsWatcher):
             "plural": "taskruns",
             "pretty": False,
             "limit": 10,
-            "timeout_seconds": 100,   # server timeout
-            "_request_timeout": 100,   # client timeout
+            "timeout_seconds": 10,   # server timeout
+            "_request_timeout": 10,   # client timeout
         }
 
 
@@ -240,7 +270,25 @@ def process_events_thread(watcher, data, lock):
                     data[e_name]["signed"] = annotations["chains.tekton.dev/signed"]
 
 
+class PropagatingThread(threading.Thread):
+    def run(self):
+        self.exc = None
+        try:
+            # Need this on Python 2
+            # self.ret = self._Thread__target(*self._Thread__args, **self._Thread__kwargs)
+            self.ret = self._target(*self._args, **self._kwargs)
+        except BaseException as e:
+            self.exc = e
+
+    def join(self, timeout=None):
+        super(PropagatingThread, self).join(timeout)
+        if self.exc:
+            raise RuntimeError('Exception in thread') from self.exc
+        return self.ret
+
+
 def start_pipelinerun_thread(body):
+    raise Exception("XXX")
     logging.debug("Starting PipelineRun creation")
     kubernetes.config.load_kube_config()
     api_instance = kubernetes.client.CustomObjectsApi()
@@ -252,30 +300,38 @@ def start_pipelinerun_thread(body):
         "_request_timeout": 300,   # client timeout
     }
     response = api_instance.create_namespaced_custom_object(body=body, **kwargs)
-    logging.debug(f"Created PipelineRun: {response}")
+    logging.debug(f"Created PipelineRun: {json.dumps(response)[:100]}...")
 
 
 
-def counter_thread(args, pipelineruns, pipelineruns_lock, taskruns, taskruns_lock):
-    creation_threads = []
+def counter_thread(args, pipelineruns, pipelineruns_lock, taskruns, taskruns_lock, stop_event):
+    monitoring_start = now()
+    started_prs_worked = 0
+    started_prs_failed = 0
 
     if args.concurrent > 0:
         with open(args.run, "r") as fd:
             run_to_start = yaml.load(fd, Loader=yaml.Loader)
 
     while True:
+        monitoring_now = now()
+        monitoring_second = (monitoring_now - monitoring_start).total_seconds()
+
         with pipelineruns_lock:
             total = len(pipelineruns)
             finished = len([i for i in pipelineruns.values() if i["state"] == "finished"])
             running = len([i for i in pipelineruns.values() if i["state"] == "running"])
             pending = len([i for i in pipelineruns.values() if i["state"] == "pending"])
-            if args.concurrent > 0:
-                should_be_started = min(args.concurrent - running - pending, args.total - total)
-            else:
-                should_be_started = 0
             signed_true = len([i for i in pipelineruns.values() if "signed" in i and i["signed"] == "true"])
             signed_false = len([i for i in pipelineruns.values() if "signed" in i and i["signed"] == "false"])
-            prs = {"finished": finished, "running": running, "pending": pending, "total": total, "should_be_started": should_be_started, "signed_true": signed_true, "signed_false": signed_false}
+        prs = {"monitoring_start": monitoring_start, "monitoring_now": monitoring_now, "monitoring_second": monitoring_second, "finished": finished, "running": running, "pending": pending, "total": total, "signed_true": signed_true, "signed_false": signed_false}
+
+        if args.concurrent > 0:
+            _remaining = max(0, args.total - total)   # avoid negative number if there is more PRs than what was asked on commandline
+            _needed = args.concurrent - running - pending
+            prs["should_be_started"] = min(_needed, _remaining)
+        else:
+            prs["should_be_started"] = 0
 
         with taskruns_lock:
             total = len(taskruns)
@@ -284,68 +340,69 @@ def counter_thread(args, pipelineruns, pipelineruns_lock, taskruns, taskruns_loc
             pending = len([i for i in taskruns.values() if i["state"] == "pending"])
             signed_true = len([i for i in taskruns.values() if "signed" in i and i["signed"] == "true"])
             signed_false = len([i for i in taskruns.values() if "signed" in i and i["signed"] == "false"])
-            trs = {"finished": finished, "running": running, "pending": pending, "total": total, "signed_true": signed_true, "signed_false": signed_false}
+        trs = {"monitoring_start": monitoring_start, "monitoring_now": monitoring_now, "monitoring_second": monitoring_second, "finished": finished, "running": running, "pending": pending, "total": total, "signed_true": signed_true, "signed_false": signed_false}
 
-        logging.info(f">>>>> PipelineRuns: {json.dumps(prs)}, TaskRuns: {json.dumps(trs)}")
-
-        if prs["should_be_started"] > 0:
+        if monitoring_second > args.delay and prs["should_be_started"] > 0:
             logging.debug(f"Starting {prs['should_be_started']} threads")
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                creation_threads = set()
-                logging.warning("STARTING THREADS")
-                for _ in range(prs["should_be_started"]):
-                    logging.warning("STARTING ONE")
-                    creation_threads.add(executor.submit(start_pipelinerun_thread, run_to_start))
+            creation_threads = set()
+            for _ in range(prs["should_be_started"]):
+                future = PropagatingThread(target=start_pipelinerun_thread, args=[run_to_start])
+                future.start()
+                creation_threads.add(future)
+            for future in creation_threads:
+                try:
+                    future.join()
+                except Exception as e:
+                    logging.exception(f"PipelineRun creation failed")
+                    started_prs_failed += 1
+                else:
+                    started_prs_worked += 1
+            prs["started_prs_worked"] = started_prs_worked
+            prs["started_prs_failed"] = started_prs_failed
 
-                for done, not_done in concurrent.futures.wait(creation_threads, timeout=3):
-                    logging.warning(f"DONE: {done}")
-                    logging.warning(f"NOT DONE: {not_done}")
-                    for future in not_done:
-                        future.cancel()
-                ###for future in concurrent.futures.as_completed(creation_threads):
-                ###    logging.warning(f"DONE {future}")
-                ###    try:
-                ###        result = future.result()
-                ###    except Exception as e:
-                ###        logging.debug(f"Thread exception: {e}")
-                ###    else:
-                ###        logging.debug(f"Thread result: {result}")
-                logging.warning("DONE ALL")
-
-        logging.info(f">>>>> PipelineRuns: {json.dumps(prs)}, TaskRuns: {json.dumps(trs)}")
+        logging.info(f"PipelineRuns: {json.dumps(prs, cls=DateTimeEncoder)}")
+        logging.info(f"TaskRuns: {json.dumps(trs, cls=DateTimeEncoder)}")
 
         if prs["total"] >= args.total:
+            stop_event.set()
+            logging.info(f"Quitting counter thread, asking watche threads to stop")
             return
 
-        time.sleep(10)
+        time.sleep(args.delay)
 
 
 def doit(args):
+    stop_event = threading.Event()
+
     pipelineruns = collections.defaultdict(dict)
     pipelineruns_lock = threading.Lock()
-    pipelineruns_watcher = PRsEventsWatcher(args)
+    pipelineruns_watcher = PRsEventsWatcher(args=args, stop_event=stop_event)
 
     taskruns = collections.defaultdict(dict)
     taskruns_lock = threading.Lock()
-    taskruns_watcher = TRsEventsWatcher(args)
+    taskruns_watcher = TRsEventsWatcher(args=args, stop_event=stop_event)
 
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-        pipelineruns_future = executor.submit(process_events_thread, pipelineruns_watcher, pipelineruns, pipelineruns_lock)
-        taskruns_future = executor.submit(process_events_thread, taskruns_watcher, taskruns, taskruns_lock)
-        counter_future = executor.submit(counter_thread, args, pipelineruns, pipelineruns_lock, taskruns, taskruns_lock)
+    pipelineruns_future = PropagatingThread(target=process_events_thread, args=[pipelineruns_watcher, pipelineruns, pipelineruns_lock])
+    pipelineruns_future.name = "pipelineruns_watcher"
+    pipelineruns_future.start()
+    taskruns_future = PropagatingThread(target=process_events_thread, args=[taskruns_watcher, taskruns, taskruns_lock])
+    taskruns_future.name = "taskruns_watcher"
+    taskruns_future.start()
+    counter_future = PropagatingThread(target=counter_thread, args=[args, pipelineruns, pipelineruns_lock, taskruns, taskruns_lock, stop_event])
+    counter_future.name = "counter_thread"
+    counter_future.start()
 
-        logging.warning("DONE STARTING MAIN THREADS")
+    try:
+        counter_future.join()
+    except Exception as e:
+        logging.exception(f"Counter thread failed")
+        stop_event.set()   # let other threads to stop as well
 
-        r = counter_future.result()
-        print(r)
-
-        assert not pipelineruns_future.done(), "PRs tracking thread survived"
-        pipelineruns_future.cancel()
-        assert not taskruns_future.done(), "TRs tracking thread survived"
-        taskruns_future.cancel()
+    pipelineruns_future.join()
+    taskruns_future.join()
 
     with open(args.output_file, "w") as fd:
-        json.dump(pipelineruns, fd)
+        json.dump({"pipelineruns": pipelineruns, "taskruns": taskruns}, fd)
 
 
 def main():
@@ -363,6 +420,12 @@ def main():
         "--total",
         help="Quit once there is this many PipelineRuns.",
         default=100,
+        type=int,
+    )
+    parser.add_argument(
+        "--delay",
+        help="How many seconds to wait between reconciliation loops.",
+        default=10,
         type=int,
     )
     parser.add_argument(
