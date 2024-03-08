@@ -206,8 +206,8 @@ class PRsEventsWatcher(EventsWatcher):
             "plural": "pipelineruns",
             "pretty": False,
             "limit": 10,
-            "timeout_seconds": 10,  # server timeout
-            "_request_timeout": 10,  # client timeout
+            "timeout_seconds": 300,  # server timeout
+            "_request_timeout": 300,  # client timeout
         }
 
 
@@ -224,8 +224,8 @@ class TRsEventsWatcher(EventsWatcher):
             "plural": "taskruns",
             "pretty": False,
             "limit": 10,
-            "timeout_seconds": 10,  # server timeout
-            "_request_timeout": 10,  # client timeout
+            "timeout_seconds": 300,  # server timeout
+            "_request_timeout": 300,  # client timeout
         }
 
 
