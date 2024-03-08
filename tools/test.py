@@ -308,7 +308,6 @@ class PropagatingThread(threading.Thread):
 
 
 def start_pipelinerun_thread(body):
-    raise Exception("XXX")
     logging.debug("Starting PipelineRun creation")
     kubernetes.config.load_kube_config()
     api_instance = kubernetes.client.CustomObjectsApi()
