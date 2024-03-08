@@ -3,6 +3,7 @@
 
 import argparse
 import collections
+import csv
 import datetime
 import json
 import kubernetes
@@ -326,8 +327,8 @@ def counter_thread(
     args, pipelineruns, pipelineruns_lock, taskruns, taskruns_lock, stop_event
 ):
     monitoring_start = now()
-    started_prs_worked = 0
-    started_prs_failed = 0
+    started_worked = 0
+    started_failed = 0
 
     if args.concurrent > 0:
         with open(args.run, "r") as fd:
@@ -424,14 +425,65 @@ def counter_thread(
                     future.join()
                 except:
                     logging.exception("PipelineRun creation failed")
-                    started_prs_failed += 1
+                    started_failed += 1
                 else:
-                    started_prs_worked += 1
-            prs["started_prs_worked"] = started_prs_worked
-            prs["started_prs_failed"] = started_prs_failed
+                    started_worked += 1
+            prs["started_worked"] = started_worked
+            prs["started_failed"] = started_failed
 
         logging.info(f"PipelineRuns: {json.dumps(prs, cls=DateTimeEncoder)}")
         logging.info(f"TaskRuns: {json.dumps(trs, cls=DateTimeEncoder)}")
+
+        if args.stats_file is not None:
+            if not os.path.isfile(args.stats_file):
+                with open(args.stats_file, "w") as fd:
+                    csvwriter = csv.writer(fd)
+                    csvwriter.writerow(
+                        [
+                            "monitoring_start",
+                            "monitoring_now",
+                            "monitoring_second",
+                            "prs_total",
+                            "prs_pending",
+                            "prs_running",
+                            "prs_finished",
+                            "prs_signed_true",
+                            "prs_signed_false",
+                            "prs_started_worked",
+                            "prs_started_failed",
+                            "trs_total",
+                            "trs_pending",
+                            "trs_running",
+                            "trs_finished",
+                            "trs_signed_true",
+                            "trs_signed_false",
+                        ]
+                    )
+            with open(args.stats_file, "a") as fd:
+                csvwriter = csv.writer(fd)
+                csvwriter.writerow(
+                    [
+                        monitoring_start.isoformat(),
+                        monitoring_now.isoformat(),
+                        monitoring_second,
+                        prs["total"],
+                        prs["finished"],
+                        prs["running"],
+                        prs["pending"],
+                        prs["finished"],
+                        prs["signed_true"],
+                        prs["signed_false"],
+                        prs["started_worked"],
+                        prs["started_failed"],
+                        trs["total"],
+                        trs["finished"],
+                        trs["running"],
+                        trs["pending"],
+                        trs["finished"],
+                        trs["signed_true"],
+                        trs["signed_false"],
+                    ]
+                )
 
         if prs["total"] >= args.total:
             stop_event.set()
