@@ -81,6 +81,10 @@
   monitoring_query: sum(tekton_pipelines_controller_workqueue_depth)
   monitoring_step: 15
 
+- name: measurements.tekton_tekton_chains_controller_workqueue_depth
+  monitoring_query: sum(watcher_workqueue_depth{container='tekton-chains-controller'})
+  monitoring_step: 15
+
 ###- name: measurements.pipelinerun_duration_scheduled_seconds
 ###  monitoring_query: sum(pipelinerun_duration_scheduled_seconds_sum / pipelinerun_duration_scheduled_seconds_count)
 ###  monitoring_step: 15
