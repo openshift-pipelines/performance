@@ -280,6 +280,20 @@ def process_events_thread(watcher, data, lock):
                         else:
                             data[e_name]["outcome"] = "unknown"
 
+            # Determine finalizers
+            # PRs: chains.tekton.dev/pipelinerun
+            # TRs: chains.tekton.dev
+            try:
+                finalizers = find("object.metadata.finalizers", event)
+            except KeyError:
+                if "finalizer" not in data[e_name]:
+                    data[e_name]["finalizers"] = None
+            else:
+                if "chains.tekton.dev/pipelinerun" in finalizers or "chains.tekton.dev" in finalizers:
+                    data[e_name]["finalizers"] = True
+                else:
+                    data[e_name]["finalizers"] = False
+
             # Determine signature
             try:
                 annotations = find("object.metadata.annotations", event)
@@ -359,6 +373,8 @@ def counter_thread(
                     if "signed" in i and i["signed"] == "false"
                 ]
             )
+            finalizers_present = len([i for i in pipelineruns.values() if i["finalizers"] is True])
+            finalizers_absent = len([i for i in pipelineruns.values() if i["finalizers"] is False])
         prs = {
             "monitoring_start": monitoring_start,
             "monitoring_now": monitoring_now,
@@ -369,6 +385,8 @@ def counter_thread(
             "total": total,
             "signed_true": signed_true,
             "signed_false": signed_false,
+            "finalizers_present": finalizers_present,
+            "finalizers_absent": finalizers_absent,
         }
 
         if args.concurrent > 0:
@@ -399,6 +417,8 @@ def counter_thread(
                     if "signed" in i and i["signed"] == "false"
                 ]
             )
+            finalizers_present = len([i for i in taskruns.values() if i["finalizers"] is True])
+            finalizers_absent = len([i for i in taskruns.values() if i["finalizers"] is False])
         trs = {
             "monitoring_start": monitoring_start,
             "monitoring_now": monitoring_now,
@@ -409,11 +429,15 @@ def counter_thread(
             "total": total,
             "signed_true": signed_true,
             "signed_false": signed_false,
+            "finalizers_present": finalizers_present,
+            "finalizers_absent": finalizers_absent,
         }
 
         if monitoring_second > args.delay and prs["should_be_started"] > 0:
-            logging.debug(f"Starting {prs['should_be_started']} threads")
+            logging.info(f"Creating {prs['should_be_started']} PipelineRuns")
             creation_threads = set()
+            started_worked_now = 0
+            started_failed_now = 0
             for _ in range(prs["should_be_started"]):
                 future = PropagatingThread(
                     target=start_pipelinerun_thread, args=[run_to_start]
@@ -425,11 +449,14 @@ def counter_thread(
                     future.join()
                 except:
                     logging.exception("PipelineRun creation failed")
-                    started_failed += 1
+                    started_failed_now += 1
                 else:
-                    started_worked += 1
-            prs["started_worked"] = started_worked
-            prs["started_failed"] = started_failed
+                    started_worked_now += 1
+            logging.info(f"Finished creating {prs['should_be_started']} PipelineRuns: {started_worked_now}{started_failed_now}")
+            started_worked += started_worked_now
+            started_failed += started_failed_now
+        prs["started_worked"] = started_worked
+        prs["started_failed"] = started_failed
 
         logging.info(f"PipelineRuns: {json.dumps(prs, cls=DateTimeEncoder)}")
         logging.info(f"TaskRuns: {json.dumps(trs, cls=DateTimeEncoder)}")
@@ -449,6 +476,8 @@ def counter_thread(
                             "prs_finished",
                             "prs_signed_true",
                             "prs_signed_false",
+                            "prs_finalizers_present",
+                            "prs_finalizers_absent",
                             "prs_started_worked",
                             "prs_started_failed",
                             "trs_total",
@@ -457,6 +486,8 @@ def counter_thread(
                             "trs_finished",
                             "trs_signed_true",
                             "trs_signed_false",
+                            "trs_finalizers_present",
+                            "trs_finalizers_absent",
                         ]
                     )
             with open(args.stats_file, "a") as fd:
@@ -467,21 +498,23 @@ def counter_thread(
                         monitoring_now.isoformat(),
                         monitoring_second,
                         prs["total"],
-                        prs["finished"],
-                        prs["running"],
                         prs["pending"],
+                        prs["running"],
                         prs["finished"],
                         prs["signed_true"],
                         prs["signed_false"],
+                        prs["finalizers_present"],
+                        prs["finalizers_absent"],
                         prs["started_worked"],
                         prs["started_failed"],
                         trs["total"],
-                        trs["finished"],
-                        trs["running"],
                         trs["pending"],
+                        trs["running"],
                         trs["finished"],
                         trs["signed_true"],
                         trs["signed_false"],
+                        trs["finalizers_present"],
+                        trs["finalizers_absent"],
                     ]
                 )
 
