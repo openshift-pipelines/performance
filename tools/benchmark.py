@@ -104,6 +104,11 @@ class EventsWatcher:
         if self.args.dump_events_file is not None:
             self._dump_events_fd = open("data.json", "w")
 
+    def stop(self):
+        self.logger.info("We were asked to stop")
+        self.stop_event.set()
+        self._watch.stop()
+
     def _safe_stream(self):
         """
         Iterate through events, skipping these without resource version.
@@ -111,25 +116,10 @@ class EventsWatcher:
         Catch unimportant issues and retries as needed.
         """
         while True:
-            if self.stop_event.is_set():
-                self.logger.info("Was asked to stop, bye!")
-                return
-
+            self.logger.info("Starting watch stream")
             try:
 
-                iterator = self._watch.stream(self._func, **self._kwargs)
-                while True:
-                    event = next(iterator, None)
-
-                    # If there are no new events, check if we are supposed to quit and if not, check events queue again
-                    if event is None:
-                        if self.stop_event.is_set():
-                            self.logger.info("Was asked to stop, bye!")
-                            return
-
-                        time.sleep(0.1)
-                        continue
-
+                for event in self._watch.stream(self._func, **self._kwargs):
                     # Remember resource_version if it is there, if it is missing, ignore event.
                     try:
                         self._kwargs["resource_version"] = event["object"]["metadata"][
@@ -143,9 +133,15 @@ class EventsWatcher:
 
                     yield event
 
-                self.logger.warning(
-                    f"Watch ended (last resource version {self._kwargs['resource_version']}), retrying"
-                )
+                self.logger.info("Watch stream finished")
+
+                if self.stop_event.is_set():
+                    self.logger.info("Was asked to stop, bye!")
+                    return
+                else:
+                    self.logger.warning(
+                        f"Watch ended (last resource version {self._kwargs['resource_version']}), retrying"
+                    )
 
             except kubernetes.client.exceptions.ApiException as e:
 
@@ -162,36 +158,26 @@ class EventsWatcher:
                 urllib3.exceptions.ReadTimeoutError,
                 urllib3.exceptions.ProtocolError,
             ) as e:
+
                 logging.warning(f"Watch failed with: {e}, retrying")
 
     def __iter__(self):
         if self.args.load_events_file is None:
-            self.iterator = iter(self._safe_stream())
+            self.iterator = self._safe_stream()
         else:
-            self.iterator = iter(open(self.args.load_events_file, "r"))
+            self.iterator = open(self.args.load_events_file, "r")
         return self
 
     def __next__(self):
-        while True:
-            event = next(self.iterator, None)
-            if event is None:
-                # No data, let's check if we are supposed to quit.
-                if self.stop_event.is_set():
-                    self.logger.info("Was asked to stop, bye!")
-                    raise StopIteration("Was asked to stop, bye!")
+        for event in self.iterator:
+            if self.args.dump_events_file is not None:
+                self._dump_events_fd.write(json.dumps(event) + "\n")
 
-                time.sleep(0.1)
-                continue
-            else:
-                # We have the data, yay! Let's go on.
-                break
+            self.counter += 1
 
-        if self.args.dump_events_file is not None:
-            self._dump_events_fd.write(json.dumps(event) + "\n")
+            return event
 
-        self.counter += 1
-
-        return event
+        raise StopIteration("No more events")
 
 
 class PRsEventsWatcher(EventsWatcher):
@@ -341,7 +327,7 @@ def start_pipelinerun_thread(body):
 
 
 def counter_thread(
-    args, pipelineruns, pipelineruns_lock, taskruns, taskruns_lock, stop_event
+    args, pipelineruns, pipelineruns_lock, taskruns, taskruns_lock
 ):
     monitoring_start = now()
     started_worked = 0
@@ -455,7 +441,7 @@ def counter_thread(
                     started_failed_now += 1
                 else:
                     started_worked_now += 1
-            logging.info(f"Finished creating {prs['should_be_started']} PipelineRuns: {started_worked_now}{started_failed_now}")
+            logging.info(f"Finished creating {prs['should_be_started']} PipelineRuns: {started_worked_now}/{started_failed_now}")
             started_worked += started_worked_now
             started_failed += started_failed_now
         prs["started_worked"] = started_worked
@@ -522,8 +508,7 @@ def counter_thread(
                 )
 
         if prs["total"] >= args.total:
-            stop_event.set()
-            logging.info("We are done, asking watcher threads to stop")
+            logging.info("We are done")
             return
 
         time.sleep(args.delay)
@@ -542,12 +527,21 @@ def doit(args):
 
     pipelineruns_future = PropagatingThread(
         target=process_events_thread,
-        args=[pipelineruns_watcher, pipelineruns, pipelineruns_lock],
+        args=[
+            pipelineruns_watcher,
+            pipelineruns,
+            pipelineruns_lock
+        ],
     )
     pipelineruns_future.name = "pipelineruns_watcher"
     pipelineruns_future.start()
     taskruns_future = PropagatingThread(
-        target=process_events_thread, args=[taskruns_watcher, taskruns, taskruns_lock]
+        target=process_events_thread,
+        args=[
+            taskruns_watcher,
+            taskruns,
+            taskruns_lock,
+        ],
     )
     taskruns_future.name = "taskruns_watcher"
     taskruns_future.start()
@@ -559,7 +553,6 @@ def doit(args):
             pipelineruns_lock,
             taskruns,
             taskruns_lock,
-            stop_event,
         ],
     )
     counter_future.name = "counter_thread"
@@ -568,15 +561,17 @@ def doit(args):
     try:
         counter_future.join()
     except:
-        logging.exception("Counter thread failed, asking watcher threads to stop")
-        stop_event.set()  # let other threads to stop as well
+        logging.exception("Counter thread failed")
 
+    logging.info("Asking watcher threads to stop")
+    pipelineruns_watcher.stop()
+    taskruns_watcher.stop()
 
     pipelineruns_future.join()
     taskruns_future.join()
 
     with open(args.output_file, "w") as fd:
-        json.dump({"pipelineruns": pipelineruns, "taskruns": taskruns}, fd)
+        json.dump({"pipelineruns": pipelineruns, "taskruns": taskruns}, fd, cls=DateTimeEncoder)
 
 
 def main():
