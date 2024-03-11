@@ -11,8 +11,6 @@ generate_more_start "$(( TEST_TOTAL_ORIG * 3 ))" "${TEST_CONCURRENT}" "${TEST_RU
 
 generate_more_wait
 
-measure_signed_wait
-
 set_ended_now
 
 measure_signed_stop

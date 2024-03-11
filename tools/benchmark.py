@@ -266,6 +266,9 @@ def process_events_thread(watcher, data, lock):
                 elif conditions[0]["status"] != "Unknown":
                     data[e_name]["state"] = "finished"
 
+                    if "finished_at" not in data[e_name]:
+                        data[e_name]["finished_at"] = now()
+
                     if conditions[0]["type"] == "Succeeded":
                         if (
                             conditions[0]["status"] == "True"
@@ -567,6 +570,7 @@ def doit(args):
     except:
         logging.exception("Counter thread failed, asking watcher threads to stop")
         stop_event.set()  # let other threads to stop as well
+
 
     pipelineruns_future.join()
     taskruns_future.join()

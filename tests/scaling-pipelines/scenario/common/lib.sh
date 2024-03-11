@@ -212,7 +212,7 @@ function generate_more_start() {
     local run="$3"
     local timeout="$4"
     info "Generate more ${total} | ${concurrent} | ${run} | ${timeout}"
-    time ./benchmark-tekton.sh --total "${total}" --concurrent "${concurrent}" --run "${run}" --timeout "${timeout}" --debug &
+    time ../../tools/benchmark.py --insecure --total "${total}" --concurrent "${concurrent}" --run "${run}" --stats-file benchmark-stats.csv --verbose &
     generate_more_pid=$!
     echo "$generate_more_pid" >./generate-more.pid
     debug "Started generating PRs with PID $generate_more_pid"

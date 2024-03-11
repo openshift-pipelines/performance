@@ -24,8 +24,11 @@ TEST_RUN="scenario/$TEST_SCENARIO/run.yaml"
 [ -f scenario/$TEST_SCENARIO/setup.sh ] && source scenario/$TEST_SCENARIO/setup.sh
 kubectl apply -f "$TEST_PIPELINE"
 
-info "Benchmark ${TEST_TOTAL} | ${TEST_CONCURRENT} | ${TEST_RUN} | ${TEST_TIMEOUT}"
-time ./benchmark-tekton.sh --total "${TEST_TOTAL}" --concurrent "${TEST_CONCURRENT}" --run "${TEST_RUN}" --timeout "${TEST_TIMEOUT}" --debug
+info "Benchmark ${TEST_TOTAL} | ${TEST_CONCURRENT} | ${TEST_RUN}"
+before=$(date -Ins --utc)
+time ../../tools/benchmark.py --insecure --total "${TEST_TOTAL}" --concurrent "${TEST_CONCURRENT}" --run "${TEST_RUN}" --stats-file benchmark-stats.csv --verbose
+after=$(date -Ins --utc)
+time ../../tools/stats.sh "$before" "$after"
 
 info "Tierdown for $TEST_SCENARIO scenario"
 [ -f scenario/$TEST_SCENARIO/tierdown.sh ] && source scenario/$TEST_SCENARIO/tierdown.sh
