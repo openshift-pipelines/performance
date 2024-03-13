@@ -211,8 +211,9 @@ function generate_more_start() {
     local concurrent="$2"
     local run="$3"
     local timeout="$4"
+    local wait_for_state="${5:-total}"
     info "Generate more ${total} | ${concurrent} | ${run} | ${timeout}"
-    time ../../tools/benchmark.py --insecure --total "${total}" --concurrent "${concurrent}" --run "${run}" --stats-file benchmark-stats.csv --verbose &
+    time ../../tools/benchmark.py --insecure --total "${total}" --concurrent "${concurrent}" --run "${run}" --wait-for-state "${wait_for_state}" --stats-file benchmark-stats.csv --verbose &
     generate_more_pid=$!
     echo "$generate_more_pid" >./generate-more.pid
     debug "Started generating PRs with PID $generate_more_pid"
