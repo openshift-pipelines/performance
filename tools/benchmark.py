@@ -11,6 +11,7 @@ import kubernetes.client.exceptions
 import logging
 import logging.handlers
 import os
+import queue
 import pkg_resources
 import requests
 import sys
@@ -89,20 +90,13 @@ class EventsWatcher:
         self.args = args
         self.stop_event = stop_event
         self.counter = 0  # how many event we have returned
+        self._buffer = queue.Queue()
 
-        # Either we will process events from OCP cluster or from file (for debugging)
-        if self.args.load_events_file is None:
-            kubernetes.config.load_kube_config()
-            self._api_instance = None
-            self._func = None
-            self._kwargs = None
-            self._watch = kubernetes.watch.Watch()
-        else:
-            assert os.path.isreadable(self.args.load_events_file)
-
-        # If we are supposed to dump events, prepare file
-        if self.args.dump_events_file is not None:
-            self._dump_events_fd = open("data.json", "w")
+        kubernetes.config.load_kube_config()
+        self._api_instance = None
+        self._func = None
+        self._kwargs = None
+        self._watch = kubernetes.watch.Watch()
 
     def stop(self):
         self.logger.info("We were asked to stop")
@@ -161,23 +155,38 @@ class EventsWatcher:
 
                 logging.warning(f"Watch failed with: {e}, retrying")
 
+    def _buffered_iterator(self):
+        my_iterator = self._safe_stream()
+        try:
+            while True:
+                self._buffer.put(next(my_iterator))
+                if self.stop_event.is_set():
+                    raise StopIteration("Quitting detached iterator on request")
+        except BaseException as e:
+            self._buffer.put(e)
+
     def __iter__(self):
-        if self.args.load_events_file is None:
-            self.iterator = self._safe_stream()
-        else:
-            self.iterator = open(self.args.load_events_file, "r")
+        self.iterator_thread = threading.Thread(target=self._buffered_iterator, daemon=True)
+        self.iterator_thread.start()
         return self
 
     def __next__(self):
-        for event in self.iterator:
-            if self.args.dump_events_file is not None:
-                self._dump_events_fd.write(json.dumps(event) + "\n")
+        if self.stop_event.is_set():
+            raise StopIteration("Quitting on request")
 
+        try:
+            event = self._buffer.get(timeout=0.1)
+        except queue.Empty:
+            event = None
+        else:
             self.counter += 1
 
-            return event
+        # Propagate any exceptions including StopIteration
+        if isinstance(event, BaseException):
+            self.stop()
+            raise event
 
-        raise StopIteration("No more events")
+        return event
 
 
 class PRsEventsWatcher(EventsWatcher):
@@ -218,7 +227,11 @@ class TRsEventsWatcher(EventsWatcher):
 
 def process_events_thread(watcher, data, lock):
     for event in watcher:
+        if event is None:
+            continue
+
         logging.debug(f"Processing event: {json.dumps(event)[:100]}...")
+
         try:
             e_name = find("object.metadata.name", event)
         except KeyError as e:
@@ -507,7 +520,7 @@ def counter_thread(
                     ]
                 )
 
-        if prs["total"] >= args.total:
+        if prs[args.wait_for_state] >= args.total:
             logging.info("We are done")
             return
 
@@ -603,6 +616,13 @@ def main():
         type=str,
     )
     parser.add_argument(
+        "--wait-for-state",
+        help="When waiting for '--total <N>' PipelineRuns, count these in this state",
+        choices=("total", "finished", "signed_true"),
+        default="finished",
+        type=str,
+    )
+    parser.add_argument(
         "--stats-file",
         help="File where we will keep adding stats",
         default="/tmp/benchmark-tekton.csv",
@@ -618,18 +638,6 @@ def main():
         "--log-file",
         help="Log file (will be rotated if needed)",
         default="/tmp/benchmark-tekton.log",
-        type=str,
-    )
-    parser.add_argument(
-        "--dump-events-file",
-        help="File where to dump events as they are comming (for debugging)",
-        default=None,
-        type=str,
-    )
-    parser.add_argument(
-        "--load-events-file",
-        help="File where to load events from instead of OCP cluster (for debugging)",
-        default=None,
         type=str,
     )
     parser.add_argument(
