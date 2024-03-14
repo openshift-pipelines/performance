@@ -113,6 +113,22 @@ class EventsWatcher:
             self.logger.info("Starting watch stream")
             try:
 
+                # First list all
+                _newest = None
+                for event in self._func(**self._kwargs)["items"]:
+                    try:
+                        _completion_time = event["status"]["completionTime"]
+                        _resource_version = event["metadata"]["resourceVersion"]
+                    except KeyError:
+                        continue
+                    else:
+                        if _newest is None or _newest <= _completion_time:   # comparing strings, yay!
+                            _newest = _completion_time
+                            self._kwargs["resource_version"] = _resource_version
+
+                    yield {"type": "MY_INITIAL_SYNC", "object": event}
+
+                # Now start watching
                 for event in self._watch.stream(self._func, **self._kwargs):
                     # Remember resource_version if it is there, if it is missing, ignore event.
                     try:
@@ -201,7 +217,7 @@ class PRsEventsWatcher(EventsWatcher):
             "namespace": "benchmark",
             "plural": "pipelineruns",
             "pretty": False,
-            "limit": 10,
+            "limit": 1000,
             "timeout_seconds": 300,  # server timeout
             "_request_timeout": 300,  # client timeout
         }
@@ -219,7 +235,7 @@ class TRsEventsWatcher(EventsWatcher):
             "namespace": "benchmark",
             "plural": "taskruns",
             "pretty": False,
-            "limit": 10,
+            "limit": 1000,
             "timeout_seconds": 300,  # server timeout
             "_request_timeout": 300,  # client timeout
         }
