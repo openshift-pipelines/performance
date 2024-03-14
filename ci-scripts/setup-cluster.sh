@@ -29,6 +29,7 @@ if [ "$DEPLOYMENT_TYPE" == "downstream" ]; then
 
     DEPLOYMENT_CSV_VERSION="$DEPLOYMENT_VERSION.0"
     [ "$DEPLOYMENT_VERSION" == "1.11" ] && DEPLOYMENT_CSV_VERSION="1.11.1"
+    [ "$DEPLOYMENT_VERSION" == "1.14" ] && DEPLOYMENT_CSV_VERSION="1.14.1"
 
     cat <<EOF | kubectl apply -f -
 apiVersion: operators.coreos.com/v1alpha1
