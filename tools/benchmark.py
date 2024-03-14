@@ -217,7 +217,7 @@ class PRsEventsWatcher(EventsWatcher):
             "namespace": "benchmark",
             "plural": "pipelineruns",
             "pretty": False,
-            "limit": 1000,
+            "limit": 500,
             "timeout_seconds": 300,  # server timeout
             "_request_timeout": 300,  # client timeout
         }
@@ -235,7 +235,7 @@ class TRsEventsWatcher(EventsWatcher):
             "namespace": "benchmark",
             "plural": "taskruns",
             "pretty": False,
-            "limit": 1000,
+            "limit": 500,
             "timeout_seconds": 300,  # server timeout
             "_request_timeout": 300,  # client timeout
         }
