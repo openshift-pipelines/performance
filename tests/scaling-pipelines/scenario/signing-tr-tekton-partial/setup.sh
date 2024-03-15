@@ -4,6 +4,10 @@ chains_setup_tekton_tekton_
 
 chains_stop
 
-# Benchmark script will create "TEST_TOTAL / 2"
-export TEST_TOTAL_ORIG="$TEST_TOTAL"
-export TEST_TOTAL="$(( TEST_TOTAL / 2 ))"
+(
+    wait_for_prs_finished "$(( TEST_TOTAL / 2 ))"
+    chains_start
+    set_started_now
+) &
+
+export TEST_PARAMS="--wait-for-state signed_true"

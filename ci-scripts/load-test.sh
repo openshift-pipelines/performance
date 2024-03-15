@@ -10,6 +10,7 @@ TEST_TOTAL="${TEST_TOTAL:-100}"
 TEST_CONCURRENT="${TEST_CONCURRENT:-10}"
 TEST_SCENARIO="${TEST_SCENARIO:-math}"
 TEST_TIMEOUT="${TEST_TIMEOUT:-18000}"   # 5 hours
+TEST_PARAMS="${TEST_PARAMS:-}"
 
 measure_signed_pid=""
 
@@ -26,7 +27,7 @@ kubectl apply -f "$TEST_PIPELINE"
 
 info "Benchmark ${TEST_TOTAL} | ${TEST_CONCURRENT} | ${TEST_RUN}"
 before=$(date -Ins --utc)
-time ../../tools/benchmark.py --insecure --total "${TEST_TOTAL}" --concurrent "${TEST_CONCURRENT}" --run "${TEST_RUN}" --stats-file benchmark-stats.csv --verbose
+time ../../tools/benchmark.py --insecure --total "${TEST_TOTAL}" --concurrent "${TEST_CONCURRENT}" --run "${TEST_RUN}" --stats-file benchmark-stats.csv --verbose $TEST_PARAMS
 after=$(date -Ins --utc)
 time ../../tools/stats.sh "$before" "$after"
 
