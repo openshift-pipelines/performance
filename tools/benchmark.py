@@ -182,6 +182,10 @@ class EventsWatcher:
             self._buffer.put(e)
 
     def __iter__(self):
+        # Having actual iterator in standalone thread, putting data to the queue
+        # and then locally just reading from the queue allows us to kill
+        # the iterator when needed. Idea comes from this timeout_iterator code:
+        # https://github.com/leangaurav/pypi_iterator/blob/main/iterators/timeout_iterator.py
         self.iterator_thread = threading.Thread(target=self._buffered_iterator, daemon=True)
         self.iterator_thread.start()
         return self
