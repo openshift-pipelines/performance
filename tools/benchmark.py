@@ -122,7 +122,9 @@ class EventsWatcher:
                     except KeyError:
                         continue
                     else:
-                        if _newest is None or _newest <= _completion_time:   # comparing strings, yay!
+                        if (
+                            _newest is None or _newest <= _completion_time
+                        ):  # comparing strings, yay!
                             _newest = _completion_time
                             self._kwargs["resource_version"] = _resource_version
 
@@ -186,7 +188,9 @@ class EventsWatcher:
         # and then locally just reading from the queue allows us to kill
         # the iterator when needed. Idea comes from this timeout_iterator code:
         # https://github.com/leangaurav/pypi_iterator/blob/main/iterators/timeout_iterator.py
-        self.iterator_thread = threading.Thread(target=self._buffered_iterator, daemon=True)
+        self.iterator_thread = threading.Thread(
+            target=self._buffered_iterator, daemon=True
+        )
         self.iterator_thread.start()
         return self
 
@@ -311,7 +315,10 @@ def process_events_thread(watcher, data, lock):
                 if "finalizer" not in data[e_name]:
                     data[e_name]["finalizers"] = None
             else:
-                if "chains.tekton.dev/pipelinerun" in finalizers or "chains.tekton.dev" in finalizers:
+                if (
+                    "chains.tekton.dev/pipelinerun" in finalizers
+                    or "chains.tekton.dev" in finalizers
+                ):
                     data[e_name]["finalizers"] = True
                 else:
                     data[e_name]["finalizers"] = False
@@ -359,9 +366,7 @@ def start_pipelinerun_thread(body):
     logging.debug(f"Created PipelineRun: {json.dumps(response)[:100]}...")
 
 
-def counter_thread(
-    args, pipelineruns, pipelineruns_lock, taskruns, taskruns_lock
-):
+def counter_thread(args, pipelineruns, pipelineruns_lock, taskruns, taskruns_lock):
     monitoring_start = now()
     started_worked = 0
     started_failed = 0
@@ -395,8 +400,12 @@ def counter_thread(
                     if "signed" in i and i["signed"] == "false"
                 ]
             )
-            finalizers_present = len([i for i in pipelineruns.values() if i["finalizers"] is True])
-            finalizers_absent = len([i for i in pipelineruns.values() if i["finalizers"] is False])
+            finalizers_present = len(
+                [i for i in pipelineruns.values() if i["finalizers"] is True]
+            )
+            finalizers_absent = len(
+                [i for i in pipelineruns.values() if i["finalizers"] is False]
+            )
         prs = {
             "monitoring_start": monitoring_start,
             "monitoring_now": monitoring_now,
@@ -439,8 +448,12 @@ def counter_thread(
                     if "signed" in i and i["signed"] == "false"
                 ]
             )
-            finalizers_present = len([i for i in taskruns.values() if i["finalizers"] is True])
-            finalizers_absent = len([i for i in taskruns.values() if i["finalizers"] is False])
+            finalizers_present = len(
+                [i for i in taskruns.values() if i["finalizers"] is True]
+            )
+            finalizers_absent = len(
+                [i for i in taskruns.values() if i["finalizers"] is False]
+            )
         trs = {
             "monitoring_start": monitoring_start,
             "monitoring_now": monitoring_now,
@@ -474,7 +487,9 @@ def counter_thread(
                     started_failed_now += 1
                 else:
                     started_worked_now += 1
-            logging.info(f"Finished creating {prs['should_be_started']} PipelineRuns: {started_worked_now}/{started_failed_now}")
+            logging.info(
+                f"Finished creating {prs['should_be_started']} PipelineRuns: {started_worked_now}/{started_failed_now}"
+            )
             started_worked += started_worked_now
             started_failed += started_failed_now
         prs["started_worked"] = started_worked
@@ -560,11 +575,7 @@ def doit(args):
 
     pipelineruns_future = PropagatingThread(
         target=process_events_thread,
-        args=[
-            pipelineruns_watcher,
-            pipelineruns,
-            pipelineruns_lock
-        ],
+        args=[pipelineruns_watcher, pipelineruns, pipelineruns_lock],
     )
     pipelineruns_future.name = "pipelineruns_watcher"
     pipelineruns_future.start()
@@ -604,7 +615,11 @@ def doit(args):
     taskruns_future.join()
 
     with open(args.output_file, "w") as fd:
-        json.dump({"pipelineruns": pipelineruns, "taskruns": taskruns}, fd, cls=DateTimeEncoder)
+        json.dump(
+            {"pipelineruns": pipelineruns, "taskruns": taskruns},
+            fd,
+            cls=DateTimeEncoder,
+        )
 
 
 def main():
