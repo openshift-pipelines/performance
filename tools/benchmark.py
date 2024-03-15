@@ -110,10 +110,10 @@ class EventsWatcher:
         Catch unimportant issues and retries as needed.
         """
         while True:
-            self.logger.info("Starting watch stream")
             try:
 
                 # First list all
+                self.logger.info("Starting list all stream")
                 _newest = None
                 for event in self._func(**self._kwargs)["items"]:
                     try:
@@ -131,6 +131,7 @@ class EventsWatcher:
                     yield {"type": "MY_INITIAL_SYNC", "object": event}
 
                 # Now start watching
+                self.logger.info("Starting watch stream")
                 for event in self._watch.stream(self._func, **self._kwargs):
                     # Remember resource_version if it is there, if it is missing, ignore event.
                     try:
