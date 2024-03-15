@@ -346,7 +346,7 @@ def start_pipelinerun_thread(body):
     api_instance = kubernetes.client.CustomObjectsApi()
     kwargs = {
         "group": "tekton.dev",
-        "version": "v1beta1",
+        "version": "v1",
         "namespace": "benchmark",
         "plural": "pipelineruns",
         "_request_timeout": 300,  # client timeout
