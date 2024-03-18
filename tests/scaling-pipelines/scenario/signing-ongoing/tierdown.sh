@@ -4,6 +4,4 @@ imagestreamtags_wait
 
 set_ended_last_imagestreamtag
 
-measure_signed_stop
-
 internal_registry_cleanup

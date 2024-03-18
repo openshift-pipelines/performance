@@ -211,8 +211,9 @@ function generate_more_start() {
     local concurrent="$2"
     local run="$3"
     local timeout="$4"
+    local wait_for_state="${5:-total}"
     info "Generate more ${total} | ${concurrent} | ${run} | ${timeout}"
-    time ./benchmark-tekton.sh --total "${total}" --concurrent "${concurrent}" --run "${run}" --timeout "${timeout}" --debug &
+    time ../../tools/benchmark.py --insecure --total "${total}" --concurrent "${concurrent}" --run "${run}" --wait-for-state "${wait_for_state}" --stats-file benchmark-stats.csv --verbose &
     generate_more_pid=$!
     echo "$generate_more_pid" >./generate-more.pid
     debug "Started generating PRs with PID $generate_more_pid"
@@ -222,4 +223,27 @@ function generate_more_wait() {
     info "Waiting for generating PRs to quit PID $( cat ./generate-more.pid )"
     wait "$( cat ./generate-more.pid )"
     info "Now generating PRs finished PID $( cat ./generate-more.pid )"
+}
+
+function wait_for_prs_finished() {
+    # Wait until there is given number of finished PRs in
+    # tests/scaling-pipelines/benchmark-stats.csv
+    local target="$1"
+    local last_row=""
+    local prs_finished=""
+    while true; do
+        last_row="$( tail -n 1 benchmark-stats.csv )"
+        prs_finished="$( echo "$last_row" | cut -d ',' -f 7 )"
+        if echo "$prs_finished" | grep '[^0-9]'; then
+            debug "Parsed '$prs_finished' as a number of finished PipelineRuns, but that does not look like a number"
+        else
+            if [[ prs_finished -ge target ]]; then
+                info "Reached $target with $prs_finished, wait is over"
+                break
+            else
+                debug "Have not reached $target with $prs_finished, waiting"
+            fi
+        fi
+        sleep 10
+    done
 }
