@@ -138,9 +138,9 @@ class EventsWatcher:
                         self._kwargs["resource_version"] = event["object"]["metadata"][
                             "resourceVersion"
                         ]
-                    except KeyError as e:
+                    except KeyError:
                         self.logger.warning(
-                            f"Missing resource version in {json.dumps(e)} => skipping it"
+                            f"Missing resource version in {json.dumps(event)} => skipping it"
                         )
                         continue
 
