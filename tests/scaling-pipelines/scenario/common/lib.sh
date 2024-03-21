@@ -163,9 +163,9 @@ function imagestreamtags_wait() {
 }
 
 function measure_signed_wait() {
-    info "Waiting for measure-signed.py to quit PID $( cat ./measure-signed.pid )"
+    info "Waiting for benchmark.py to quit PID $( cat ./measure-signed.pid )"
     wait "$( cat ./measure-signed.pid )"
-    info "Now measure-signed.py finished PID $( cat ./measure-signed.pid )"
+    info "Now benchmark.py finished PID $( cat ./measure-signed.pid )"
 }
 
 function measure_signed_start() {
@@ -174,11 +174,11 @@ function measure_signed_start() {
     ../../tools/benchmark.py --insecure --total $TEST_TOTAL --concurrent 0 --wait-for-state signed_true --stats-file benchmark-stats.csv --verbose &
     measure_signed_pid=$!
     echo "$measure_signed_pid" >./measure-signed.pid
-    debug "Started measure-signed.py with PID $measure_signed_pid"
+    debug "Started benchmark.py with PID $measure_signed_pid"
 }
 
 function measure_signed_stop() {
-    info "Stopping measure-signed.py PID $( cat ./measure-signed.pid )"
+    info "Stopping benchmark.py PID $( cat ./measure-signed.pid )"
     kill "$( cat ./measure-signed.pid )" || true
     rm -f ./measure-signed.pid
 }
