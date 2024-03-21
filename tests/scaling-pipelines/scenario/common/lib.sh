@@ -170,7 +170,7 @@ function measure_signed_wait() {
 
 function measure_signed_start() {
     expecte="${1:-$TEST_TOTAL}"
-    info "Starting measure-signed.py to monitor signatures"
+    info "Starting benchmark.py (with 0 concurrent tasks) to monitor signatures"
     ../../tools/benchmark.py --insecure --total $TEST_TOTAL --concurrent 0 --wait-for-state signed_true --stats-file benchmark-stats.csv --verbose &
     measure_signed_pid=$!
     echo "$measure_signed_pid" >./measure-signed.pid
