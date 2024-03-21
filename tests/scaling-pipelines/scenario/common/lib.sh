@@ -171,7 +171,7 @@ function measure_signed_wait() {
 function measure_signed_start() {
     expecte="${1:-$TEST_TOTAL}"
     info "Starting measure-signed.py to monitor signatures"
-    ../../tools/measure-signed.py --server "$( oc whoami --show-server )" --namespace "benchmark" --token "$( oc whoami -t )" --insecure --save "./measure-signed.csv" --expect-signatures "$TEST_TOTAL" --status-data-file "benchmark-tekton.json" --verbose &
+    ../../tools/benchmark.py --insecure --total $TEST_TOTAL --concurrent 0 --wait-for-state signed_true --stats-file benchmark-stats.csv --verbose &
     measure_signed_pid=$!
     echo "$measure_signed_pid" >./measure-signed.pid
     debug "Started measure-signed.py with PID $measure_signed_pid"
