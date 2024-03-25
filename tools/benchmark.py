@@ -316,6 +316,8 @@ def process_events_thread(watcher, data, lock):
                 if "finalizer" not in data[e_name]:
                     data[e_name]["finalizers"] = None
             else:
+                if "finalizers_at" not in data[e_name]:
+                    data[e_name]["finalizers_at"] = now()
                 if (
                     "chains.tekton.dev/pipelinerun" in finalizers
                     or "chains.tekton.dev" in finalizers
@@ -332,6 +334,8 @@ def process_events_thread(watcher, data, lock):
                     data[e_name]["signed"] = "unknown"
             else:
                 if "chains.tekton.dev/signed" in annotations:
+                    if "signed_at" not in data[e_name]:
+                        data[e_name]["signed_at"] = now()
                     data[e_name]["signed"] = annotations["chains.tekton.dev/signed"]
 
 

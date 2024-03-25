@@ -32,7 +32,7 @@ python3 --version
 ../../tools/benchmark.py --help
 #####
 before=$(date -Ins --utc)
-time ../../tools/benchmark.py --insecure --total "${TEST_TOTAL}" --concurrent "${TEST_CONCURRENT}" --run "${TEST_RUN}" --stats-file benchmark-stats.csv --verbose $TEST_PARAMS
+time ../../tools/benchmark.py --insecure --total "${TEST_TOTAL}" --concurrent "${TEST_CONCURRENT}" --run "${TEST_RUN}" --stats-file benchmark-stats.csv --output-file benchmark-output.json --verbose $TEST_PARAMS
 after=$(date -Ins --utc)
 time ../../tools/stats.sh "$before" "$after"
 
