@@ -26,11 +26,6 @@ TEST_RUN="scenario/$TEST_SCENARIO/run.yaml"
 kubectl apply -f "$TEST_PIPELINE"
 
 info "Benchmark ${TEST_TOTAL} | ${TEST_CONCURRENT} | ${TEST_RUN}"
-##### DEBUG
-set -x
-python3 --version
-../../tools/benchmark.py --help
-#####
 before=$(date -Ins --utc)
 time ../../tools/benchmark.py --insecure --total "${TEST_TOTAL}" --concurrent "${TEST_CONCURRENT}" --run "${TEST_RUN}" --stats-file benchmark-stats.csv --output-file benchmark-output.json --verbose $TEST_PARAMS
 after=$(date -Ins --utc)
