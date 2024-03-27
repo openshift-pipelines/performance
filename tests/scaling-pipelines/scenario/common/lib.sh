@@ -231,18 +231,23 @@ function wait_for_prs_finished() {
     local target="$1"
     local last_row=""
     local prs_finished=""
+    info "Waiting for $target finished PipelineRuns"
     while true; do
-        last_row="$( tail -n 1 benchmark-stats.csv )"
-        prs_finished="$( echo "$last_row" | cut -d ',' -f 7 )"
-        if echo "$prs_finished" | grep '[^0-9]'; then
-            debug "Parsed '$prs_finished' as a number of finished PipelineRuns, but that does not look like a number"
-        else
-            if [[ prs_finished -ge target ]]; then
-                info "Reached $target with $prs_finished, wait is over"
-                break
+        if [ -r benchmark-stats.csv ]; then
+            last_row="$( tail -n 1 benchmark-stats.csv )"
+            prs_finished="$( echo "$last_row" | cut -d ',' -f 7 )"
+            if echo "$prs_finished" | grep '[^0-9]'; then
+                debug "Waiting for PRs: Parsed '$prs_finished' as a number of finished PipelineRuns, but that does not look like a number"
             else
-                debug "Have not reached $target with $prs_finished, waiting"
+                if [[ prs_finished -ge target ]]; then
+                    info "Waiting for PRs: Reached $target with $prs_finished, wait is over"
+                    break
+                else
+                    debug "Waiting for PRs: Have not reached $target with $prs_finished, waiting"
+                fi
             fi
+        else
+            debug "Waiting for PRs: File benchmark-stats.csv does not exist yet, waiting"
         fi
         sleep 10
     done
