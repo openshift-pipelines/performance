@@ -47,6 +47,7 @@ find . -name benchmark-tekton.json -print0 | while IFS= read -r -d '' filename; 
         .measurements."tekton-operator-proxy-webhook".memory.mean,
         .measurements."tekton-operator-proxy-webhook".memory.max,
         .measurements.tekton_tekton_pipelines_controller_workqueue_depth.mean,
+        .measurements.tekton_tekton_chains_controller_workqueue_depth.mean,
         .measurements.tekton_pipelines_controller_running_taskruns_throttled_by_node.mean,
         .measurements.tekton_pipelines_controller_running_taskruns_throttled_by_quota.mean,
         .measurements.tekton_pipelines_controller_client_latency_average.mean,
@@ -61,8 +62,7 @@ find . -name benchmark-tekton.json -print0 | while IFS= read -r -d '' filename; 
         .measurements.apiserver.cpu.mean,
         .measurements.apiserver.memory.mean,
         .measurements."kube-apiserver".cpu.mean,
-        .measurements."kube-apiserver".memory.mean,
-        .measurements.tekton_tekton_chains_controller_workqueue_depth.mean
+        .measurements."kube-apiserver".memory.mean
         ] | @csv' \
         && rc=0 || rc=1
     if [[ "$rc" -ne 0 ]]; then
