@@ -252,3 +252,13 @@ function wait_for_prs_finished() {
         sleep 10
     done
 }
+
+function wait_for_timeout() {
+    # Wait until a certain timeout
+    local timeout="$1"
+    local message="$2"
+
+    info "Waiting for $timeout seconds timeout to '$message'"
+    sleep $timeout
+    info "Timeout completed."
+}

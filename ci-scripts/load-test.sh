@@ -27,6 +27,11 @@ kubectl apply -f "$TEST_PIPELINE"
 
 info "Benchmark ${TEST_TOTAL} | ${TEST_CONCURRENT} | ${TEST_RUN}"
 before=$(date -Ins --utc)
+if [ -n "$WAIT_TIME" ]; then
+    info "Waiting to establish a baseline performance before creating PRs/TRs"
+    sleep $WAIT_TIME
+    info "Wait timeout completed"
+fi
 time ../../tools/benchmark.py --insecure --total "${TEST_TOTAL}" --concurrent "${TEST_CONCURRENT}" --run "${TEST_RUN}" --stats-file benchmark-stats.csv --output-file benchmark-output.json --verbose $TEST_PARAMS
 after=$(date -Ins --utc)
 time ../../tools/stats.sh "$before" "$after"
