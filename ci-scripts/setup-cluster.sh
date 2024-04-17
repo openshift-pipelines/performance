@@ -24,6 +24,10 @@ if [ -n "$DEPLOYMENT_CHAINS_CONTROLLER_HA_REPLICAS" ]; then
     chains_controller_ha_buckets=$(( chains_controller_ha_buckets > 10 ? 10 : chains_controller_ha_buckets ))
 fi
 
+chains_kube_api_qps="${DEPLOYMENT_CHAINS_KUBE_API_QPS:-}"
+chains_kube_api_burst="${DEPLOYMENT_CHAINS_KUBE_API_BURST:-}"
+chains_threads_per_controller="${DEPLOYMENT_CHAINS_THREADS_PER_CONTROLLER:-}"
+
 info "Deploy pipelines $DEPLOYMENT_TYPE/$DEPLOYMENT_VERSION"
 if [ "$DEPLOYMENT_TYPE" == "downstream" ]; then
 
@@ -122,6 +126,21 @@ EOF
     kubectl -n openshift-pipelines wait --for=condition=ready --timeout=300s pod -l app=tekton-pipelines-controller
     wait_for_entity_by_selector 300 openshift-pipelines pod app=tekton-pipelines-webhook
     kubectl -n openshift-pipelines wait --for=condition=ready --timeout=300s pod -l app=tekton-pipelines-webhook
+
+    info "Enable performance options"
+    chains_perf_options=""
+    if [ -n "$chains_kube_api_qps" ] || [ -n "$chains_kube_api_burst" ] || [ -n "$chains_threads_per_controller" ]; then
+        if [ -n "$chains_kube_api_qps" ]; then
+            chains_perf_options+="\"--kube-api-qps=$chains_kube_api_qps\","
+        fi
+        if [ -n "$chains_kube_api_burst" ]; then
+            chains_perf_options+="\"--kube-api-burst=$chains_kube_api_burst\","
+        fi
+        if [ -n "$chains_threads_per_controller" ]; then
+            chains_perf_options+="\"--threads-per-controller=$chains_threads_per_controller\""
+        fi
+    fi
+    kubectl patch TektonConfig/config --type merge --patch '{"spec":{"chain":{"options":{"deployments":{"tekton-chains-controller":{"spec":{"template":{"spec":{"containers":[{"name":"tekton-chains-controller","args":['$chains_perf_options']}]}}}}}}}}}'
 
     info "Disable pruner"
     kubectl patch TektonConfig/config --type merge --patch '{"spec":{"pruner":{"disabled":true}}}'
