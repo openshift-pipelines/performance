@@ -33,7 +33,7 @@ if [ "$DEPLOYMENT_TYPE" == "downstream" ]; then
 
     DEPLOYMENT_CSV_VERSION="$DEPLOYMENT_VERSION.0"
     [ "$DEPLOYMENT_VERSION" == "1.11" ] && DEPLOYMENT_CSV_VERSION="1.11.1"
-    [ "$DEPLOYMENT_VERSION" == "1.14" ] && DEPLOYMENT_CSV_VERSION="1.14.1"
+    [ "$DEPLOYMENT_VERSION" == "1.14" ] && DEPLOYMENT_CSV_VERSION="1.14.3"
 
     cat <<EOF | kubectl apply -f -
 apiVersion: operators.coreos.com/v1alpha1
@@ -129,18 +129,19 @@ EOF
 
     info "Enable performance options"
     chains_perf_options=""
-    if [ -n "$chains_kube_api_qps" ] || [ -n "$chains_kube_api_burst" ] || [ -n "$chains_threads_per_controller" ]; then
-        if [ -n "$chains_kube_api_qps" ]; then
-            chains_perf_options+="\"--kube-api-qps=$chains_kube_api_qps\","
-        fi
-        if [ -n "$chains_kube_api_burst" ]; then
-            chains_perf_options+="\"--kube-api-burst=$chains_kube_api_burst\","
-        fi
-        if [ -n "$chains_threads_per_controller" ]; then
-            chains_perf_options+="\"--threads-per-controller=$chains_threads_per_controller\""
-        fi
+    if [ -n "$chains_kube_api_qps" ]; then
+        chains_perf_options+="\"--kube-api-qps=$chains_kube_api_qps\","
     fi
-    kubectl patch TektonConfig/config --type merge --patch '{"spec":{"chain":{"options":{"deployments":{"tekton-chains-controller":{"spec":{"template":{"spec":{"containers":[{"name":"tekton-chains-controller","args":['$chains_perf_options']}]}}}}}}}}}'
+    if [ -n "$chains_kube_api_burst" ]; then
+        chains_perf_options+="\"--kube-api-burst=$chains_kube_api_burst\","
+    fi
+    if [ -n "$chains_threads_per_controller" ]; then
+        chains_perf_options+="\"--threads-per-controller=$chains_threads_per_controller\","
+    fi
+    if [[ -n "$chains_perf_options" ]]; then
+        chains_perf_options="${chains_perf_options%,}"
+        kubectl patch TektonConfig/config --type merge --patch '{"spec":{"chain":{"options":{"deployments":{"tekton-chains-controller":{"spec":{"template":{"spec":{"containers":[{"name":"tekton-chains-controller","args":['$chains_perf_options']}]}}}}}}}}}'
+    fi
 
     info "Disable pruner"
     kubectl patch TektonConfig/config --type merge --patch '{"spec":{"pruner":{"disabled":true}}}'
