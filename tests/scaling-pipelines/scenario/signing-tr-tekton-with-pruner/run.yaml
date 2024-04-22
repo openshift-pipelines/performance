@@ -1,0 +1,9 @@
+apiVersion: tekton.dev/v1
+kind: PipelineRun
+metadata:
+  generateName: echo-
+spec:
+  pipelineRef:
+    name: echo
+  params: []
+  workspaces: []

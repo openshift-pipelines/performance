@@ -20,6 +20,9 @@ import threading
 import urllib3
 import yaml
 
+# Constants Flags and Parameters
+TOTAL_RUN__FOR__WAIT_FOR_DURAITON_FLAG = 1_000_000
+
 
 def setup_logger(stderr_log_lvl, log_file):
     """
@@ -560,7 +563,10 @@ def counter_thread(args, pipelineruns, pipelineruns_lock, taskruns, taskruns_loc
                     ]
                 )
 
-        if prs[args.wait_for_state] >= args.total:
+        if  (args.wait_for_duration is not None and
+             (now() - monitoring_start).total_seconds() >= args.wait_for_duration) or \
+                prs[args.wait_for_state] >= args.total:
+            # Terminate script after timeout or completion of expected amount of particular state
             logging.info("We are done")
             return
 
@@ -663,6 +669,13 @@ def main():
         type=str,
     )
     parser.add_argument(
+        "--wait-for-duration",
+        help="Terminate this benchmark script after given duration (seconds).\
+            This flag overrides --total flag and sets a large value to avoid early exit.",
+        default=None,
+        type=int,
+    )
+    parser.add_argument(
         "--stats-file",
         help="File where we will keep adding stats",
         default="/tmp/benchmark-tekton.csv",
@@ -718,6 +731,9 @@ def main():
             )
         else:
             urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+    if args.wait_for_duration is not None:
+        args.total = TOTAL_RUN__FOR__WAIT_FOR_DURAITON_FLAG
 
     return doit(args)
 

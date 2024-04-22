@@ -92,6 +92,16 @@ function chains_stop() {
     kubectl patch TektonConfig/config --type='merge' -p='{"spec":{"chain":{"disabled": true}}}'
 }
 
+function pruner_start() {
+    info "Enabling Pruner"
+    kubectl patch TektonConfig config --type merge --patch "{\"spec\":{\"pruner\":{\"disabled\": false,\"resources\":[\"taskrun\", \"pipelinerun\"],\"schedule\":\"${PRUNER_SCHEDULE:-* * * * *}\",\"keep\":${PRUNER_KEEP:-3},\"prune-per-resource\":${PRUNE_PER_RESOURCE:-true}}}}"
+}
+
+function pruner_stop() {
+    info "Disabling Pruner"
+    kubectl patch TektonConfig/config --type='merge' -p='{"spec":{"pruner":{"disabled": true}}}'
+}
+
 function internal_registry_setup() {
     info "Setting up internal registry"
 
