@@ -1,10 +1,10 @@
 source scenario/common/lib.sh
 
 # timeout between events (pruner start/chains start) [Default: 20 mins]
-EVENT_IDLE_TIMEOUT=$(expr ${EVENT_TIMEOUT:-20} \* 60) 
+EVENT_IDLE_TIMEOUT=${EVENT_TIMEOUT:-$(expr 20 \* 60)}
 
-# Total time for running the test = Wait Time + Pruner Start + Chains Start + Event Timeout (buffer)
-TOTAL_TIMEOUT=$(expr ${WAIT_TIME:-0} \* 60 + 3 \* ${EVENT_IDLE_TIMEOUT})
+# Total time for running the test = Wait Time + Pruner Start + Chains Start + Event Timeout (end buffer)
+TOTAL_TIMEOUT=$(expr ${WAIT_TIME:-0} + 3 \* ${EVENT_IDLE_TIMEOUT})
 
 chains_setup_tekton_tekton_
 
@@ -19,5 +19,5 @@ pruner_stop
     chains_start
 ) &
 
-# Stop if all the PRs are signed or until timeout (32 mins)
+# Stop the execution after total timeout duration
 export TEST_PARAMS="--wait-for-duration=${TOTAL_TIMEOUT}"
