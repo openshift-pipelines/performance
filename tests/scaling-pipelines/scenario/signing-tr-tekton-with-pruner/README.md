@@ -1,6 +1,6 @@
 # "signing-tr-tekton-with-pruner" scenario
 
-This scenario is supposed to stress Pipelines, Chains controller and pruner while still creating more PRs and TRs, signing just PipelineRuns and TaskRuns, no artifacts involved.
+This scenario is supposed to stress Pipelines, Chains controller and pruner while still creating more PRs and TRs, signing just PipelineRuns and TaskRuns.
 
 This scenario is used to establish a baseline performance by:
 1. Monitoring the cluster for $WAIT_TIME duration without any load.
