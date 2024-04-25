@@ -35,14 +35,17 @@ def doit(args, status_data):
     logging.info(f"Processing {args.taskruns_list.name}")
     data_taskruns = {}
     for i in load_file(args.taskruns_list)["items"]:
-        tr_name = i["metadata"]["name"]
-        tr_creationTimestamp = i["metadata"]["creationTimestamp"]
-        tr_podName = i["status"]["podName"]
-        assert tr_name not in data_taskruns
-        data_taskruns[tr_name] = {
-            "creationTimestamp": tr_creationTimestamp,
-            "podName": tr_podName,
-        }
+        try:
+            tr_name = i["metadata"]["name"]
+            tr_creationTimestamp = i["metadata"]["creationTimestamp"]
+            tr_podName = i["status"]["podName"]
+            assert tr_name not in data_taskruns
+            data_taskruns[tr_name] = {
+                "creationTimestamp": tr_creationTimestamp,
+                "podName": tr_podName,
+            }
+        except KeyError as e:
+            logging.debug(f"Missing key details in payload: {e}")
 
     logging.info(f"Processing {args.pods_list.name}")
     data_pods = {}
