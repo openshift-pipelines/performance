@@ -39,21 +39,30 @@ def doit(args, status_data):
             tr_name = i["metadata"]["name"]
             tr_creationTimestamp = i["metadata"]["creationTimestamp"]
             tr_podName = i["status"]["podName"]
-            assert tr_name not in data_taskruns
-            data_taskruns[tr_name] = {
-                "creationTimestamp": tr_creationTimestamp,
-                "podName": tr_podName,
-            }
         except KeyError as e:
-            logging.debug(f"Missing key details in payload: {e}")
+            logging.warning(f"Missing key details in taskruns list: {e}")
+            continue
+
+        assert tr_name not in data_taskruns
+
+        data_taskruns[tr_name] = {
+            "creationTimestamp": tr_creationTimestamp,
+            "podName": tr_podName,
+        }
 
     logging.info(f"Processing {args.pods_list.name}")
     data_pods = {}
     for i in load_file(args.pods_list)["items"]:
-        pod_name = i["metadata"]["name"]
-        pod_tr_name = i["metadata"]["labels"]["tekton.dev/taskRun"]
-        pod_creationTimestamp = i["metadata"]["creationTimestamp"]
+        try:
+            pod_name = i["metadata"]["name"]
+            pod_tr_name = i["metadata"]["labels"]["tekton.dev/taskRun"]
+            pod_creationTimestamp = i["metadata"]["creationTimestamp"]
+        except KeyError as e:
+            logging.warning(f"Missing key details in pods list: {e}")
+            continue
+
         assert pod_name not in data_pods
+
         data_pods[pod_name] = {
             "taskRun": pod_tr_name,
             "creationTimestamp": pod_creationTimestamp,
@@ -65,7 +74,7 @@ def doit(args, status_data):
         try:
             pod_data = data_pods[tr_data["podName"]]
         except KeyError as e:
-            logging.debug(f"Missing pod {tr_data['podName']}, skipping")
+            logging.warning(f"Missing pod {tr_data['podName']}, skipping")
             continue
 
         assert pod_data["taskRun"] == tr_name
