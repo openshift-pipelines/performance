@@ -342,11 +342,13 @@ def process_events_thread(watcher, data, lock):
                         data[e_name]["signed_at"] = now()
                     data[e_name]["signed"] = annotations["chains.tekton.dev/signed"]
 
-            # Determine terminating status
-            if "deletionTimestamp" in data[e_name]:
-                data[e_name]["terminated"] = True
+            # Determine deleted status
+            if event["type"] == "DELETED":
+                data[e_name]["deleted"] = True
+                if "deleted_at" not in data[e_name]:
+                    data[e_name]["deleted_at"] = now()
             else:
-                data[e_name]["terminated"] = False
+                data[e_name]["deleted"] = False
 
 
 class PropagatingThread(threading.Thread):
@@ -421,8 +423,8 @@ def counter_thread(args, pipelineruns, pipelineruns_lock, taskruns, taskruns_loc
             finalizers_absent = len(
                 [i for i in pipelineruns.values() if i["finalizers"] is False]
             )
-            terminated = len(
-                [i for i in pipelineruns.values() if i['terminated'] is True]
+            deleted = len(
+                [i for i in pipelineruns.values() if i['deleted'] is True]
             )
         prs = {
             "monitoring_start": monitoring_start,
@@ -436,7 +438,7 @@ def counter_thread(args, pipelineruns, pipelineruns_lock, taskruns, taskruns_loc
             "signed_false": signed_false,
             "finalizers_present": finalizers_present,
             "finalizers_absent": finalizers_absent,
-            "terminated": terminated,
+            "deleted": deleted,
         }
 
         if args.concurrent > 0:
@@ -473,8 +475,8 @@ def counter_thread(args, pipelineruns, pipelineruns_lock, taskruns, taskruns_loc
             finalizers_absent = len(
                 [i for i in taskruns.values() if i["finalizers"] is False]
             )
-            terminated = len(
-                [i for i in taskruns.values() if i['terminated'] is True]
+            deleted = len(
+                [i for i in taskruns.values() if i['deleted'] is True]
             )
         trs = {
             "monitoring_start": monitoring_start,
@@ -488,7 +490,7 @@ def counter_thread(args, pipelineruns, pipelineruns_lock, taskruns, taskruns_loc
             "signed_false": signed_false,
             "finalizers_present": finalizers_present,
             "finalizers_absent": finalizers_absent,
-            "terminated": terminated,
+            "deleted": deleted,
         }
 
         if monitoring_second > args.delay and prs["should_be_started"] > 0:
@@ -540,7 +542,7 @@ def counter_thread(args, pipelineruns, pipelineruns_lock, taskruns, taskruns_loc
                             "prs_finalizers_absent",
                             "prs_started_worked",
                             "prs_started_failed",
-                            "prs_terminated",
+                            "prs_deleted",
                             "trs_total",
                             "trs_pending",
                             "trs_running",
@@ -549,7 +551,7 @@ def counter_thread(args, pipelineruns, pipelineruns_lock, taskruns, taskruns_loc
                             "trs_signed_false",
                             "trs_finalizers_present",
                             "trs_finalizers_absent",
-                            "trs_terminated",
+                            "trs_deleted",
                         ]
                     )
             with open(args.stats_file, "a") as fd:
@@ -569,7 +571,7 @@ def counter_thread(args, pipelineruns, pipelineruns_lock, taskruns, taskruns_loc
                         prs["finalizers_absent"],
                         prs["started_worked"],
                         prs["started_failed"],
-                        prs["terminated"],
+                        prs["deleted"],
                         trs["total"],
                         trs["pending"],
                         trs["running"],
@@ -578,7 +580,7 @@ def counter_thread(args, pipelineruns, pipelineruns_lock, taskruns, taskruns_loc
                         trs["signed_false"],
                         trs["finalizers_present"],
                         trs["finalizers_absent"],
-                        trs["terminated"],
+                        trs["deleted"],
                     ]
                 )
 

@@ -27,7 +27,7 @@ data_file="${1}"
     echo -n " '$data_file' using 2:7 title 'prs_finished' linewidth 2,"
     echo -n " '$data_file' using 2:8 title 'prs_signed_true' linewidth 2,"
     echo -n " '$data_file' using 2:10 title 'prs_finalizers_present' linewidth 2,"
-    echo -n " '$data_file' using 2:14 title 'prs_terminated' linewidth 2,"
+    echo -n " '$data_file' using 2:14 title 'prs_deleted' linewidth 2,"
 } | gnuplot
 
 {
@@ -51,5 +51,5 @@ data_file="${1}"
     echo -n " '$data_file' using 2:18 title 'trs_finished' linewidth 2,"
     echo -n " '$data_file' using 2:19 title 'trs_signed_true' linewidth 2,"
     echo -n " '$data_file' using 2:21 title 'trs_finalizers_present' linewidth 2,"
-    echo -n " '$data_file' using 2:23 title 'trs_terminated' linewidth 2,"
+    echo -n " '$data_file' using 2:23 title 'trs_deleted' linewidth 2,"
 } | gnuplot
