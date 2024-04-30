@@ -350,6 +350,12 @@ def process_events_thread(watcher, data, lock):
             else:
                 data[e_name]["deleted"] = False
 
+            # Determine terminated status
+            if "deletionTimestamp" in data[e_name]:
+                data[e_name]["terminated"] = True
+            else:
+                data[e_name]["terminated"] = False
+
 
 class PropagatingThread(threading.Thread):
     def run(self):
@@ -426,6 +432,9 @@ def counter_thread(args, pipelineruns, pipelineruns_lock, taskruns, taskruns_loc
             deleted = len(
                 [i for i in pipelineruns.values() if i['deleted'] is True]
             )
+            terminated = len(
+                [i for i in pipelineruns.values() if i['terminated'] is True]
+            )
         prs = {
             "monitoring_start": monitoring_start,
             "monitoring_now": monitoring_now,
@@ -439,6 +448,7 @@ def counter_thread(args, pipelineruns, pipelineruns_lock, taskruns, taskruns_loc
             "finalizers_present": finalizers_present,
             "finalizers_absent": finalizers_absent,
             "deleted": deleted,
+            "terminated": terminated,
         }
 
         if args.concurrent > 0:
@@ -478,6 +488,9 @@ def counter_thread(args, pipelineruns, pipelineruns_lock, taskruns, taskruns_loc
             deleted = len(
                 [i for i in taskruns.values() if i['deleted'] is True]
             )
+            terminated = len(
+                [i for i in taskruns.values() if i['terminated'] is True]
+            )
         trs = {
             "monitoring_start": monitoring_start,
             "monitoring_now": monitoring_now,
@@ -491,6 +504,7 @@ def counter_thread(args, pipelineruns, pipelineruns_lock, taskruns, taskruns_loc
             "finalizers_present": finalizers_present,
             "finalizers_absent": finalizers_absent,
             "deleted": deleted,
+            "terminated": terminated,
         }
 
         if monitoring_second > args.delay and prs["should_be_started"] > 0:
@@ -543,6 +557,7 @@ def counter_thread(args, pipelineruns, pipelineruns_lock, taskruns, taskruns_loc
                             "prs_started_worked",
                             "prs_started_failed",
                             "prs_deleted",
+                            "prs_terminated",
                             "trs_total",
                             "trs_pending",
                             "trs_running",
@@ -552,6 +567,7 @@ def counter_thread(args, pipelineruns, pipelineruns_lock, taskruns, taskruns_loc
                             "trs_finalizers_present",
                             "trs_finalizers_absent",
                             "trs_deleted",
+                            "trs_terminated",
                         ]
                     )
             with open(args.stats_file, "a") as fd:
@@ -572,6 +588,7 @@ def counter_thread(args, pipelineruns, pipelineruns_lock, taskruns, taskruns_loc
                         prs["started_worked"],
                         prs["started_failed"],
                         prs["deleted"],
+                        prs['terminated'],
                         trs["total"],
                         trs["pending"],
                         trs["running"],
@@ -581,6 +598,7 @@ def counter_thread(args, pipelineruns, pipelineruns_lock, taskruns, taskruns_loc
                         trs["finalizers_present"],
                         trs["finalizers_absent"],
                         trs["deleted"],
+                        trs['terminated'],
                     ]
                 )
 
