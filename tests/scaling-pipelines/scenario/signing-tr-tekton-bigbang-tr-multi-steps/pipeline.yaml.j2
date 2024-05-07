@@ -15,7 +15,7 @@ spec:
         #!/usr/bin/env bash
         set -euo pipefail
         {%- for line_idx in range(1, (line_count or 15) + 1) %}
-        echo "Hello World {{ (idx - 1) * (line_count or 15) + line_idx }}"{% endfor %}
+        echo "Hello World Chains Performance Benchmark Test {{ (idx - 1) * (line_count or 15) + line_idx }}"{% endfor %}
 
     {% endfor %}
 ---
