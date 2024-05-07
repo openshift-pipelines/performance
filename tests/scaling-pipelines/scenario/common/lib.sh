@@ -272,3 +272,10 @@ function wait_for_timeout() {
     sleep $timeout
     info "Timeout completed."
 }
+
+function create_pipeline_from_j2_template() {
+    local template="$1"
+    local extra_data_string="${2:-}"
+    info "Populating Jinja2 Template: ${template}"
+    time ../../tools/create-pipeline-yaml.py -f "scenario/$TEST_SCENARIO/${template}" -d --extra-data="${extra_data_string}"
+}
