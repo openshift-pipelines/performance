@@ -1,0 +1,208 @@
+---
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: echo1
+spec:
+  description: "Just hello world from Task1"
+  params: []
+  results: []
+  steps:
+    - name: echo1
+      image: registry.redhat.io/ubi8/ubi-minimal@sha256:574f201d7ed185a9932c91cef5d397f5298dff9df08bc2ebb266c6d1e6284cd1
+      script: |
+        #!/usr/bin/env bash
+        set -euo pipefail
+        echo "Hello World from Task1"
+---
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: echo2
+spec:
+  description: "Just hello world from Task2"
+  params: []
+  results: []
+  steps:
+    - name: echo2
+      image: registry.redhat.io/ubi8/ubi-minimal@sha256:574f201d7ed185a9932c91cef5d397f5298dff9df08bc2ebb266c6d1e6284cd1
+      script: |
+        #!/usr/bin/env bash
+        set -euo pipefail
+        echo "Hello World from Task2"
+---
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: echo3
+spec:
+  description: "Just hello world from Task3"
+  params: []
+  results: []
+  steps:
+    - name: echo3
+      image: registry.redhat.io/ubi8/ubi-minimal@sha256:574f201d7ed185a9932c91cef5d397f5298dff9df08bc2ebb266c6d1e6284cd1
+      script: |
+        #!/usr/bin/env bash
+        set -euo pipefail
+        echo "Hello World from Task3"
+---
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: echo4
+spec:
+  description: "Just hello world from Task4"
+  params: []
+  results: []
+  steps:
+    - name: echo4
+      image: registry.redhat.io/ubi8/ubi-minimal@sha256:574f201d7ed185a9932c91cef5d397f5298dff9df08bc2ebb266c6d1e6284cd1
+      script: |
+        #!/usr/bin/env bash
+        set -euo pipefail
+        echo "Hello World from Task4"
+---
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: echo5
+spec:
+  description: "Just hello world from Task5"
+  params: []
+  results: []
+  steps:
+    - name: echo5
+      image: registry.redhat.io/ubi8/ubi-minimal@sha256:574f201d7ed185a9932c91cef5d397f5298dff9df08bc2ebb266c6d1e6284cd1
+      script: |
+        #!/usr/bin/env bash
+        set -euo pipefail
+        echo "Hello World from Task5"
+---
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: echo6
+spec:
+  description: "Just hello world from Task6"
+  params: []
+  results: []
+  steps:
+    - name: echo6
+      image: registry.redhat.io/ubi8/ubi-minimal@sha256:574f201d7ed185a9932c91cef5d397f5298dff9df08bc2ebb266c6d1e6284cd1
+      script: |
+        #!/usr/bin/env bash
+        set -euo pipefail
+        echo "Hello World from Task6"
+---
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: echo7
+spec:
+  description: "Just hello world from Task7"
+  params: []
+  results: []
+  steps:
+    - name: echo7
+      image: registry.redhat.io/ubi8/ubi-minimal@sha256:574f201d7ed185a9932c91cef5d397f5298dff9df08bc2ebb266c6d1e6284cd1
+      script: |
+        #!/usr/bin/env bash
+        set -euo pipefail
+        echo "Hello World from Task7"
+---
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: echo8
+spec:
+  description: "Just hello world from Task8"
+  params: []
+  results: []
+  steps:
+    - name: echo8
+      image: registry.redhat.io/ubi8/ubi-minimal@sha256:574f201d7ed185a9932c91cef5d397f5298dff9df08bc2ebb266c6d1e6284cd1
+      script: |
+        #!/usr/bin/env bash
+        set -euo pipefail
+        echo "Hello World from Task8"
+---
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: echo9
+spec:
+  description: "Just hello world from Task9"
+  params: []
+  results: []
+  steps:
+    - name: echo9
+      image: registry.redhat.io/ubi8/ubi-minimal@sha256:574f201d7ed185a9932c91cef5d397f5298dff9df08bc2ebb266c6d1e6284cd1
+      script: |
+        #!/usr/bin/env bash
+        set -euo pipefail
+        echo "Hello World from Task9"
+---
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: echo10
+spec:
+  description: "Just hello world from Task10"
+  params: []
+  results: []
+  steps:
+    - name: echo10
+      image: registry.redhat.io/ubi8/ubi-minimal@sha256:574f201d7ed185a9932c91cef5d397f5298dff9df08bc2ebb266c6d1e6284cd1
+      script: |
+        #!/usr/bin/env bash
+        set -euo pipefail
+        echo "Hello World from Task10"
+---
+apiVersion: tekton.dev/v1
+kind: Pipeline
+metadata:
+  name: echo
+spec:
+  params: []
+  tasks:
+    - name: echo1
+      taskRef:
+        name: echo1
+      params: []
+    - name: echo2
+      taskRef:
+        name: echo2
+      params: [ ]
+    - name: echo3
+      taskRef:
+        name: echo3
+      params: []
+    - name: echo4
+      taskRef:
+        name: echo4
+      params: [ ]
+    - name: echo5
+      taskRef:
+        name: echo5
+      params: []
+    - name: echo6
+      taskRef:
+        name: echo6
+      params: [ ]
+    - name: echo7
+      taskRef:
+        name: echo7
+      params: []
+    - name: echo8
+      taskRef:
+        name: echo8
+      params: [ ]
+    - name: echo9
+      taskRef:
+        name: echo9
+      params: []
+    - name: echo10
+      taskRef:
+        name: echo10
+      params: [ ]
