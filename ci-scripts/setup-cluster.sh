@@ -24,6 +24,10 @@ if [ -n "$DEPLOYMENT_CHAINS_CONTROLLER_HA_REPLICAS" ]; then
     chains_controller_ha_buckets=$(( chains_controller_ha_buckets > 10 ? 10 : chains_controller_ha_buckets ))
 fi
 
+pipelines_kube_api_qps="${DEPLOYMENT_PIPELINES_KUBE_API_QPS:-}"
+pipelines_kube_api_burst="${DEPLOYMENT_PIPELINES_KUBE_API_BURST:-}"
+pipelines_threads_per_controller="${DEPLOYMENT_PIPELINES_THREADS_PER_CONTROLLER:-}"
+
 chains_kube_api_qps="${DEPLOYMENT_CHAINS_KUBE_API_QPS:-}"
 chains_kube_api_burst="${DEPLOYMENT_CHAINS_KUBE_API_BURST:-}"
 chains_threads_per_controller="${DEPLOYMENT_CHAINS_THREADS_PER_CONTROLLER:-}"
@@ -76,6 +80,24 @@ EOF
         fi
         wait_for_entity_by_selector 300 "" TektonConfig openshift-pipelines.tekton.dev/sa-created=true
         kubectl patch TektonConfig/config --type merge --patch '{"spec":{"pipeline":{"options":{"deployments":{"tekton-pipelines-controller":{"spec":{"template":{"spec":{"containers":[{"name":"tekton-pipelines-controller","resources":'"$resources_json"'}]}}}}}}}}}'
+
+        info "Enable Pipeline performance options"
+        pipelines_perf_options=""
+        if [ -n "$pipelines_kube_api_qps" ]; then
+            pipelines_perf_options+="\"kube-api-qps\":'$pipelines_kube_api_qps',"
+        fi
+        if [ -n "$pipelines_kube_api_burst" ]; then
+            pipelines_perf_options+="\"kube-api-burst\":'$pipelines_kube_api_burst',"
+        fi
+        if [ -n "$pipelines_threads_per_controller" ]; then
+            pipelines_perf_options+="\"threads-per-controller\":'$pipelines_threads_per_controller',"
+        fi
+
+        if [[ -n "$pipelines_perf_options" ]]; then
+            pipelines_perf_options="${pipelines_perf_options%,}"
+            #need to modify
+            kubectl patch TektonConfig/config --type merge --patch '{"spec":{"pipeline":{"performance":{'$pipelines_perf_options'}}}}'
+        fi
 
         info "Configure Pipelines HA: ${DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS:-no}"
         if [ -n "$DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS" ]; then
