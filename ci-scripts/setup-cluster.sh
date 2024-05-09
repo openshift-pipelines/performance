@@ -81,24 +81,6 @@ EOF
         wait_for_entity_by_selector 300 "" TektonConfig openshift-pipelines.tekton.dev/sa-created=true
         kubectl patch TektonConfig/config --type merge --patch '{"spec":{"pipeline":{"options":{"deployments":{"tekton-pipelines-controller":{"spec":{"template":{"spec":{"containers":[{"name":"tekton-pipelines-controller","resources":'"$resources_json"'}]}}}}}}}}}'
 
-        info "Enable Pipeline performance options"
-        pipelines_perf_options=""
-        if [ -n "$pipelines_kube_api_qps" ]; then
-            pipelines_perf_options+="\"kube-api-qps\":'$pipelines_kube_api_qps',"
-        fi
-        if [ -n "$pipelines_kube_api_burst" ]; then
-            pipelines_perf_options+="\"kube-api-burst\":'$pipelines_kube_api_burst',"
-        fi
-        if [ -n "$pipelines_threads_per_controller" ]; then
-            pipelines_perf_options+="\"threads-per-controller\":'$pipelines_threads_per_controller',"
-        fi
-
-        if [[ -n "$pipelines_perf_options" ]]; then
-            pipelines_perf_options="${pipelines_perf_options%,}"
-            #need to modify
-            kubectl patch TektonConfig/config --type merge --patch '{"spec":{"pipeline":{"performance":{'$pipelines_perf_options'}}}}'
-        fi
-
         info "Configure Pipelines HA: ${DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS:-no}"
         if [ -n "$DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS" ]; then
             # Wait for TektonConfig to exist
@@ -149,7 +131,24 @@ EOF
     wait_for_entity_by_selector 300 openshift-pipelines pod app=tekton-pipelines-webhook
     kubectl -n openshift-pipelines wait --for=condition=ready --timeout=300s pod -l app=tekton-pipelines-webhook
 
-    info "Enable performance options"
+    info "Enable Pipeline performance options"
+    pipelines_perf_options=""
+    if [ -n "$pipelines_kube_api_qps" ]; then
+        pipelines_perf_options+="\"kube-api-qps\":$pipelines_kube_api_qps,"
+    fi
+    if [ -n "$pipelines_kube_api_burst" ]; then
+        pipelines_perf_options+="\"kube-api-burst\":$pipelines_kube_api_burst,"
+    fi
+    if [ -n "$pipelines_threads_per_controller" ]; then
+        pipelines_perf_options+="\"threads-per-controller\":$pipelines_threads_per_controller,"
+    fi
+
+    if [[ -n "$pipelines_perf_options" ]]; then
+        pipelines_perf_options="${pipelines_perf_options%,}"
+        kubectl patch TektonConfig/config --type merge --patch '{"spec":{"pipeline":{"performance":{'$pipelines_perf_options'}}}}'
+    fi
+
+    info "Enable Chains performance options"
     chains_perf_options=""
     if [ -n "$chains_kube_api_qps" ]; then
         chains_perf_options+="\"--kube-api-qps=$chains_kube_api_qps\","
