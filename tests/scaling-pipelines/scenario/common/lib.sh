@@ -181,7 +181,7 @@ function measure_signed_wait() {
 function measure_signed_start() {
     expecte="${1:-$TEST_TOTAL}"
     info "Starting benchmark.py (with 0 concurrent tasks) to monitor signatures"
-    ../../tools/benchmark.py --insecure --total $TEST_TOTAL --concurrent 0 --wait-for-state signed_true --stats-file benchmark-stats.csv --verbose &
+    ../../tools/benchmark.py --insecure --namespace $TEST_NAMESPACE --total $TEST_TOTAL --concurrent 0 --wait-for-state signed_true --stats-file benchmark-stats.csv --verbose &
     measure_signed_pid=$!
     echo "$measure_signed_pid" >./measure-signed.pid
     debug "Started benchmark.py with PID $measure_signed_pid"
@@ -221,9 +221,10 @@ function generate_more_start() {
     local concurrent="$2"
     local run="$3"
     local timeout="$4"
-    local wait_for_state="${5:-total}"
+    local namespace="$5"
+    local wait_for_state="${6:-total}"
     info "Generate more ${total} | ${concurrent} | ${run} | ${timeout}"
-    time ../../tools/benchmark.py --insecure --total "${total}" --concurrent "${concurrent}" --run "${run}" --wait-for-state "${wait_for_state}" --stats-file benchmark-stats.csv --verbose &
+    time ../../tools/benchmark.py --insecure --namespace "${namespace}" --total "${total}" --concurrent "${concurrent}" --run "${run}" --wait-for-state "${wait_for_state}" --stats-file benchmark-stats.csv --verbose &
     generate_more_pid=$!
     echo "$generate_more_pid" >./generate-more.pid
     debug "Started generating PRs with PID $generate_more_pid"
@@ -241,11 +242,14 @@ function wait_for_prs_finished() {
     local target="$1"
     local last_row=""
     local prs_finished=""
+    local namespace="${TEST_NAMESPACE}"
     info "Waiting for $target finished PipelineRuns"
     while true; do
         if [ -r benchmark-stats.csv ]; then
-            last_row="$( tail -n 1 benchmark-stats.csv )"
-            prs_finished="$( echo "$last_row" | cut -d ',' -f 7 )"
+            last_row="$( tail -n $namespace benchmark-stats.csv )"
+            prs_finished_per_namespace="$( echo "$last_row" | cut -d ',' -f 8 )"
+            total_prs_finished="$(echo $prs_finished_per_namespace | tr ' ' '+' | bc)"
+            prs_finished=$((total_prs_finished / namespace))
             if echo "$prs_finished" | grep '[^0-9]'; then
                 debug "Waiting for PRs: Parsed '$prs_finished' as a number of finished PipelineRuns, but that does not look like a number"
             else
