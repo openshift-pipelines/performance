@@ -25,7 +25,7 @@ Setup the OpenShift cluster (assuming `oc login ...` happened already):
     ci-scripts/setup-cluster.sh
 
 Run the test:
-
+    export TEST_NAMESPACE="1"
     export TEST_DO_CLEANUP="false"
     export TEST_TOTAL="100"
     export TEST_CONCURRENT="10"

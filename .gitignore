@@ -8,6 +8,7 @@ artifacts/
 
 tests/scaling-pipelines/push-fake-image/
 
+tests/scaling-pipelines/benchmark-output.json
 tests/scaling-pipelines/benchmark-stats.csv
 tests/scaling-pipelines/benchmark-tekton.json
 tests/scaling-pipelines/cosign.pub

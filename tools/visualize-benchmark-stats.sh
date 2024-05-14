@@ -6,6 +6,7 @@ set -o pipefail
 
 data_file="${1}"
 
+# TODO: ADD SUPPORT TO GROUP RESULTS WITH NAMESPACES
 {
     echo -n "
         set datafile sep ','
