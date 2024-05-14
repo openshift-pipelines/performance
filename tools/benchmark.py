@@ -22,6 +22,7 @@ import yaml
 
 # Constants Flags and Parameters
 TOTAL_RUN__FOR__WAIT_FOR_DURAITON_FLAG = 1_000_000
+NAMESPACE_NAME_FORMAT = "benchmark{idx}"
 
 
 def setup_logger(stderr_log_lvl, log_file):
@@ -226,7 +227,7 @@ class PRsEventsWatcher(EventsWatcher):
         self._kwargs = {
             "group": "tekton.dev",
             "version": "v1",
-            "namespace": "benchmark",
+            "namespace": "",
             "plural": "pipelineruns",
             "pretty": False,
             "limit": 500,
@@ -244,7 +245,7 @@ class TRsEventsWatcher(EventsWatcher):
         self._kwargs = {
             "group": "tekton.dev",
             "version": "v1",
-            "namespace": "benchmark",
+            "namespace": "",
             "plural": "taskruns",
             "pretty": False,
             "limit": 500,
@@ -267,8 +268,9 @@ def process_events_thread(watcher, data, lock):
             continue
 
         with lock:
-            # Collect timestamps if we do not have it already
+            # Collect metadata and timestamps if we do not have it already
             for path in [
+                "object.metadata.namespace",
                 "object.metadata.creationTimestamp",
                 "object.metadata.deletionTimestamp",
                 "object.status.startTime",
@@ -374,14 +376,14 @@ class PropagatingThread(threading.Thread):
         return self.ret
 
 
-def start_pipelinerun_thread(body):
+def start_pipelinerun_thread(body, namespace):
     logging.debug("Starting PipelineRun creation")
     kubernetes.config.load_kube_config()
     api_instance = kubernetes.client.CustomObjectsApi()
     kwargs = {
         "group": "tekton.dev",
         "version": "v1",
-        "namespace": "benchmark",
+        "namespace": namespace,
         "plural": "pipelineruns",
         "_request_timeout": 300,  # client timeout
     }
@@ -394,222 +396,247 @@ def counter_thread(args, pipelineruns, pipelineruns_lock, taskruns, taskruns_loc
     started_worked = 0
     started_failed = 0
 
+    # Used to check if --wait-for-state has reached across all namespaces
+    namespace_wait_for_state_completed = set()
+
     if args.concurrent > 0:
         with open(args.run, "r") as fd:
             run_to_start = yaml.load(fd, Loader=yaml.Loader)
 
     while True:
-        monitoring_now = now()
-        monitoring_second = (monitoring_now - monitoring_start).total_seconds()
+        for namespace_idx in range(1, args.namespace + 1):
+            monitoring_now = now()
+            monitoring_second = (monitoring_now - monitoring_start).total_seconds()
 
-        with pipelineruns_lock:
-            total = len(pipelineruns)
-            finished = len(
-                [i for i in pipelineruns.values() if i["state"] == "finished"]
+            namespace = NAMESPACE_NAME_FORMAT.format(
+                idx = str(namespace_idx)
             )
-            running = len([i for i in pipelineruns.values() if i["state"] == "running"])
-            pending = len([i for i in pipelineruns.values() if i["state"] == "pending"])
-            signed_true = len(
-                [
-                    i
-                    for i in pipelineruns.values()
-                    if "signed" in i and i["signed"] == "true"
-                ]
-            )
-            signed_false = len(
-                [
-                    i
-                    for i in pipelineruns.values()
-                    if "signed" in i and i["signed"] == "false"
-                ]
-            )
-            finalizers_present = len(
-                [i for i in pipelineruns.values() if i["finalizers"] is True]
-            )
-            finalizers_absent = len(
-                [i for i in pipelineruns.values() if i["finalizers"] is False]
-            )
-            deleted = len(
-                [i for i in pipelineruns.values() if i['deleted'] is True]
-            )
-            terminated = len(
-                [i for i in pipelineruns.values() if i['terminated'] is True]
-            )
-        prs = {
-            "monitoring_start": monitoring_start,
-            "monitoring_now": monitoring_now,
-            "monitoring_second": monitoring_second,
-            "finished": finished,
-            "running": running,
-            "pending": pending,
-            "total": total,
-            "signed_true": signed_true,
-            "signed_false": signed_false,
-            "finalizers_present": finalizers_present,
-            "finalizers_absent": finalizers_absent,
-            "deleted": deleted,
-            "terminated": terminated,
-        }
-
-        if args.concurrent > 0:
-            _remaining = max(
-                0, args.total - total
-            )  # avoid negative number if there is more PRs than what was asked on commandline
-            _needed = args.concurrent - running - pending
-            prs["should_be_started"] = min(_needed, _remaining)
-        else:
-            prs["should_be_started"] = 0
-
-        with taskruns_lock:
-            total = len(taskruns)
-            finished = len([i for i in taskruns.values() if i["state"] == "finished"])
-            running = len([i for i in taskruns.values() if i["state"] == "running"])
-            pending = len([i for i in taskruns.values() if i["state"] == "pending"])
-            signed_true = len(
-                [
-                    i
-                    for i in taskruns.values()
-                    if "signed" in i and i["signed"] == "true"
-                ]
-            )
-            signed_false = len(
-                [
-                    i
-                    for i in taskruns.values()
-                    if "signed" in i and i["signed"] == "false"
-                ]
-            )
-            finalizers_present = len(
-                [i for i in taskruns.values() if i["finalizers"] is True]
-            )
-            finalizers_absent = len(
-                [i for i in taskruns.values() if i["finalizers"] is False]
-            )
-            deleted = len(
-                [i for i in taskruns.values() if i['deleted'] is True]
-            )
-            terminated = len(
-                [i for i in taskruns.values() if i['terminated'] is True]
-            )
-        trs = {
-            "monitoring_start": monitoring_start,
-            "monitoring_now": monitoring_now,
-            "monitoring_second": monitoring_second,
-            "finished": finished,
-            "running": running,
-            "pending": pending,
-            "total": total,
-            "signed_true": signed_true,
-            "signed_false": signed_false,
-            "finalizers_present": finalizers_present,
-            "finalizers_absent": finalizers_absent,
-            "deleted": deleted,
-            "terminated": terminated,
-        }
-
-        if monitoring_second > args.delay and prs["should_be_started"] > 0:
-            logging.info(f"Creating {prs['should_be_started']} PipelineRuns")
-            creation_threads = set()
-            started_worked_now = 0
-            started_failed_now = 0
-            for _ in range(prs["should_be_started"]):
-                future = PropagatingThread(
-                    target=start_pipelinerun_thread, args=[run_to_start]
+            # Use "benchmark" as default namespace to handle backward compatibility for test-scenarios
+            if args.namespace == 1:
+                namespace = NAMESPACE_NAME_FORMAT.format(
+                    idx = ""
                 )
-                future.start()
-                creation_threads.add(future)
-            for future in creation_threads:
-                try:
-                    future.join()
-                except:
-                    logging.exception("PipelineRun creation failed")
-                    started_failed_now += 1
-                else:
-                    started_worked_now += 1
-            logging.info(
-                f"Finished creating {prs['should_be_started']} PipelineRuns: {started_worked_now}/{started_failed_now}"
-            )
-            started_worked += started_worked_now
-            started_failed += started_failed_now
-        prs["started_worked"] = started_worked
-        prs["started_failed"] = started_failed
 
-        logging.info(f"PipelineRuns: {json.dumps(prs, cls=DateTimeEncoder)}")
-        logging.info(f"TaskRuns: {json.dumps(trs, cls=DateTimeEncoder)}")
+            with pipelineruns_lock:
+                namespaced_pipelineruns = [i for i in pipelineruns.values() if i['namespace'] == namespace]
+                total = len(namespaced_pipelineruns)
+                finished = len(
+                    [i for i in namespaced_pipelineruns if i["state"] == "finished"]
+                )
+                running = len([i for i in namespaced_pipelineruns if i["state"] == "running"])
+                pending = len([i for i in namespaced_pipelineruns if i["state"] == "pending"])
+                signed_true = len(
+                    [
+                        i
+                        for i in namespaced_pipelineruns
+                        if "signed" in i and i["signed"] == "true"
+                    ]
+                )
+                signed_false = len(
+                    [
+                        i
+                        for i in namespaced_pipelineruns
+                        if "signed" in i and i["signed"] == "false"
+                    ]
+                )
+                finalizers_present = len(
+                    [i for i in namespaced_pipelineruns if i["finalizers"] is True]
+                )
+                finalizers_absent = len(
+                    [i for i in namespaced_pipelineruns if i["finalizers"] is False]
+                )
+                deleted = len(
+                    [i for i in namespaced_pipelineruns if i['deleted'] is True]
+                )
+                terminated = len(
+                    [i for i in namespaced_pipelineruns if i['terminated'] is True]
+                )
+            prs = {
+                "monitoring_start": monitoring_start,
+                "monitoring_now": monitoring_now,
+                "monitoring_second": monitoring_second,
+                "finished": finished,
+                "running": running,
+                "pending": pending,
+                "total": total,
+                "signed_true": signed_true,
+                "signed_false": signed_false,
+                "finalizers_present": finalizers_present,
+                "finalizers_absent": finalizers_absent,
+                "deleted": deleted,
+                "terminated": terminated,
+            }
 
-        if args.stats_file is not None:
-            if not os.path.isfile(args.stats_file):
-                with open(args.stats_file, "w") as fd:
+            if args.concurrent > 0:
+                _remaining = max(
+                    0, args.total - total
+                )  # avoid negative number if there is more PRs than what was asked on commandline
+                _needed = args.concurrent - running - pending
+                prs["should_be_started"] = min(_needed, _remaining)
+            else:
+                prs["should_be_started"] = 0
+
+            with taskruns_lock:
+                namespaced_taskruns = [i for i in taskruns.values() if i['namespace'] == namespace]
+                total = len(namespaced_taskruns)
+                finished = len([i for i in namespaced_taskruns if i["state"] == "finished"])
+                running = len([i for i in namespaced_taskruns if i["state"] == "running"])
+                pending = len([i for i in namespaced_taskruns if i["state"] == "pending"])
+                signed_true = len(
+                    [
+                        i
+                        for i in namespaced_taskruns
+                        if "signed" in i and i["signed"] == "true"
+                    ]
+                )
+                signed_false = len(
+                    [
+                        i
+                        for i in namespaced_taskruns
+                        if "signed" in i and i["signed"] == "false"
+                    ]
+                )
+                finalizers_present = len(
+                    [i for i in namespaced_taskruns if i["finalizers"] is True]
+                )
+                finalizers_absent = len(
+                    [i for i in namespaced_taskruns if i["finalizers"] is False]
+                )
+                deleted = len(
+                    [i for i in namespaced_taskruns if i['deleted'] is True]
+                )
+                terminated = len(
+                    [i for i in namespaced_taskruns if i['terminated'] is True]
+                )
+            trs = {
+                "monitoring_start": monitoring_start,
+                "monitoring_now": monitoring_now,
+                "monitoring_second": monitoring_second,
+                "finished": finished,
+                "running": running,
+                "pending": pending,
+                "total": total,
+                "signed_true": signed_true,
+                "signed_false": signed_false,
+                "finalizers_present": finalizers_present,
+                "finalizers_absent": finalizers_absent,
+                "deleted": deleted,
+                "terminated": terminated,
+            }
+
+            if monitoring_second > args.delay and prs["should_be_started"] > 0:
+                logging.info(f"Creating {prs['should_be_started']} PipelineRuns in {namespace}")
+                creation_threads = set()
+                started_worked_now = 0
+                started_failed_now = 0
+                for _ in range(prs["should_be_started"]):
+                    future = PropagatingThread(
+                        target=start_pipelinerun_thread, args=[run_to_start, namespace]
+                    )
+                    future.start()
+                    creation_threads.add(future)
+                for future in creation_threads:
+                    try:
+                        future.join()
+                    except:
+                        logging.exception(f"PipelineRun creation failed in {namespace}")
+                        started_failed_now += 1
+                    else:
+                        started_worked_now += 1
+                logging.info(
+                    f"Finished creating {prs['should_be_started']} PipelineRuns in {namespace}: {started_worked_now}/{started_failed_now}"
+                )
+                started_worked += started_worked_now
+                started_failed += started_failed_now
+            prs["started_worked"] = started_worked
+            prs["started_failed"] = started_failed
+
+            logging.info(f"PipelineRuns: {json.dumps(prs, cls=DateTimeEncoder)}")
+            logging.info(f"TaskRuns: {json.dumps(trs, cls=DateTimeEncoder)}")
+
+            if args.stats_file is not None:
+                if not os.path.isfile(args.stats_file):
+                    with open(args.stats_file, "w") as fd:
+                        csvwriter = csv.writer(fd)
+                        csvwriter.writerow(
+                            [
+                                "namespace",
+                                "monitoring_start",
+                                "monitoring_now",
+                                "monitoring_second",
+                                "prs_total",
+                                "prs_pending",
+                                "prs_running",
+                                "prs_finished",
+                                "prs_signed_true",
+                                "prs_signed_false",
+                                "prs_finalizers_present",
+                                "prs_finalizers_absent",
+                                "prs_started_worked",
+                                "prs_started_failed",
+                                "prs_deleted",
+                                "prs_terminated",
+                                "trs_total",
+                                "trs_pending",
+                                "trs_running",
+                                "trs_finished",
+                                "trs_signed_true",
+                                "trs_signed_false",
+                                "trs_finalizers_present",
+                                "trs_finalizers_absent",
+                                "trs_deleted",
+                                "trs_terminated",
+                            ]
+                        )
+                with open(args.stats_file, "a") as fd:
                     csvwriter = csv.writer(fd)
                     csvwriter.writerow(
                         [
-                            "monitoring_start",
-                            "monitoring_now",
-                            "monitoring_second",
-                            "prs_total",
-                            "prs_pending",
-                            "prs_running",
-                            "prs_finished",
-                            "prs_signed_true",
-                            "prs_signed_false",
-                            "prs_finalizers_present",
-                            "prs_finalizers_absent",
-                            "prs_started_worked",
-                            "prs_started_failed",
-                            "prs_deleted",
-                            "prs_terminated",
-                            "trs_total",
-                            "trs_pending",
-                            "trs_running",
-                            "trs_finished",
-                            "trs_signed_true",
-                            "trs_signed_false",
-                            "trs_finalizers_present",
-                            "trs_finalizers_absent",
-                            "trs_deleted",
-                            "trs_terminated",
+                            namespace,
+                            monitoring_start.isoformat(),
+                            monitoring_now.isoformat(),
+                            monitoring_second,
+                            prs["total"],
+                            prs["pending"],
+                            prs["running"],
+                            prs["finished"],
+                            prs["signed_true"],
+                            prs["signed_false"],
+                            prs["finalizers_present"],
+                            prs["finalizers_absent"],
+                            prs["started_worked"],
+                            prs["started_failed"],
+                            prs["deleted"],
+                            prs['terminated'],
+                            trs["total"],
+                            trs["pending"],
+                            trs["running"],
+                            trs["finished"],
+                            trs["signed_true"],
+                            trs["signed_false"],
+                            trs["finalizers_present"],
+                            trs["finalizers_absent"],
+                            trs["deleted"],
+                            trs['terminated'],
                         ]
                     )
-            with open(args.stats_file, "a") as fd:
-                csvwriter = csv.writer(fd)
-                csvwriter.writerow(
-                    [
-                        monitoring_start.isoformat(),
-                        monitoring_now.isoformat(),
-                        monitoring_second,
-                        prs["total"],
-                        prs["pending"],
-                        prs["running"],
-                        prs["finished"],
-                        prs["signed_true"],
-                        prs["signed_false"],
-                        prs["finalizers_present"],
-                        prs["finalizers_absent"],
-                        prs["started_worked"],
-                        prs["started_failed"],
-                        prs["deleted"],
-                        prs['terminated'],
-                        trs["total"],
-                        trs["pending"],
-                        trs["running"],
-                        trs["finished"],
-                        trs["signed_true"],
-                        trs["signed_false"],
-                        trs["finalizers_present"],
-                        trs["finalizers_absent"],
-                        trs["deleted"],
-                        trs['terminated'],
-                    ]
-                )
 
-        if  (args.wait_for_duration is not None and
-             (now() - monitoring_start).total_seconds() >= args.wait_for_duration) or \
-                prs[args.wait_for_state] >= args.total:
-            # Terminate script after timeout or completion of expected amount of particular state
-            logging.info("We are done")
-            return
+             # Add namespace into completion
+            if prs[args.wait_for_state] >= args.total:
+                namespace_wait_for_state_completed.add(namespace)
 
-        time.sleep(args.delay)
+            # Terminate script after reaching timeout defined in --wait-for-duration
+            if (args.wait_for_duration is not None and
+                (now() - monitoring_start).total_seconds() >= args.wait_for_duration):
+                logging.info("--wait-for-duration timeout reached, we are done.")
+                return
+
+            # If --wait-for-state count reached across all namespaces, then exit
+            if len(namespace_wait_for_state_completed) == args.namespace:
+                logging.info("--wait-for-state reached across all namespaces, we are done.")
+                return
+
+            time.sleep(args.delay)
 
 
 def doit(args):
@@ -687,6 +714,12 @@ def main():
         "--total",
         help="Quit once there is this many PipelineRuns.",
         default=100,
+        type=int,
+    )
+    parser.add_argument(
+        "--namespace",
+        help="How many namespaces to consider for benchmarking? Defaults to 1. The values for --total and --concurrent is considered per namespace.",
+        default=1,
         type=int,
     )
     parser.add_argument(

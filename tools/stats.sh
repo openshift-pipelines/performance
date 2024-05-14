@@ -22,8 +22,24 @@ cat <<EOF >$output
 }
 EOF
 
+pipelineruns_jsons=()
+taskruns_jsons=()
+
+# Loop through each namespace and get the JSON outputs
+for namespace_idx in $(seq 1 ${TEST_NAMESPACE});
+do
+    namespace_tag=$([ "$TEST_NAMESPACE" -eq 1 ] && echo "" || echo "$namespace_idx")
+    namespace="benchmark${namespace_tag}"
+
+    pipelineruns_jsons+=("$(kubectl get pr -o json -n "${namespace}")")
+    taskruns_jsons+=("$(kubectl get tr -o json -n "${namespace}")")
+done
+
+# Combine PipelineRun JSON data from each namespace
+pr_items=$(printf '%s\n' "${pipelineruns_jsons[@]}" | jq -s '{items: map(.items) | add}')
+data=$(echo "$pr_items" | jq '. += {"apiVersion":"v1", "kind": "List", "metadata": {}}')
+
 echo "$(date -Ins --utc) adding stats to data file"
-data=$(kubectl get pr -o=json)
 echo "$data" >pipelineruns.json
 data_successful=$(echo "$data" | jq --raw-output '.items |= [.[] | . as $a | .status.conditions | if . == null then [] else . end | .[] | select(.type == "Succeeded" and .status == "True") | $a]')
 
@@ -70,8 +86,12 @@ pr_completionTime_last=$(echo "$data" | jq --raw-output '[.items[] | .status.com
 cat $output | jq '.results.PipelineRuns.completionTime.first = "'$pr_completionTime_first'" | .results.PipelineRuns.completionTime.last = "'$pr_completionTime_last'"' >"$$.json" && mv -f "$$.json" "$output"
 
 # TaskRuns
-data=$(kubectl get tr -o=json)
-echo "$data" >taskruns.json
+
+# Combine TaskRun JSON data from each namespace
+tr_items=$(printf '%s\n' "${taskruns_jsons[@]}" | jq -s '{items: map(.items) | add}')
+data=$(echo "$tr_items" | jq '. += {"apiVersion":"v1", "kind": "List", "metadata": {}}')
+
+echo "$data" > taskruns.json
 data_successful=$(echo "$data" | jq --raw-output '.items |= [.[] | . as $a | .status.conditions | if . == null then [] else . end | .[] | select(.type == "Succeeded" and .status == "True") | $a]')
 
 # TaskRuns total duration (.status.completionTime - .metadata.creationTimestamp)
