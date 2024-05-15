@@ -7,3 +7,5 @@ Goal here is to see if we can keep up.
 Half of `TEST_TOTAL` PRs will be created, then Chains will be anabled, then rest of PRs will be created.
 
 This scenario runs on downstream only.
+
+This scenario **supports** multi-namespace testing through *TEST_NAMESPACE* env variable.
