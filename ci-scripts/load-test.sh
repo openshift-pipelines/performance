@@ -18,10 +18,8 @@ measure_signed_pid=""
 info "General setup"
 cd tests/scaling-pipelines/
 
-info "Setup for $TEST_SCENARIO scenario"
 TEST_PIPELINE="scenario/$TEST_SCENARIO/pipeline.yaml"
 TEST_RUN="scenario/$TEST_SCENARIO/run.yaml"
-[ -f scenario/$TEST_SCENARIO/setup.sh ] && source scenario/$TEST_SCENARIO/setup.sh
 
 for namespace_idx in $(seq 1 ${TEST_NAMESPACE});
 do
@@ -36,6 +34,9 @@ do
     info "Creating Tasks and Pipeline in namespace: ${namespace}"
     kubectl apply -n "${namespace}" -f "$TEST_PIPELINE"
 done
+
+info "Setup for $TEST_SCENARIO scenario"
+[ -f scenario/$TEST_SCENARIO/setup.sh ] && source scenario/$TEST_SCENARIO/setup.sh
 
 info "Benchmark ${TEST_TOTAL} | ${TEST_CONCURRENT} | ${TEST_RUN} | ${TEST_NAMESPACE}"
 before=$(date -Ins --utc)
