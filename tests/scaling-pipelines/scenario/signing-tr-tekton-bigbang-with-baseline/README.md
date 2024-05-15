@@ -8,3 +8,5 @@ This scenario is used to establish a baseline performance by:
 This scenario runs on downstream only.
 
 > Make sure to set WAIT_TIME environment variable to duration of waiting time (in seconds).
+
+This scenario **supports** multi-namespace testing through *TEST_NAMESPACE* env variable.

@@ -9,3 +9,5 @@ This scenario is used to establish a baseline performance by:
 4. Enable Chains and analyze the cluster performance for $EVENT_TIMEOUT duration to finish the test.
 
 This scenario runs on downstream only.
+
+This scenario **supports** multi-namespace testing through *TEST_NAMESPACE* env variable.

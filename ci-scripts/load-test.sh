@@ -21,6 +21,7 @@ cd tests/scaling-pipelines/
 TEST_PIPELINE="scenario/$TEST_SCENARIO/pipeline.yaml"
 TEST_RUN="scenario/$TEST_SCENARIO/run.yaml"
 
+# Create namespaces for benchmarking
 for namespace_idx in $(seq 1 ${TEST_NAMESPACE});
 do
     # Generate namespace as "benchmark" by default for TEST_NAMESPACE set to 1
@@ -30,13 +31,21 @@ do
 
     kubectl create ns "${namespace}"
     # kubectl config set-context --current --namespace=${namespace}
+done
+
+# Setup test scenario
+info "Setup for $TEST_SCENARIO scenario"
+[ -f scenario/$TEST_SCENARIO/setup.sh ] && source scenario/$TEST_SCENARIO/setup.sh
+
+# Create Task and Pipelines in namespace
+for namespace_idx in $(seq 1 ${TEST_NAMESPACE});
+do
+    namespace_tag=$([ "$TEST_NAMESPACE" -eq 1 ] && echo "" || echo "$namespace_idx")
+    namespace="benchmark${namespace_tag}"
 
     info "Creating Tasks and Pipeline in namespace: ${namespace}"
     kubectl apply -n "${namespace}" -f "$TEST_PIPELINE"
 done
-
-info "Setup for $TEST_SCENARIO scenario"
-[ -f scenario/$TEST_SCENARIO/setup.sh ] && source scenario/$TEST_SCENARIO/setup.sh
 
 info "Benchmark ${TEST_TOTAL} | ${TEST_CONCURRENT} | ${TEST_RUN} | ${TEST_NAMESPACE}"
 before=$(date -Ins --utc)
