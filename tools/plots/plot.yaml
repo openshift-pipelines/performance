@@ -1,0 +1,52 @@
+events:
+- name: START
+  timestamp: "2024-05-03T06:01:50"
+  format: "%Y-%m-%dT%H:%M:%S"
+
+input:
+  paths:
+  - ./monitoring-collection-raw-data-dir/*.csv # Creates {filename: OBJ} mapping in memory
+
+output:
+  dir: ./temp/
+  overwrite: true
+
+show_events: true
+
+charts:
+- type: timeseries # X axis is timestamps and Y axis is data points
+  name: ETCD & API-Server CPU Usage
+  show_events: true
+  data:
+  - measurements_etcd_cpu
+  - measurements_apiserver_cpu
+  - measurements_kube-apiserver_cpu
+  xaxis:
+    name: Timestamp
+    formatter: time_hour
+    data: timestamp
+  yaxis:
+    name: CPU Cores
+    data: "%" # % - Excluding xaxis data, it will include everything
+
+- type: timeseries
+  name: ETCD & API-Server Memory Usage
+  data:
+  - measurements_etcd_memory
+  - measurements_apiserver_memory
+  - measurements_kube-apiserver_memory
+  xaxis:
+    data: timestamp
+  yaxis:
+    name: Memory Usage (Bytes)
+    formatter: compute_bytes
+  
+- type: timeseries
+  name: ETCD DB Size
+  data:
+  - measurements_etcd_mvcc_db_total_size_in_bytes_average
+  xaxis:
+    data: timestamp
+  yaxis:
+    name: Memory Usage (Bytes)
+    formatter: compute_bytes
