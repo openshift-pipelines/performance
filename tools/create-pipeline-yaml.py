@@ -47,11 +47,11 @@ def convert_jinja2_filename(j2_template_name:str):
 def process_extra_data_argument(extra_data_arg:str):
     extra_data = {}
     for kv_pair in extra_data_arg.split(","):
-        for kv in kv_pair.split("="):
-            # Remove trailing white-spaces
-            key = kv[0].strip()
-            val = kv[1].strip()
-            extra_data[key] = val
+        kv = kv_pair.split("=")
+        # Remove trailing white-spaces
+        key = kv[0].strip()
+        val = kv[1].strip()
+        extra_data[key] = val
     return extra_data
 
 def populate_and_save_j2_template(args):

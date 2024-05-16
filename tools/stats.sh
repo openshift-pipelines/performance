@@ -3,6 +3,8 @@
 started="$1"
 ended="$2"
 
+TEST_NAMESPACE="${TEST_NAMESPACE:-1}"
+
 echo "$(date -Ins --utc) dumping basic results to data files"
 output="benchmark-tekton.json"
 cat <<EOF >$output

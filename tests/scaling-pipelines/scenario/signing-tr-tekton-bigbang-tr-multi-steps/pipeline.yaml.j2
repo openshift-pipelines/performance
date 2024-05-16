@@ -1,8 +1,9 @@
+{% for task_idx in range(1, (task_count or 5) + 1) %}
 ---
 apiVersion: tekton.dev/v1
 kind: Task
 metadata:
-  name: echo
+  name: echo{{task_idx}}
 spec:
   description: "Just hello world task"
   params: []
@@ -15,9 +16,10 @@ spec:
         #!/usr/bin/env bash
         set -euo pipefail
         {%- for line_idx in range(1, (line_count or 15) + 1) %}
-        echo "Hello World Chains Performance Benchmark Test {{ (idx - 1) * (line_count or 15) + line_idx }}"{% endfor %}
+        echo "Hello World Chains Performance Benchmark Test {{ (idx - 1) * (line_count or 15) + line_idx }} from Task{{task_idx}}"{% endfor %}
 
     {% endfor %}
+{% endfor %}
 ---
 apiVersion: tekton.dev/v1
 kind: Pipeline
@@ -26,7 +28,9 @@ metadata:
 spec:
   params: []
   tasks:
-    - name: echo
+  {% for task_idx in range(1, (task_count or 5) + 1) %}
+    - name: echo{{task_idx}}
       taskRef:
-        name: echo
+        name: echo{{task_idx}}
       params: []
+  {% endfor %}

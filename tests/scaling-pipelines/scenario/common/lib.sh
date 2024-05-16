@@ -181,7 +181,7 @@ function measure_signed_wait() {
 function measure_signed_start() {
     expecte="${1:-$TEST_TOTAL}"
     info "Starting benchmark.py (with 0 concurrent tasks) to monitor signatures"
-    ../../tools/benchmark.py --insecure --namespace $TEST_NAMESPACE --total $TEST_TOTAL --concurrent 0 --wait-for-state signed_true --stats-file benchmark-stats.csv --verbose &
+    ../../tools/benchmark.py --insecure --namespace "${TEST_NAMESPACE:-1}" --total $TEST_TOTAL --concurrent 0 --wait-for-state signed_true --stats-file benchmark-stats.csv --verbose &
     measure_signed_pid=$!
     echo "$measure_signed_pid" >./measure-signed.pid
     debug "Started benchmark.py with PID $measure_signed_pid"
@@ -242,7 +242,7 @@ function wait_for_prs_finished() {
     local target="$1"
     local last_row=""
     local prs_finished=""
-    local namespace="${TEST_NAMESPACE}"
+    local namespace="${TEST_NAMESPACE:-1}"
     info "Waiting for $target finished PipelineRuns"
     while true; do
         if [ -r benchmark-stats.csv ]; then
