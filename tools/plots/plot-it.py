@@ -69,7 +69,7 @@ def setup_logger(stderr_log_lvl):
     # Remove all handlers from root logger if any
     logging.basicConfig(level=logging.NOTSET, handlers=[])
     # Change root logger level from WARNING (default) to NOTSET in order for all messages to be delegated.
-    logging.getLogger().setLevel(logging.NOTSET)
+    logging.getLogger("plot-it").setLevel(logging.NOTSET)
 
     # Log message format
     formatter = logging.Formatter(
@@ -220,14 +220,23 @@ def plot_it(args):
     # Cache available data directory files
     load_input_directory(plot_data)
 
+    failed_chart_generations = 0
+
     for chart in plot_data.charts:
         try:
             plot_chart(chart, plot_data)
         except Exception as error:
+            failed_chart_generations += 1
             logger.error("Unable to plot chart due to error: %s", error)
             logger.error("Chart Data: %s", chart)
 
     logger.info("Plot generation completed!")
+    logger.info(
+        "Total (%d) | Success (%d) | Failed (%d)",
+        len(plot_data.charts),
+        len(plot_data.charts) - failed_chart_generations,
+        failed_chart_generations
+    )
 
 def main():
     global logger

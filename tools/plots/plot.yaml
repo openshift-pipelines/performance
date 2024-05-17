@@ -1,10 +1,16 @@
-events:
-- name: START
-  timestamp: "2024-05-03T06:01:50"
-  format: "%Y-%m-%dT%H:%M:%S"
+# Add event points to draw them in plots
+events: []
+# events:
+# - name: START
+#   timestamp: "2024-05-03T06:01:50"
+#   format: "%Y-%m-%dT%H:%M:%S"
+
+# - name: START_PRs
+#   timestamp: "2024-05-03T06:11:50"
+#   format: "%Y-%m-%dT%H:%M:%S"
 
 input:
-  paths:
+  paths: 
   - ./monitoring-collection-raw-data-dir/*.csv # Creates {filename: OBJ} mapping in memory
 
 output:
@@ -50,3 +56,92 @@ charts:
   yaxis:
     name: Memory Usage (Bytes)
     formatter: compute_bytes
+
+- type: timeseries
+  name: ETCD Disk Throughput
+  data:
+  - measurements_etcd_disk_throughput
+  xaxis:
+    data: timestamp
+  yaxis:
+    name: Usage per Second
+
+- type: timeseries
+  name: API-Server Total Request Rate
+  data:
+  - measurements_apiserver_request_total_rate
+  xaxis:
+    data: timestamp
+  yaxis:
+    name: Request Rate
+
+- type: timeseries
+  name: Cluster (CPU Usage Total Rate)
+  data:
+  - measurements_cluster_cpu_usage_seconds_total_rate
+  xaxis:
+    data: timestamp
+  yaxis:
+    name: CPU Cores/Second
+
+- type: timeseries
+  name: Cluster (Total Memory Usage)
+  data:
+  - measurements_cluster_memory_usage_rss_total
+  xaxis:
+    data: timestamp
+  yaxis:
+    name: Memory Usage
+    formatter: compute_bytes
+
+- type: timeseries
+  name: Worker Avg CPU Usage
+  data:
+  - measurements_workers_avg_cpu_usage_percentage
+  xaxis:
+    data: timestamp
+  yaxis:
+    name: CPU Usage %
+
+
+- type: timeseries
+  name: Node Disk IO Time
+  data:
+  - measurements_node_disk_io_time_seconds_total
+  xaxis:
+    data: timestamp
+  yaxis:
+    name: Duration (seconds)
+
+
+- type: timeseries
+  name: Pod CPU Usages
+  data:
+  - measurements_tekton-pipelines-controller_cpu
+  - measurements_tekton-chains-controller_cpu
+  xaxis:
+    data: timestamp
+  yaxis:
+    name: CPU Cores
+
+- type: timeseries
+  name: Pod Memory Usages
+  data:
+  - measurements_tekton-pipelines-controller_memory
+  - measurements_tekton-chains-controller_memory
+  xaxis:
+    data: timestamp
+  yaxis:
+    name: Memory Usage
+    formatter: compute_bytes
+
+- type: timeseries
+  name: Workqueue Depth
+  data:
+  - measurements_tekton_tekton_pipelines_controller_workqueue_depth
+  - measurements_tekton_tekton_chains_controller_workqueue_depth
+  xaxis:
+    data: timestamp
+  yaxis:
+    name: Size
+
