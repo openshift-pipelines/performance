@@ -21,6 +21,8 @@ cd tests/scaling-pipelines/
 TEST_PIPELINE="scenario/$TEST_SCENARIO/pipeline.yaml"
 TEST_RUN="scenario/$TEST_SCENARIO/run.yaml"
 
+TEST_CONCURRENCY_PATH="scenario/$TEST_SCENARIO/concurrency.txt"
+
 # Create namespaces for benchmarking
 for namespace_idx in $(seq 1 ${TEST_NAMESPACE});
 do
@@ -53,6 +55,11 @@ if [ -n "${WAIT_TIME:-}" ]; then
     info "Waiting to establish a baseline performance before creating PRs/TRs"
     sleep $WAIT_TIME
     info "Wait timeout completed"
+fi
+# Check if the file exists
+if [ -e "$TEST_CONCURRENCY_PATH" ]; then
+    TEST_CONCURRENT="$TEST_CONCURRENCY_PATH"
+    info "Changed the TEST_CONCURRENT to ${TEST_CONCURRENCY_PATH}"
 fi
 
 time ../../tools/benchmark.py --insecure --namespace "${TEST_NAMESPACE}" --total "${TEST_TOTAL}" --concurrent "${TEST_CONCURRENT}" --run "${TEST_RUN}" --stats-file benchmark-stats.csv --output-file benchmark-output.json --verbose $TEST_PARAMS

@@ -25,6 +25,7 @@ Setup the OpenShift cluster (assuming `oc login ...` happened already):
     ci-scripts/setup-cluster.sh
 
 Run the test:
+
     export TEST_NAMESPACE="1"
     export TEST_DO_CLEANUP="false"
     export TEST_TOTAL="100"
@@ -34,6 +35,7 @@ Run the test:
     # export TEST_SCENARIO="build"
     # export TEST_SCENARIO="signing-ongoing"
     # export TEST_SCENARIO="signing-bigbang"
+    # export TEST_SCENARIO="signing-tr-varying-concurrency"
     # ...and more
     ci-scripts/load-test.sh
 

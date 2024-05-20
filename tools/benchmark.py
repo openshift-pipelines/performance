@@ -391,6 +391,20 @@ def start_pipelinerun_thread(body, namespace):
     logging.debug(f"Created PipelineRun: {json.dumps(response)[:100]}...")
 
 
+def fetch_current_concurrency(value):
+    # Check if the value is a number
+    if value.isdigit():
+        return int(value)
+    # Check if the value is a valid file path
+    if os.path.isfile(value):
+        with open(value, "r") as file:
+            contents = file.read().strip()
+        if contents.isdigit():
+            return int(contents)
+        else:
+            logging.error(f"File '{value}' does not contain a valid integer")
+
+
 def counter_thread(args, pipelineruns, pipelineruns_lock, taskruns, taskruns_lock):
     monitoring_start = now()
     started_worked = 0
@@ -399,7 +413,7 @@ def counter_thread(args, pipelineruns, pipelineruns_lock, taskruns, taskruns_loc
     # Used to check if --wait-for-state has reached across all namespaces
     namespace_wait_for_state_completed = set()
 
-    if args.concurrent > 0:
+    if fetch_current_concurrency(args.concurrent) > 0:
         with open(args.run, "r") as fd:
             run_to_start = yaml.load(fd, Loader=yaml.Loader)
 
@@ -408,23 +422,25 @@ def counter_thread(args, pipelineruns, pipelineruns_lock, taskruns, taskruns_loc
             monitoring_now = now()
             monitoring_second = (monitoring_now - monitoring_start).total_seconds()
 
-            namespace = NAMESPACE_NAME_FORMAT.format(
-                idx = str(namespace_idx)
-            )
+            namespace = NAMESPACE_NAME_FORMAT.format(idx=str(namespace_idx))
             # Use "benchmark" as default namespace to handle backward compatibility for test-scenarios
             if args.namespace == 1:
-                namespace = NAMESPACE_NAME_FORMAT.format(
-                    idx = ""
-                )
+                namespace = NAMESPACE_NAME_FORMAT.format(idx="")
 
             with pipelineruns_lock:
-                namespaced_pipelineruns = [i for i in pipelineruns.values() if i['namespace'] == namespace]
+                namespaced_pipelineruns = [
+                    i for i in pipelineruns.values() if i["namespace"] == namespace
+                ]
                 total = len(namespaced_pipelineruns)
                 finished = len(
                     [i for i in namespaced_pipelineruns if i["state"] == "finished"]
                 )
-                running = len([i for i in namespaced_pipelineruns if i["state"] == "running"])
-                pending = len([i for i in namespaced_pipelineruns if i["state"] == "pending"])
+                running = len(
+                    [i for i in namespaced_pipelineruns if i["state"] == "running"]
+                )
+                pending = len(
+                    [i for i in namespaced_pipelineruns if i["state"] == "pending"]
+                )
                 signed_true = len(
                     [
                         i
@@ -446,10 +462,10 @@ def counter_thread(args, pipelineruns, pipelineruns_lock, taskruns, taskruns_loc
                     [i for i in namespaced_pipelineruns if i["finalizers"] is False]
                 )
                 deleted = len(
-                    [i for i in namespaced_pipelineruns if i['deleted'] is True]
+                    [i for i in namespaced_pipelineruns if i["deleted"] is True]
                 )
                 terminated = len(
-                    [i for i in namespaced_pipelineruns if i['terminated'] is True]
+                    [i for i in namespaced_pipelineruns if i["terminated"] is True]
                 )
             prs = {
                 "monitoring_start": monitoring_start,
@@ -467,21 +483,29 @@ def counter_thread(args, pipelineruns, pipelineruns_lock, taskruns, taskruns_loc
                 "terminated": terminated,
             }
 
-            if args.concurrent > 0:
+            if fetch_current_concurrency(args.concurrent) > 0:
                 _remaining = max(
                     0, args.total - total
                 )  # avoid negative number if there is more PRs than what was asked on commandline
-                _needed = args.concurrent - running - pending
+                _needed = fetch_current_concurrency(args.concurrent) - running - pending
                 prs["should_be_started"] = min(_needed, _remaining)
             else:
                 prs["should_be_started"] = 0
 
             with taskruns_lock:
-                namespaced_taskruns = [i for i in taskruns.values() if i['namespace'] == namespace]
+                namespaced_taskruns = [
+                    i for i in taskruns.values() if i["namespace"] == namespace
+                ]
                 total = len(namespaced_taskruns)
-                finished = len([i for i in namespaced_taskruns if i["state"] == "finished"])
-                running = len([i for i in namespaced_taskruns if i["state"] == "running"])
-                pending = len([i for i in namespaced_taskruns if i["state"] == "pending"])
+                finished = len(
+                    [i for i in namespaced_taskruns if i["state"] == "finished"]
+                )
+                running = len(
+                    [i for i in namespaced_taskruns if i["state"] == "running"]
+                )
+                pending = len(
+                    [i for i in namespaced_taskruns if i["state"] == "pending"]
+                )
                 signed_true = len(
                     [
                         i
@@ -502,11 +526,9 @@ def counter_thread(args, pipelineruns, pipelineruns_lock, taskruns, taskruns_loc
                 finalizers_absent = len(
                     [i for i in namespaced_taskruns if i["finalizers"] is False]
                 )
-                deleted = len(
-                    [i for i in namespaced_taskruns if i['deleted'] is True]
-                )
+                deleted = len([i for i in namespaced_taskruns if i["deleted"] is True])
                 terminated = len(
-                    [i for i in namespaced_taskruns if i['terminated'] is True]
+                    [i for i in namespaced_taskruns if i["terminated"] is True]
                 )
             trs = {
                 "monitoring_start": monitoring_start,
@@ -525,7 +547,9 @@ def counter_thread(args, pipelineruns, pipelineruns_lock, taskruns, taskruns_loc
             }
 
             if monitoring_second > args.delay and prs["should_be_started"] > 0:
-                logging.info(f"Creating {prs['should_be_started']} PipelineRuns in {namespace}")
+                logging.info(
+                    f"Creating {prs['should_be_started']} PipelineRuns in {namespace}"
+                )
                 creation_threads = set()
                 started_worked_now = 0
                 started_failed_now = 0
@@ -607,7 +631,7 @@ def counter_thread(args, pipelineruns, pipelineruns_lock, taskruns, taskruns_loc
                             prs["started_worked"],
                             prs["started_failed"],
                             prs["deleted"],
-                            prs['terminated'],
+                            prs["terminated"],
                             trs["total"],
                             trs["pending"],
                             trs["running"],
@@ -617,23 +641,27 @@ def counter_thread(args, pipelineruns, pipelineruns_lock, taskruns, taskruns_loc
                             trs["finalizers_present"],
                             trs["finalizers_absent"],
                             trs["deleted"],
-                            trs['terminated'],
+                            trs["terminated"],
                         ]
                     )
 
-             # Add namespace into completion
+            # Add namespace into completion
             if prs[args.wait_for_state] >= args.total:
                 namespace_wait_for_state_completed.add(namespace)
 
             # Terminate script after reaching timeout defined in --wait-for-duration
-            if (args.wait_for_duration is not None and
-                (now() - monitoring_start).total_seconds() >= args.wait_for_duration):
+            if (
+                args.wait_for_duration is not None
+                and (now() - monitoring_start).total_seconds() >= args.wait_for_duration
+            ):
                 logging.info("--wait-for-duration timeout reached, we are done.")
                 return
 
             # If --wait-for-state count reached across all namespaces, then exit
             if len(namespace_wait_for_state_completed) == args.namespace:
-                logging.info("--wait-for-state reached across all namespaces, we are done.")
+                logging.info(
+                    "--wait-for-state reached across all namespaces, we are done."
+                )
                 return
 
             time.sleep(args.delay)
@@ -706,9 +734,8 @@ def main():
     )
     parser.add_argument(
         "--concurrent",
-        help="How many concurrent PipelineRuns to run? Defaults to 0 meaning we will not start more PRs.",
+        help="How many concurrent PipelineRuns to run? Defaults to 0 meaning we will not start more PRs.Either it can be integer or a file which has integer",
         default=0,
-        type=int,
     )
     parser.add_argument(
         "--total",
