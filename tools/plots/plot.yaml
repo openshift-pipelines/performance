@@ -1,0 +1,151 @@
+# Add event points to draw them in plots
+events: []
+# events:
+# - name: START
+#   timestamp: "2024-05-03T06:01:50"
+#   format: "%Y-%m-%dT%H:%M:%S"
+
+# - name: START_PRs
+#   timestamp: "2024-05-03T06:11:50"
+#   format: "%Y-%m-%dT%H:%M:%S"
+
+# Whether to plot the above events for all charts
+show_events: true
+
+# Path to input directory containing data source
+input:
+  paths: 
+  - ./monitoring-collection-raw-data-dir/*.csv # Creates {filename: OBJ} mapping in memory
+
+# Path to output directory to save generated charts
+output:
+  dir: ./temp/
+  overwrite: true
+
+# Chart definitions
+charts:
+- type: timeseries # Type timeseries: X axis is timestamps and Y axis is data points
+  name: ETCD & API-Server CPU Usage # Chart Title
+  show_events: true # Show events for specific chart
+  data: # Data file names to be considered for plotting
+  - measurements_etcd_cpu
+  - measurements_apiserver_cpu
+  - measurements_kube-apiserver_cpu
+  xaxis:
+    name: Timestamp # Title of the given Axis
+    formatter: time_hour  # Formatter time_hour: This formatter loads timestamp values in HH:mm format
+    data: timestamp  # data: Column name in the data files to represents this axis
+  yaxis:
+    name: CPU Cores
+    data: "%" # % Shortcut: Consider all the columns except the xaxis column name while representing this data points.
+
+- type: timeseries
+  name: ETCD & API-Server Memory Usage
+  data:
+  - measurements_etcd_memory
+  - measurements_apiserver_memory
+  - measurements_kube-apiserver_memory
+  xaxis:
+    data: timestamp
+  yaxis:
+    name: Memory Usage (Bytes)
+    formatter: compute_bytes  # Formatter compute_bytes: This formatter loads bytes values in human readable format (KB/MB/GB/TB)
+  
+- type: timeseries
+  name: ETCD DB Size
+  data:
+  - measurements_etcd_mvcc_db_total_size_in_bytes_average
+  xaxis:
+    data: timestamp
+  yaxis:
+    name: Memory Usage (Bytes)
+    formatter: compute_bytes
+
+- type: timeseries
+  name: ETCD Disk Throughput
+  data:
+  - measurements_etcd_disk_throughput
+  xaxis:
+    data: timestamp
+  yaxis:
+    name: Usage per Second
+
+- type: timeseries
+  name: API-Server Total Request Rate
+  data:
+  - measurements_apiserver_request_total_rate
+  xaxis:
+    data: timestamp
+  yaxis:
+    name: Request Rate
+
+- type: timeseries
+  name: Cluster (CPU Usage Total Rate)
+  data:
+  - measurements_cluster_cpu_usage_seconds_total_rate
+  xaxis:
+    data: timestamp
+  yaxis:
+    name: CPU Cores/Second
+
+- type: timeseries
+  name: Cluster (Total Memory Usage)
+  data:
+  - measurements_cluster_memory_usage_rss_total
+  xaxis:
+    data: timestamp
+  yaxis:
+    name: Memory Usage
+    formatter: compute_bytes
+
+- type: timeseries
+  name: Worker Avg CPU Usage
+  data:
+  - measurements_workers_avg_cpu_usage_percentage
+  xaxis:
+    data: timestamp
+  yaxis:
+    name: CPU Usage %
+
+
+- type: timeseries
+  name: Node Disk IO Time
+  data:
+  - measurements_node_disk_io_time_seconds_total
+  xaxis:
+    data: timestamp
+  yaxis:
+    name: Duration (seconds)
+
+
+- type: timeseries
+  name: Pod CPU Usages
+  data:
+  - measurements_tekton-pipelines-controller_cpu
+  - measurements_tekton-chains-controller_cpu
+  xaxis:
+    data: timestamp
+  yaxis:
+    name: CPU Cores
+
+- type: timeseries
+  name: Pod Memory Usages
+  data:
+  - measurements_tekton-pipelines-controller_memory
+  - measurements_tekton-chains-controller_memory
+  xaxis:
+    data: timestamp
+  yaxis:
+    name: Memory Usage
+    formatter: compute_bytes
+
+- type: timeseries
+  name: Workqueue Depth
+  data:
+  - measurements_tekton_tekton_pipelines_controller_workqueue_depth
+  - measurements_tekton_tekton_chains_controller_workqueue_depth
+  xaxis:
+    data: timestamp
+  yaxis:
+    name: Size
+
