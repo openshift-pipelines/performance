@@ -17,7 +17,7 @@ cat <<EOF >$output
     "parameters": {
         "test": {
             "total": $TEST_TOTAL,
-            "concurrent": $TEST_CONCURRENT,
+            "concurrent": "$TEST_CONCURRENT",
             "run": "$TEST_RUN"
         }
     }

@@ -68,9 +68,13 @@ def populate_and_save_j2_template(args):
 
     logger.debug("Data Arguments: %s", data)
 
+    for k in data:
+        if data[k].isdigit():
+            data[k] = int(data[k])
+
     # Render the template
     jinja_env = jinja2.Environment(loader=jinja2.BaseLoader())
-    rendered_template = jinja_env.from_string(template).render(data=data)
+    rendered_template = jinja_env.from_string(template).render(**data)
 
     # Save the rendered template to a file
     if not args.output:
