@@ -9,31 +9,35 @@ events: []
 #   timestamp: "2024-05-03T06:11:50"
 #   format: "%Y-%m-%dT%H:%M:%S"
 
+# Whether to plot the above events for all charts
+show_events: true
+
+# Path to input directory containing data source
 input:
   paths: 
   - ./monitoring-collection-raw-data-dir/*.csv # Creates {filename: OBJ} mapping in memory
 
+# Path to output directory to save generated charts
 output:
   dir: ./temp/
   overwrite: true
 
-show_events: true
-
+# Chart definitions
 charts:
-- type: timeseries # X axis is timestamps and Y axis is data points
-  name: ETCD & API-Server CPU Usage
-  show_events: true
-  data:
+- type: timeseries # Type timeseries: X axis is timestamps and Y axis is data points
+  name: ETCD & API-Server CPU Usage # Chart Title
+  show_events: true # Show events for specific chart
+  data: # Data file names to be considered for plotting
   - measurements_etcd_cpu
   - measurements_apiserver_cpu
   - measurements_kube-apiserver_cpu
   xaxis:
-    name: Timestamp
-    formatter: time_hour
-    data: timestamp
+    name: Timestamp # Title of the given Axis
+    formatter: time_hour  # Formatter time_hour: This formatter loads timestamp values in HH:mm format
+    data: timestamp  # data: Column name in the data files to represents this axis
   yaxis:
     name: CPU Cores
-    data: "%" # % - Excluding xaxis data, it will include everything
+    data: "%" # % Shortcut: Consider all the columns except the xaxis column name while representing this data points.
 
 - type: timeseries
   name: ETCD & API-Server Memory Usage
@@ -45,7 +49,7 @@ charts:
     data: timestamp
   yaxis:
     name: Memory Usage (Bytes)
-    formatter: compute_bytes
+    formatter: compute_bytes  # Formatter compute_bytes: This formatter loads bytes values in human readable format (KB/MB/GB/TB)
   
 - type: timeseries
   name: ETCD DB Size

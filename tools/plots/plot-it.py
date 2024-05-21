@@ -10,7 +10,6 @@ import logging
 import argparse
 from datetime import datetime
 
-import humanize
 import pandas as pd
 import matplotlib.pyplot as plt
 from plot_it_formatters import Formatter
