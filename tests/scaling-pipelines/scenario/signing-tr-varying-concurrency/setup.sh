@@ -7,10 +7,20 @@ TEST_BIGBANG_MULTI_STEP__LINE_COUNT="${TEST_BIGBANG_MULTI_STEP__LINE_COUNT:-5}"
 
 TOTAL_TIMEOUT="12600"
 
+# By default chains will be disabled
+# If its set, then we consider chains to be enabled at certain time
+CHAINS_ENABLE_TIME="${CHAINS_ENABLE_TIME:-false}"
 
-chains_setup_tekton_tekton_
+if [ "$CHAINS_ENABLE_TIME" != "false" ] && [ -n "$CHAINS_ENABLE_TIME" ]; then
+    chains_setup_tekton_tekton_
+    chains_stop
+    (
+         wait_for_timeout $CHAINS_ENABLE_TIME "waiting for chains timeout"
+         chains_start
+    ) &
+fi
 
-chains_stop
+
 
 create_pipeline_from_j2_template pipeline.yaml.j2 "task_count=${TEST_BIGBANG_MULTI_STEP__TASK_COUNT}, step_count=${TEST_BIGBANG_MULTI_STEP__STEP_COUNT}, line_count=${TEST_BIGBANG_MULTI_STEP__LINE_COUNT}"
 
@@ -19,8 +29,8 @@ pruner_start
 (
 
     wait_for_timeout 30m "establish baseline performance with 5PR"
-    chains_start
-    wait_for_timeout 30m "establish baseline performance with 5PR with chains enabled"
+
+    wait_for_timeout 30m "establish baseline performance with 5PR"
 
     echo 10 > scenario/$TEST_SCENARIO/concurrency.txt
     wait_for_timeout 60m "establish baseline performance with 10PR"
