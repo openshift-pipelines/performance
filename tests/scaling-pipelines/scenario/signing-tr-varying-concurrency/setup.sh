@@ -11,9 +11,10 @@ TOTAL_TIMEOUT="12600"
 # If its set, then we consider chains to be enabled at certain time
 CHAINS_ENABLE_TIME="${CHAINS_ENABLE_TIME:-false}"
 
+chains_setup_tekton_tekton_
+chains_stop
+
 if [ "$CHAINS_ENABLE_TIME" != "false" ] && [ -n "$CHAINS_ENABLE_TIME" ]; then
-    chains_setup_tekton_tekton_
-    chains_stop
     (
          wait_for_timeout $CHAINS_ENABLE_TIME "waiting for chains timeout"
          chains_start
