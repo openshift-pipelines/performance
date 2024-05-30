@@ -6,7 +6,12 @@ set -o pipefail
 
 data_file="${1}"
 
-# TODO: ADD SUPPORT TO GROUP RESULTS WITH NAMESPACES
+# Group and sum multi-namespace result into single stats file
+./convert-benchmark-stats.py "$data_file" "new-$data_file"
+
+# Update to latest stat file
+data_file="new-$data_file"
+
 {
     echo -n "
         set datafile sep ','
