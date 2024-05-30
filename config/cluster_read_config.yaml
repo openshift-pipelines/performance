@@ -120,7 +120,13 @@
   monitoring_query: avg(etcd_mvcc_db_total_size_in_bytes)
   monitoring_step: 15
 
+- name: measurements.etcd_mvcc_db_total_size_in_use_in_bytes_average
+  monitoring_query: avg(etcd_mvcc_db_total_size_in_use_in_bytes)
+  monitoring_step: 15
 
+- name: measurements.etcd_server_quota_backend_bytes_average
+  monitoring_query: avg(etcd_server_quota_backend_bytes)
+  monitoring_step: 15
 
 # Interesting CI environment variables
 {% for var in [
