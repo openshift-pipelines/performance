@@ -438,6 +438,9 @@ def counter_thread(args, pipelineruns, pipelineruns_lock, taskruns, taskruns_loc
                 running = len(
                     [i for i in namespaced_pipelineruns if i["state"] == "running"]
                 )
+                failed = len(
+                    [i for i in namespaced_pipelineruns if "outcome" in i and i["outcome"] == "failed"]
+                )
                 pending = len(
                     [i for i in namespaced_pipelineruns if i["state"] == "pending"]
                 )
@@ -473,6 +476,7 @@ def counter_thread(args, pipelineruns, pipelineruns_lock, taskruns, taskruns_loc
                 "monitoring_second": monitoring_second,
                 "finished": finished,
                 "running": running,
+                "failed": failed,
                 "pending": pending,
                 "total": total,
                 "signed_true": signed_true,
@@ -502,6 +506,9 @@ def counter_thread(args, pipelineruns, pipelineruns_lock, taskruns, taskruns_loc
                 )
                 running = len(
                     [i for i in namespaced_taskruns if i["state"] == "running"]
+                )
+                failed = len(
+                    [i for i in namespaced_taskruns if "outcome" in i and i["outcome"] == "failed"]
                 )
                 pending = len(
                     [i for i in namespaced_taskruns if i["state"] == "pending"]
@@ -536,6 +543,7 @@ def counter_thread(args, pipelineruns, pipelineruns_lock, taskruns, taskruns_loc
                 "monitoring_second": monitoring_second,
                 "finished": finished,
                 "running": running,
+                "failed": failed,
                 "pending": pending,
                 "total": total,
                 "signed_true": signed_true,
@@ -589,6 +597,7 @@ def counter_thread(args, pipelineruns, pipelineruns_lock, taskruns, taskruns_loc
                                 "monitoring_now",
                                 "monitoring_second",
                                 "prs_total",
+                                "prs_failed",
                                 "prs_pending",
                                 "prs_running",
                                 "prs_finished",
@@ -601,6 +610,7 @@ def counter_thread(args, pipelineruns, pipelineruns_lock, taskruns, taskruns_loc
                                 "prs_deleted",
                                 "prs_terminated",
                                 "trs_total",
+                                "trs_failed",
                                 "trs_pending",
                                 "trs_running",
                                 "trs_finished",
@@ -621,6 +631,7 @@ def counter_thread(args, pipelineruns, pipelineruns_lock, taskruns, taskruns_loc
                             monitoring_now.isoformat(),
                             monitoring_second,
                             prs["total"],
+                            prs['failed'],
                             prs["pending"],
                             prs["running"],
                             prs["finished"],
@@ -633,6 +644,7 @@ def counter_thread(args, pipelineruns, pipelineruns_lock, taskruns, taskruns_loc
                             prs["deleted"],
                             prs["terminated"],
                             trs["total"],
+                            trs['failed'],
                             trs["pending"],
                             trs["running"],
                             trs["finished"],

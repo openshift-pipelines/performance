@@ -6,7 +6,12 @@ set -o pipefail
 
 data_file="${1}"
 
-# TODO: ADD SUPPORT TO GROUP RESULTS WITH NAMESPACES
+# Group and sum multi-namespace result into single stats file
+./convert-benchmark-stats.py "$data_file" "new-$data_file"
+
+# Update to latest stat file
+data_file="new-$data_file"
+
 {
     echo -n "
         set datafile sep ','
@@ -23,13 +28,14 @@ data_file="${1}"
         set output 'benchmark-stats-pipelineruns.png'
         plot"
     echo -n " '$data_file' using 2:4 title 'prs_total' linewidth 2,"
-    echo -n " '$data_file' using 2:5 title 'prs_pending' linewidth 2,"
-    echo -n " '$data_file' using 2:6 title 'prs_running' linewidth 2,"
-    echo -n " '$data_file' using 2:7 title 'prs_finished' linewidth 2,"
-    echo -n " '$data_file' using 2:8 title 'prs_signed_true' linewidth 2,"
-    echo -n " '$data_file' using 2:10 title 'prs_finalizers_present' linewidth 2,"
-    echo -n " '$data_file' using 2:14 title 'prs_deleted' linewidth 2,"
-    echo -n " '$data_file' using 2:15 title 'prs_terminated' linewidth 2,"
+    echo -n " '$data_file' using 2:5 title 'prs_failed' linewidth 2,"
+    echo -n " '$data_file' using 2:6 title 'prs_pending' linewidth 2,"
+    echo -n " '$data_file' using 2:7 title 'prs_running' linewidth 2,"
+    echo -n " '$data_file' using 2:8 title 'prs_finished' linewidth 2,"
+    echo -n " '$data_file' using 2:9 title 'prs_signed_true' linewidth 2,"
+    echo -n " '$data_file' using 2:11 title 'prs_finalizers_present' linewidth 2,"
+    echo -n " '$data_file' using 2:15 title 'prs_deleted' linewidth 2,"
+    echo -n " '$data_file' using 2:16 title 'prs_terminated' linewidth 2,"
 } | gnuplot
 
 {
@@ -47,12 +53,13 @@ data_file="${1}"
         set ylabel 'Count'
         set output 'benchmark-stats-taskrunsruns.png'
         plot"
-    echo -n " '$data_file' using 2:16 title 'trs_total' linewidth 2,"
-    echo -n " '$data_file' using 2:17 title 'trs_pending' linewidth 2,"
-    echo -n " '$data_file' using 2:18 title 'trs_running' linewidth 2,"
-    echo -n " '$data_file' using 2:19 title 'trs_finished' linewidth 2,"
-    echo -n " '$data_file' using 2:20 title 'trs_signed_true' linewidth 2,"
-    echo -n " '$data_file' using 2:22 title 'trs_finalizers_present' linewidth 2,"
-    echo -n " '$data_file' using 2:24 title 'trs_deleted' linewidth 2,"
-    echo -n " '$data_file' using 2:25 title 'trs_terminated' linewidth 2,"
+    echo -n " '$data_file' using 2:17 title 'trs_total' linewidth 2,"
+    echo -n " '$data_file' using 2:18 title 'trs_failed' linewidth 2,"
+    echo -n " '$data_file' using 2:19 title 'trs_pending' linewidth 2,"
+    echo -n " '$data_file' using 2:20 title 'trs_running' linewidth 2,"
+    echo -n " '$data_file' using 2:21 title 'trs_finished' linewidth 2,"
+    echo -n " '$data_file' using 2:22 title 'trs_signed_true' linewidth 2,"
+    echo -n " '$data_file' using 2:24 title 'trs_finalizers_present' linewidth 2,"
+    echo -n " '$data_file' using 2:26 title 'trs_deleted' linewidth 2,"
+    echo -n " '$data_file' using 2:27 title 'trs_terminated' linewidth 2,"
 } | gnuplot
