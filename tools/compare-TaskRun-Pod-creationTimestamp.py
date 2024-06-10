@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+## TODO: Rework on this script to consider benchmark-output.json as input with pod.json (need to be captured from the point when tests are executed) 
+
 import argparse
 import datetime
 import json

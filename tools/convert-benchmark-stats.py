@@ -11,7 +11,7 @@
 '''
 
 import sys
-import pandas as pd
+import math
 
 column_names = [
     'monitoring_start',
@@ -43,39 +43,93 @@ column_names = [
     'trs_terminated',
 ]
 
+class CSV_Object:
+    def __init__(self, path):
+        self.load_from_file(path)
+
+    def load_from_file(self, path):
+        with open(path, 'r', encoding='utf-8') as f:
+            data = f.readlines()
+
+            # Fetch Headers
+            self.headers = [x.strip() for x in data[0].split(',')]
+            self.header_col2idx = { self.headers[i]:i for i in range(len(self.headers)) }
+
+            # Fetch data columns
+            data_rows = []
+
+            for data in data[1:]:
+                data_rows.append(
+                    [x.strip() for x in data.split(',')]
+                )
+
+            self.data_rows = data_rows
+            self.row_count = len(data_rows)
+            self.col_count = len(self.headers)
+
+    def __getitem__(self, col_name):
+        result = []
+        for row in self.data_rows:
+            col_val = row[self.header_col2idx[col_name]]
+            result.append(col_val)
+        return result
+
+    def unique(self, col_name):
+        seen = set()
+        result = []
+        for row in self.data_rows:
+            col_val = row[self.header_col2idx[col_name]]
+            if col_val not in seen:
+                seen.add(col_val)
+                result.append(col_val)
+        return result
+
+
 def main(benchmark_stats_file, out):
-    df = pd.read_csv(benchmark_stats_file)
-    namespace_count = len(df.namespace.unique())
-    n = df.shape[0]
-    df_series = []
+    csv_data = CSV_Object(benchmark_stats_file)
 
-    for i in range(0, n, namespace_count):
-        # Take groups based on namespace count
-        sub_df = df.iloc[i:i+namespace_count]
-        last_row_idx = sub_df.shape[0] - 1
-        monitoring_start = sub_df.iloc[0]['monitoring_start']
-        monitoring_now = sub_df.iloc[last_row_idx]['monitoring_now']
-        monitoring_second = sub_df.iloc[last_row_idx]['monitoring_second']
+    namespace_count = len(csv_data.unique('namespace'))
+    n = csv_data.row_count
+    result_rows = []
 
-        # Remove time related fields and sum the sub-group
-        sub_df_sum = sub_df.drop(columns=[
-            'namespace', 
-            'monitoring_start', 
-            'monitoring_now', 
-            'monitoring_second'
-        ]).sum(axis=0)
+    batches = math.ceil(n // namespace_count)
 
-        # Capture monitoring time stats based on first and last records from the sub-group
-        sub_df_sum['monitoring_start'] = monitoring_start
-        sub_df_sum['monitoring_now'] = monitoring_now
-        sub_df_sum['monitoring_second'] = monitoring_second
-        df_series.append(sub_df_sum)
+    for batch in range(batches):
+        # Group by namespaces
 
-    # Save new result CSV file
-    new_df = pd.concat(df_series, axis=1).transpose()
-    new_df = new_df[column_names]
+        # For last batch, take last nth records based on namespace count as start index (as we could have less number of records)
+        if batch == batches - 1:
+            start_idx = n - namespace_count
+        else:
+            start_idx = namespace_count * batch
 
-    new_df.to_csv(out, index=False)
+        last_idx = start_idx + namespace_count - 1
+
+        monitoring_start = csv_data['monitoring_start'][start_idx]
+        monitoring_now = csv_data['monitoring_now'][last_idx]
+        monitoring_second = csv_data['monitoring_second'][last_idx]
+
+        result_row = [monitoring_start, monitoring_now, monitoring_second]
+
+        # Sum stats for each measurement column across the namespace
+        for col_name in column_names[3:]:
+            col_values = csv_data[col_name]
+            total_sum = 0
+            for idx in range(start_idx, last_idx + 1):
+                total_sum += int(col_values[idx])
+            result_row.append(total_sum)
+
+        result_rows.append(result_row)
+
+
+    with open(out, 'w', encoding='utf-8') as file_writer:
+        file_writer.write(",".join(column_names))
+        file_writer.write("\n")
+        for data in result_rows:
+            file_writer.write(",".join([str(x) for x in data]))
+            file_writer.write("\n")
+        file_writer.flush()
+        file_writer.close()
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
