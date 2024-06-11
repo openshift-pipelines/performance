@@ -11,6 +11,9 @@ tests/scaling-pipelines/push-fake-image/
 tests/scaling-pipelines/benchmark-output.json
 tests/scaling-pipelines/benchmark-stats.csv
 tests/scaling-pipelines/benchmark-tekton.json
+tests/scaling-pipelines/cluster-benchmark-stats.csv
+tests/scaling-pipelines/pipelineruns-stats.csv
+tests/scaling-pipelines/taskruns-stats.csv
 tests/scaling-pipelines/cosign.pub
 tests/scaling-pipelines/measure-signed.csv
 tests/scaling-pipelines/pipelineruns.json

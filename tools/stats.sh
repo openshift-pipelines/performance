@@ -2,11 +2,24 @@
 
 started="$1"
 ended="$2"
+type="$3"
+
+input="benchmark-output.json"
+output="benchmark-tekton.json"
+
+if [[ ! ${type} == "PipelineRuns" && ! ${type} == "TaskRuns" ]]
+then
+    echo 'ERROR: Given type is invlaid. Possible Values: PipelineRuns, TaskRuns'
+    exit 1
+fi
 
 TEST_NAMESPACE="${TEST_NAMESPACE:-1}"
 
 echo "$(date -Ins --utc) dumping basic results to data files"
-output="benchmark-tekton.json"
+
+# Update if file already exists 
+if [ ! -f $output ]; then
+
 cat <<EOF >$output
 {
     "name": "OpenShift Pipelines scalingPipelines test",
@@ -16,7 +29,7 @@ cat <<EOF >$output
     },
     "parameters": {
         "test": {
-            "total": $TEST_TOTAL,
+            "total": "$TEST_TOTAL",
             "concurrent": "$TEST_CONCURRENT",
             "run": "$TEST_RUN"
         }
@@ -24,94 +37,127 @@ cat <<EOF >$output
 }
 EOF
 
-pipelineruns_jsons=()
-taskruns_jsons=()
+fi
 
+# Gather PipelineRun and TaskRun information from benchmark-output.json
+if [[ ${type} == "PipelineRuns" ]]; then
+    data=$(jq .pipelineruns "$input")
+else
+    data=$(jq .taskruns "$input")
+fi
+
+
+# Get information on latest objects in the cluster after test execution (deleted PR/TR will not be considered)
 # Loop through each namespace and get the JSON outputs
+object_jsons=()
 for namespace_idx in $(seq 1 ${TEST_NAMESPACE});
 do
     namespace_tag=$([ "$TEST_NAMESPACE" -eq 1 ] && echo "" || echo "$namespace_idx")
     namespace="benchmark${namespace_tag}"
 
-    pipelineruns_jsons+=("$(kubectl get pr -o json -n "${namespace}")")
-    taskruns_jsons+=("$(kubectl get tr -o json -n "${namespace}")")
+    object_jsons+=("$(kubectl get $type -o json -n "${namespace}")")
 done
 
-# Combine PipelineRun JSON data from each namespace
-pr_items=$(printf '%s\n' "${pipelineruns_jsons[@]}" | jq -s '{items: map(.items) | add}')
-data=$(echo "$pr_items" | jq '. += {"apiVersion":"v1", "kind": "List", "metadata": {}}')
+# Generate Object Listing for PR/TR
+items=$(printf '%s\n' "${object_jsons[@]}" | jq -s '{items: map(.items) | add}')
+object_lists=$(echo "$items" | jq '. += {"apiVersion":"v1", "kind": "List", "metadata": {}}')
 
-echo "$(date -Ins --utc) adding stats to data file"
-echo "$data" >pipelineruns.json
-data_successful=$(echo "$data" | jq --raw-output '.items |= [.[] | . as $a | .status.conditions | if . == null then [] else . end | .[] | select(.type == "Succeeded" and .status == "True") | $a]')
+if [[ ${type} == "PipelineRuns" ]]; then
+    echo "$object_lists" > pipelineruns.json
+else
+    echo "$object_lists" > taskruns.json
+fi
 
-# PipelineRuns total duration (.status.completionTime - .metadata.creationTimestamp)
-prs_avg=$(echo "$data_successful" | jq --raw-output '[.items[] | ((.status.completionTime | fromdate) - (.metadata.creationTimestamp | fromdate))] | add / length')
-prs_min=$(echo "$data_successful" | jq --raw-output '[.items[] | ((.status.completionTime | fromdate) - (.metadata.creationTimestamp | fromdate))] | min')
-prs_max=$(echo "$data_successful" | jq --raw-output '[.items[] | ((.status.completionTime | fromdate) - (.metadata.creationTimestamp | fromdate))] | max')
-cat $output | jq '.results.PipelineRuns.duration.min = '$prs_min' | .results.PipelineRuns.duration.avg = '$prs_avg' | .results.PipelineRuns.duration.max = '$prs_max'' >"$$.json" && mv -f "$$.json" "$output"
 
-# PipelineRuns pending duration (.status.startTime - .metadata.creationTimestamp)
-prs_avg=$(echo "$data_successful" | jq --raw-output '[.items[] | ((.status.startTime | fromdate) - (.metadata.creationTimestamp | fromdate))] | add / length')
-prs_min=$(echo "$data_successful" | jq --raw-output '[.items[] | ((.status.startTime | fromdate) - (.metadata.creationTimestamp | fromdate))] | min')
-prs_max=$(echo "$data_successful" | jq --raw-output '[.items[] | ((.status.startTime | fromdate) - (.metadata.creationTimestamp | fromdate))] | max')
-cat $output | jq '.results.PipelineRuns.pending.min = '$prs_min' | .results.PipelineRuns.pending.avg = '$prs_avg' | .results.PipelineRuns.pending.max = '$prs_max'' >"$$.json" && mv -f "$$.json" "$output"
+# Filter run details based on outcome  
+data_overall=$(echo $data | jq '. | to_entries | .[].value')
+data_successful=$(echo $data | jq '. | to_entries | .[].value | select (.outcome == "succeeded")')
+data_failed=$(echo $data | jq '. | to_entries | .[].value | select (.outcome == "failed")')
 
-# PipelineRuns running duration (.status.completionTime - .status.startTime)
-prs_avg=$(echo "$data_successful" | jq --raw-output '[.items[] | ((.status.completionTime | fromdate) - (.status.startTime | fromdate))] | add / length')
-prs_min=$(echo "$data_successful" | jq --raw-output '[.items[] | ((.status.completionTime | fromdate) - (.status.startTime | fromdate))] | min')
-prs_max=$(echo "$data_successful" | jq --raw-output '[.items[] | ((.status.completionTime | fromdate) - (.status.startTime | fromdate))] | max')
-cat $output | jq '.results.PipelineRuns.running.min = '$prs_min' | .results.PipelineRuns.running.avg = '$prs_avg' | .results.PipelineRuns.running.max = '$prs_max'' >"$$.json" && mv -f "$$.json" "$output"
-
-# PipelineRuns succeeded and failed count
-prs_succeeded=$(echo "$data" | jq --raw-output '[.items[] | .status.conditions | if . == null then [] else . end | .[] | select(.type == "Succeeded" and .status == "True" and .reason == "Succeeded")] | length')
-prs_failed=$(echo "$data" | jq --raw-output '[.items[] | .status.conditions | if . == null then [] else . end | .[] | select(.type == "Succeeded" and .status != "True" and .reason != "Running")] | length')
+# succeeded and failed count
+prs_succeeded=$(echo "$data_successful" | jq -s ' length')
+prs_failed=$(echo "$data_failed" | jq -s ' length')
 prs_remaining=$remaining
 prs_pending=$pending
 prs_running=$running
-echo 'DEBUG: .results.PipelineRuns.count.succeeded = "'$prs_succeeded'" | .results.PipelineRuns.count.failed = "'$prs_failed'" | .results.PipelineRuns.count.remaining = "'$prs_remaining'" | .results.PipelineRuns.count.pending = "'$prs_pending'" | .results.PipelineRuns.count.running = "'$prs_running'"'
-cat $output | jq '.results.PipelineRuns.count.succeeded = "'$prs_succeeded'" | .results.PipelineRuns.count.failed = "'$prs_failed'" | .results.PipelineRuns.count.remaining = "'$prs_remaining'" | .results.PipelineRuns.count.pending = "'$prs_pending'" | .results.PipelineRuns.count.running = "'$prs_running'"' >"$$.json" && mv -f "$$.json" "$output"
+echo 'DEBUG: .results.$type.count.succeeded = "'$prs_succeeded'" | .results.$type.count.failed = "'$prs_failed'" | .results.$type.count.remaining = "'$prs_remaining'" | .results.$type.count.pending = "'$prs_pending'" | .results.$type.count.running = "'$prs_running'"'
+cat $output | jq --arg type "$type" '.results.[$type].count.succeeded = "'$prs_succeeded'" | .results.[$type].count.failed = "'$prs_failed'" | .results.[$type].count.remaining = "'$prs_remaining'" | .results.[$type].count.pending = "'$prs_pending'" | .results.[$type].count.running = "'$prs_running'"' >"$$.json" && mv -f "$$.json" "$output"
 
-# PipelineRuns .metadata.creationTimestamp first and last
-pr_creationTimestamp_first=$(echo "$data" | jq --raw-output '[.items[] | .metadata.creationTimestamp] | sort | first')
-pr_creationTimestamp_last=$(echo "$data" | jq --raw-output '[.items[] | .metadata.creationTimestamp] | sort | last')
-cat $output | jq '.results.PipelineRuns.creationTimestamp.first = "'$pr_creationTimestamp_first'" | .results.PipelineRuns.creationTimestamp.last = "'$pr_creationTimestamp_last'"' >"$$.json" && mv -f "$$.json" "$output"
+###############################################################################################
+# [Overall] total duration (.status.completionTime - .metadata.creationTimestamp)
+prs_avg=$(echo "$data_overall" | jq -s  '[.[] | select(has("finished_at")) | (( (.completionTime // (.finished_at | .[0:19] + "Z")) | fromdate) - (.creationTimestamp | fromdate))] | add / length')
+prs_min=$(echo "$data_overall" | jq -s  '[.[] | select(has("finished_at")) | (( (.completionTime // (.finished_at | .[0:19] + "Z")) | fromdate) - (.creationTimestamp | fromdate))] | min')
+prs_max=$(echo "$data_overall" | jq -s  '[.[] | select(has("finished_at")) | (( (.completionTime // (.finished_at | .[0:19] + "Z")) | fromdate) - (.creationTimestamp | fromdate))] | max')
+cat $output | jq --arg type "$type" '.results.[$type].duration.min = '$prs_min' | .results.[$type].duration.avg = '$prs_avg' | .results.[$type].duration.max = '$prs_max'' >"$$.json" && mv -f "$$.json" "$output"
 
-# PipelineRuns .status.startTime first and last
-pr_startTime_first=$(echo "$data" | jq --raw-output '[.items[] | .status.startTime] | sort | first')
-pr_startTime_last=$(echo "$data" | jq --raw-output '[.items[] | .status.startTime] | sort | last')
-cat $output | jq '.results.PipelineRuns.startTime.first = "'$pr_startTime_first'" | .results.PipelineRuns.startTime.last = "'$pr_startTime_last'"' >"$$.json" && mv -f "$$.json" "$output"
+# [Overall] pending duration (.status.startTime - .metadata.creationTimestamp)
+prs_avg=$(echo "$data_overall" | jq -s  '[.[] | select(has("startTime")) | ((.startTime | fromdate) - (.creationTimestamp | fromdate))] | add / length')
+prs_min=$(echo "$data_overall" | jq -s  '[.[] | select(has("startTime")) | ((.startTime | fromdate) - (.creationTimestamp | fromdate))] | min')
+prs_max=$(echo "$data_overall" | jq -s  '[.[] | select(has("startTime")) | ((.startTime | fromdate) - (.creationTimestamp | fromdate))] | max')
+cat $output | jq --arg type "$type" '.results.[$type].pending.min = '$prs_min' | .results.[$type].pending.avg = '$prs_avg' | .results.[$type].pending.max = '$prs_max'' >"$$.json" && mv -f "$$.json" "$output"
 
-# PipelineRuns .status.completionTime first and last
-pr_completionTime_first=$(echo "$data" | jq --raw-output '[.items[] | .status.completionTime] | sort | first')
-pr_completionTime_last=$(echo "$data" | jq --raw-output '[.items[] | .status.completionTime] | sort | last')
-cat $output | jq '.results.PipelineRuns.completionTime.first = "'$pr_completionTime_first'" | .results.PipelineRuns.completionTime.last = "'$pr_completionTime_last'"' >"$$.json" && mv -f "$$.json" "$output"
+# [Overall] running duration (.status.completionTime - .status.startTime)
+prs_avg=$(echo "$data_overall" | jq -s  '[.[] | select(has("finished_at")) | (( (.completionTime // (.finished_at | .[0:19] + "Z")) | fromdate) - (.startTime | fromdate))] | add / length')
+prs_min=$(echo "$data_overall" | jq -s  '[.[] | select(has("finished_at")) | (( (.completionTime // (.finished_at | .[0:19] + "Z")) | fromdate) - (.startTime | fromdate))] | min')
+prs_max=$(echo "$data_overall" | jq -s  '[.[] | select(has("finished_at")) | (( (.completionTime // (.finished_at | .[0:19] + "Z")) | fromdate) - (.startTime | fromdate))] | max')
+cat $output | jq --arg type "$type" '.results.[$type].running.min = '$prs_min' | .results.[$type].running.avg = '$prs_avg' | .results.[$type].running.max = '$prs_max'' >"$$.json" && mv -f "$$.json" "$output"
 
-# TaskRuns
+###############################################################################################
+# [Success] total duration (.status.completionTime - .metadata.creationTimestamp)
+prs_avg=$(echo "$data_successful" | jq -s  '[.[] | select(has("finished_at")) | (( (.completionTime // (.finished_at | .[0:19] + "Z")) | fromdate) - (.creationTimestamp | fromdate))] | add / length')
+prs_min=$(echo "$data_successful" | jq -s  '[.[] | select(has("finished_at")) | (( (.completionTime // (.finished_at | .[0:19] + "Z")) | fromdate) - (.creationTimestamp | fromdate))] | min')
+prs_max=$(echo "$data_successful" | jq -s  '[.[] | select(has("finished_at")) | (( (.completionTime // (.finished_at | .[0:19] + "Z")) | fromdate) - (.creationTimestamp | fromdate))] | max')
+cat $output | jq --arg type "$type" '.results.[$type].Success.duration.min = '$prs_min' | .results.[$type].Success.duration.avg = '$prs_avg' | .results.[$type].Success.duration.max = '$prs_max'' >"$$.json" && mv -f "$$.json" "$output"
 
-# Combine TaskRun JSON data from each namespace
-tr_items=$(printf '%s\n' "${taskruns_jsons[@]}" | jq -s '{items: map(.items) | add}')
-data=$(echo "$tr_items" | jq '. += {"apiVersion":"v1", "kind": "List", "metadata": {}}')
+# [Success] pending duration (.status.startTime - .metadata.creationTimestamp)
+prs_avg=$(echo "$data_successful" | jq -s  '[.[] | select(has("startTime")) | ((.startTime | fromdate) - (.creationTimestamp | fromdate))] | add / length')
+prs_min=$(echo "$data_successful" | jq -s  '[.[] | select(has("startTime")) | ((.startTime | fromdate) - (.creationTimestamp | fromdate))] | min')
+prs_max=$(echo "$data_successful" | jq -s  '[.[] | select(has("startTime")) | ((.startTime | fromdate) - (.creationTimestamp | fromdate))] | max')
+cat $output | jq --arg type "$type" '.results.[$type].Success.pending.min = '$prs_min' | .results.[$type].Success.pending.avg = '$prs_avg' | .results.[$type].Success.pending.max = '$prs_max'' >"$$.json" && mv -f "$$.json" "$output"
 
-echo "$data" > taskruns.json
-data_successful=$(echo "$data" | jq --raw-output '.items |= [.[] | . as $a | .status.conditions | if . == null then [] else . end | .[] | select(.type == "Succeeded" and .status == "True") | $a]')
+# [Success] running duration (.status.completionTime - .status.startTime)
+prs_avg=$(echo "$data_successful" | jq -s  '[.[] | select(has("finished_at")) | (( (.completionTime // (.finished_at | .[0:19] + "Z")) | fromdate) - (.startTime | fromdate))] | add / length')
+prs_min=$(echo "$data_successful" | jq -s  '[.[] | select(has("finished_at")) | (( (.completionTime // (.finished_at | .[0:19] + "Z")) | fromdate) - (.startTime | fromdate))] | min')
+prs_max=$(echo "$data_successful" | jq -s  '[.[] | select(has("finished_at")) | (( (.completionTime // (.finished_at | .[0:19] + "Z")) | fromdate) - (.startTime | fromdate))] | max')
+cat $output | jq --arg type "$type" '.results.[$type].Success.running.min = '$prs_min' | .results.[$type].Success.running.avg = '$prs_avg' | .results.[$type].Success.running.max = '$prs_max'' >"$$.json" && mv -f "$$.json" "$output"
 
-# TaskRuns total duration (.status.completionTime - .metadata.creationTimestamp)
-trs_avg=$(echo "$data_successful" | jq --raw-output '[.items[] | ((.status.completionTime | fromdate) - (.metadata.creationTimestamp | fromdate))] | add / length')
-trs_min=$(echo "$data_successful" | jq --raw-output '[.items[] | ((.status.completionTime | fromdate) - (.metadata.creationTimestamp | fromdate))] | min')
-trs_max=$(echo "$data_successful" | jq --raw-output '[.items[] | ((.status.completionTime | fromdate) - (.metadata.creationTimestamp | fromdate))] | max')
-cat $output | jq '.results.TaskRuns.duration.min = '$trs_min' | .results.TaskRuns.duration.avg = '$trs_avg' | .results.TaskRuns.duration.max = '$trs_max'' >"$$.json" && mv -f "$$.json" "$output"
 
-# TaskRuns pending duration (.status.startTime - .metadata.creationTimestamp)
-trs_avg=$(echo "$data_successful" | jq --raw-output '[.items[] | ((.status.startTime | fromdate) - (.metadata.creationTimestamp | fromdate))] | add / length')
-trs_min=$(echo "$data_successful" | jq --raw-output '[.items[] | ((.status.startTime | fromdate) - (.metadata.creationTimestamp | fromdate))] | min')
-trs_max=$(echo "$data_successful" | jq --raw-output '[.items[] | ((.status.startTime | fromdate) - (.metadata.creationTimestamp | fromdate))] | max')
-cat $output | jq '.results.TaskRuns.pending.min = '$trs_min' | .results.TaskRuns.pending.avg = '$trs_avg' | .results.TaskRuns.pending.max = '$trs_max'' >"$$.json" && mv -f "$$.json" "$output"
+###############################################################################################
+if [ "$prs_failed" != "0" ]; then
 
-# TaskRuns running duration (.status.completionTime - .status.startTime)
-trs_avg=$(echo "$data_successful" | jq --raw-output '[.items[] | ((.status.completionTime | fromdate) - (.status.startTime | fromdate))] | add / length')
-trs_min=$(echo "$data_successful" | jq --raw-output '[.items[] | ((.status.completionTime | fromdate) - (.status.startTime | fromdate))] | min')
-trs_max=$(echo "$data_successful" | jq --raw-output '[.items[] | ((.status.completionTime | fromdate) - (.status.startTime | fromdate))] | max')
-cat $output | jq '.results.TaskRuns.running.min = '$trs_min' | .results.TaskRuns.running.avg = '$trs_avg' | .results.TaskRuns.running.max = '$trs_max'' >"$$.json" && mv -f "$$.json" "$output"
+    # [Failed] total duration (.status.completionTime - .metadata.creationTimestamp)
+    prs_avg=$(echo "$data_failed" | jq -s  '[.[] | select(has("finished_at")) | (( (.completionTime // (.finished_at | .[0:19] + "Z")) | fromdate) - (.creationTimestamp | fromdate))] | add / length')
+    prs_min=$(echo "$data_failed" | jq -s  '[.[] | select(has("finished_at")) | (( (.completionTime // (.finished_at | .[0:19] + "Z")) | fromdate) - (.creationTimestamp | fromdate))] | min')
+    prs_max=$(echo "$data_failed" | jq -s  '[.[] | select(has("finished_at")) | (( (.completionTime // (.finished_at | .[0:19] + "Z")) | fromdate) - (.creationTimestamp | fromdate))] | max')
+    cat $output | jq --arg type "$type" '.results.[$type].Failed.duration.min = '$prs_min' | .results.[$type].Failed.duration.avg = '$prs_avg' | .results.[$type].Failed.duration.max = '$prs_max'' >"$$.json" && mv -f "$$.json" "$output"
 
-echo "$(date -Ins --utc) done with ${total} runs of ${run} which ran with ${concurrent} runs"
+    # [Failed] pending duration (.status.startTime - .metadata.creationTimestamp)
+    prs_avg=$(echo "$data_failed" | jq -s  '[.[] | select(has("startTime")) | ((.startTime | fromdate) - (.creationTimestamp | fromdate))] | add / length')
+    prs_min=$(echo "$data_failed" | jq -s  '[.[] | select(has("startTime")) | ((.startTime | fromdate) - (.creationTimestamp | fromdate))] | min')
+    prs_max=$(echo "$data_failed" | jq -s  '[.[] | select(has("startTime")) | ((.startTime | fromdate) - (.creationTimestamp | fromdate))] | max')
+    cat $output | jq --arg type "$type" '.results.[$type].Failed.pending.min = '$prs_min' | .results.[$type].Failed.pending.avg = '$prs_avg' | .results.[$type].Failed.pending.max = '$prs_max'' >"$$.json" && mv -f "$$.json" "$output"
+
+    # [Failed] running duration (.status.completionTime - .status.startTime)
+    prs_avg=$(echo "$data_failed" | jq -s  '[.[] | select(has("finished_at")) | (( (.completionTime // (.finished_at | .[0:19] + "Z")) | fromdate) - (.startTime | fromdate))] | add / length')
+    prs_min=$(echo "$data_failed" | jq -s  '[.[] | select(has("finished_at")) | (( (.completionTime // (.finished_at | .[0:19] + "Z")) | fromdate) - (.startTime | fromdate))] | min')
+    prs_max=$(echo "$data_failed" | jq -s  '[.[] | select(has("finished_at")) | (( (.completionTime // (.finished_at | .[0:19] + "Z")) | fromdate) - (.startTime | fromdate))] | max')
+    cat $output | jq --arg type "$type" '.results.[$type].Failed.running.min = '$prs_min' | .results.[$type].Failed.running.avg = '$prs_avg' | .results.[$type].Failed.running.max = '$prs_max'' >"$$.json" && mv -f "$$.json" "$output"
+
+else 
+    echo "DEBUG: No failed runs found. Skipping failed run duration calculation..."
+fi 
+
+# .metadata.creationTimestamp first and last
+pr_creationTimestamp_first=$(echo $data | jq  '[.[] | select(has("creationTimestamp")) | .creationTimestamp] | sort | first')
+pr_creationTimestamp_last=$(echo $data | jq  '[.[] | select(has("creationTimestamp")) | .creationTimestamp] | sort | last')
+cat $output | jq --arg type "$type" '.results.[$type].creationTimestamp.first = '$pr_creationTimestamp_first' | .results.[$type].creationTimestamp.last = '$pr_creationTimestamp_last'' >"$$.json" && mv -f "$$.json" "$output"
+
+# .status.startTime first and last
+pr_startTime_first=$(echo $data | jq  '[.[] | select(has("startTime")) | .startTime] | sort | first')
+pr_startTime_last=$(echo $data | jq  '[.[] | select(has("startTime")) | .startTime] | sort | last')
+cat $output | jq --arg type "$type" '.results.[$type].startTime.first = '$pr_startTime_first' | .results.[$type].startTime.last = '$pr_startTime_last'' >"$$.json" && mv -f "$$.json" "$output"
+
+# ${type} .status.completionTime first and last
+pr_completionTime_first=$(echo $data | jq  '[.[] | select(has("finished_at")) | (.completionTime // (.finished_at | .[0:19] + "Z") ) ] | sort | first')
+pr_completionTime_last=$(echo $data | jq  '[.[] | select(has("finished_at")) | (.completionTime // (.finished_at | .[0:19] + "Z") ) ] | sort | last')
+cat $output | jq --arg type "$type" '.results.[$type].completionTime.first = '$pr_completionTime_first' | .results.[$type].completionTime.last = '$pr_completionTime_last'' >"$$.json" && mv -f "$$.json" "$output"

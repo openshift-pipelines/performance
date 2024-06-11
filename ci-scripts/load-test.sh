@@ -65,7 +65,15 @@ fi
 time ../../tools/benchmark.py --insecure --namespace "${TEST_NAMESPACE}" --total "${TEST_TOTAL}" --concurrent "${TEST_CONCURRENT}" --run "${TEST_RUN}" --stats-file benchmark-stats.csv --output-file benchmark-output.json --verbose $TEST_PARAMS
 after=$(date -Ins --utc)
 
-time ../../tools/stats.sh "$before" "$after"
+# Capture test stats
+time ../../tools/stats.sh "$before" "$after" PipelineRuns
+time ../../tools/stats.sh "$before" "$after" TaskRuns
+
+# Calculate cluster level stats
+time ../../tools/convert-benchmark-stats.py "benchmark-stats.csv" "cluster-benchmark-stats.csv"
+
+# Capture pipeline and task run details
+time ../../tools/capture-run-stats.sh benchmark-output.json
 
 info "Tierdown for $TEST_SCENARIO scenario"
 [ -f scenario/$TEST_SCENARIO/tierdown.sh ] && source scenario/$TEST_SCENARIO/tierdown.sh
