@@ -68,6 +68,7 @@ find . -name benchmark-tekton.json -print0 | while IFS= read -r -d '' filename; 
         .measurements.tekton_pipelines_controller_taskruns_pod_latency_milliseconds.mean,
         .measurements.etcd_request_duration_seconds_average.mean,
         .measurements.etcd_mvcc_db_total_size_in_bytes_average.mean,
+        .measurements.etcd_mvcc_db_total_size_in_use_in_bytes_average.mean,
         .measurements.apiserver_request_total_rate.mean,
         .measurements.cluster_cpu_usage_seconds_total_rate.mean,
         .measurements.cluster_memory_usage_rss_total.mean,
