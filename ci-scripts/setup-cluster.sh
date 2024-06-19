@@ -166,6 +166,9 @@ EOF
         kubectl patch TektonConfig/config --type merge --patch '{"spec":{"chain":{"options":{"deployments":{"tekton-chains-controller":{"spec":{"template":{"spec":{"containers":[{"name":"tekton-chains-controller","args":['$chains_perf_options']}]}}}}}}}}}'
     fi
 
+    info "Disable Chains"
+    kubectl patch TektonConfig/config --type merge --patch '{"spec":{"chain":{"disabled":true}}}'
+
     info "Disable pruner"
     kubectl patch TektonConfig/config --type merge --patch '{"spec":{"pruner":{"disabled":true}}}'
 
