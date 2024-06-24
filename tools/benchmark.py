@@ -433,7 +433,7 @@ def counter_thread(args, pipelineruns, pipelineruns_lock, taskruns, taskruns_loc
                 ]
                 total = len(namespaced_pipelineruns)
                 finished = len(
-                    [i for i in namespaced_pipelineruns if i["state"] == "finished"]
+                    [i for i in namespaced_pipelineruns if i["state"] == "finished"] # Successful Runs + Failed Runs (except runnning)
                 )
                 running = len(
                     [i for i in namespaced_pipelineruns if i["state"] == "running"]
