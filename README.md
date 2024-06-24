@@ -12,7 +12,7 @@ If you want to run the test manually, you will need these tools:
 Setup the OpenShift cluster (assuming `oc login ...` happened already):
 
     export DEPLOYMENT_TYPE="downstream"
-    export DEPLOYMENT_VERSION="1.14"
+    export DEPLOYMENT_VERSION="1.15"
     export DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS=""
     export DEPLOYMENT_CHAINS_CONTROLLER_HA_REPLICAS=""
     export DEPLOYMENT_PIPELINES_KUBE_API_QPS=""
@@ -22,6 +22,8 @@ Setup the OpenShift cluster (assuming `oc login ...` happened already):
     export DEPLOYMENT_CHAINS_KUBE_API_BURST=""
     export DEPLOYMENT_CHAINS_THREADS_PER_CONTROLLER=""
     export DEPLOYMENT_PIPELINES_CONTROLLER_RESOURCES="1/2Gi/1/2Gi"
+    # export DEPLOYMENT_VERSION="1.14"
+    # export DEPLOYMENT_VERSION="1.13"
     ci-scripts/setup-cluster.sh
 
 Run the test:

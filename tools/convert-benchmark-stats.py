@@ -43,6 +43,7 @@ column_names = [
     'trs_terminated',
 ]
 
+
 class CSV_Object:
     def __init__(self, path):
         self.load_from_file(path)
@@ -53,7 +54,10 @@ class CSV_Object:
 
             # Fetch Headers
             self.headers = [x.strip() for x in data[0].split(',')]
-            self.header_col2idx = { self.headers[i]:i for i in range(len(self.headers)) }
+            self.header_col2idx = { 
+                self.headers[i]: i
+                for i in range(len(self.headers))
+            }
 
             # Fetch data columns
             data_rows = []
@@ -97,7 +101,8 @@ def main(benchmark_stats_file, out):
     for batch in range(batches):
         # Group by namespaces
 
-        # For last batch, take last nth records based on namespace count as start index (as we could have less number of records)
+        # For last batch, take last nth records based on namespace count as
+        # start index (as we could have less number of records)
         if batch == batches - 1:
             start_idx = n - namespace_count
         else:
@@ -121,7 +126,6 @@ def main(benchmark_stats_file, out):
 
         result_rows.append(result_row)
 
-
     with open(out, 'w', encoding='utf-8') as file_writer:
         file_writer.write(",".join(column_names))
         file_writer.write("\n")
@@ -130,6 +134,7 @@ def main(benchmark_stats_file, out):
             file_writer.write("\n")
         file_writer.flush()
         file_writer.close()
+
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:

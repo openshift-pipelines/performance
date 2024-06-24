@@ -244,11 +244,16 @@ function wait_for_prs_finished() {
     local last_row=""
     local prs_finished=""
     local namespace="${TEST_NAMESPACE:-1}"
+
+    local benchmark_stats_csv="benchmark-stats.csv"
+    local benchmark_stats_field="prs_finished"
     info "Waiting for $target finished PipelineRuns"
     while true; do
-        if [ -r benchmark-stats.csv ]; then
-            last_row="$( tail -n $namespace benchmark-stats.csv )"
-            prs_finished_per_namespace="$( echo "$last_row" | cut -d ',' -f 8 )"
+        if [ -r $benchmark_stats_csv ]; then
+            # Calculate average PR count across namespace 
+            last_row="$( tail -n $namespace $benchmark_stats_csv )"
+            col_index=$(head -1 $benchmark_stats_csv | tr ',' '\n' | awk -v field="$benchmark_stats_field" '{if ($1 == field) print NR}')
+            prs_finished_per_namespace="$( echo "$last_row" | cut -d ',' -f $col_index )"
             total_prs_finished="$(echo $prs_finished_per_namespace | tr ' ' '+' | bc)"
             prs_finished=$((total_prs_finished / namespace))
             if echo "$prs_finished" | grep '[^0-9]'; then
@@ -262,7 +267,7 @@ function wait_for_prs_finished() {
                 fi
             fi
         else
-            debug "Waiting for PRs: File benchmark-stats.csv does not exist yet, waiting"
+            debug "Waiting for PRs: File $benchmark_stats_csv does not exist yet, waiting"
         fi
         sleep 10
     done
