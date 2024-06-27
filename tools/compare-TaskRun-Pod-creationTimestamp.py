@@ -33,13 +33,6 @@ def load_file(fd):
     return data
 
 
-def generate_unique_name_mapping(name, namespace):
-    return "{namespace}.{name}".format(
-        namespace=namespace,
-        name=name
-    )
-
-
 def doit(args, status_data):
     logging.info(f"Processing {args.taskruns_list.name}")
     data_taskruns = {}
@@ -48,15 +41,9 @@ def doit(args, status_data):
             # TaskRun Names can be duplicate across multiples namespaces
             # Combine namespace+taskrun name to generate unique name
             tr_namespace = i["metadata"]["namespace"]
-            tr_name = generate_unique_name_mapping(
-                name=i["metadata"]["name"],
-                namespace=tr_namespace
-            )
+            tr_name = f'{tr_namespace}.{i["metadata"]["name"]}'
             tr_creationTimestamp = i["metadata"]["creationTimestamp"]
-            tr_podName = generate_unique_name_mapping(
-                name=i["status"]["podName"],
-                namespace=tr_namespace
-            )
+            tr_podName = f'{tr_namespace}.{i["status"]["podName"]}'
         except KeyError as e:
             logging.warning(f"Missing key details in taskruns list: {e}")
             continue
@@ -74,14 +61,8 @@ def doit(args, status_data):
         try:
             # Generate unique pod name to avoid duplicates across multi-namespace
             pod_namespace = i["metadata"]["namespace"]
-            pod_name = generate_unique_name_mapping(
-                name=i["metadata"]["name"],
-                namespace=pod_namespace
-            )
-            pod_tr_name = generate_unique_name_mapping(
-                name=i["metadata"]["labels"]["tekton.dev/taskRun"],
-                namespace=pod_namespace,
-            )
+            pod_name = f'{pod_namespace}.{i["metadata"]["name"]}'
+            pod_tr_name = f'{pod_namespace}.{i["metadata"]["labels"]["tekton.dev/taskRun"]}'
             pod_creationTimestamp = i["metadata"]["creationTimestamp"]
         except KeyError as e:
             logging.warning(f"Missing key details in pods list: {e}")
