@@ -38,9 +38,12 @@ def doit(args, status_data):
     data_taskruns = {}
     for i in load_file(args.taskruns_list)["items"]:
         try:
-            tr_name = i["metadata"]["name"]
+            # TaskRun Names can be duplicate across multiples namespaces
+            # Combine namespace+taskrun name to generate unique name
+            tr_namespace = i["metadata"]["namespace"]
+            tr_name = f'{tr_namespace}.{i["metadata"]["name"]}'
             tr_creationTimestamp = i["metadata"]["creationTimestamp"]
-            tr_podName = i["status"]["podName"]
+            tr_podName = f'{tr_namespace}.{i["status"]["podName"]}'
         except KeyError as e:
             logging.warning(f"Missing key details in taskruns list: {e}")
             continue
@@ -56,8 +59,10 @@ def doit(args, status_data):
     data_pods = {}
     for i in load_file(args.pods_list)["items"]:
         try:
-            pod_name = i["metadata"]["name"]
-            pod_tr_name = i["metadata"]["labels"]["tekton.dev/taskRun"]
+            # Generate unique pod name to avoid duplicates across multi-namespace
+            pod_namespace = i["metadata"]["namespace"]
+            pod_name = f'{pod_namespace}.{i["metadata"]["name"]}'
+            pod_tr_name = f'{pod_namespace}.{i["metadata"]["labels"]["tekton.dev/taskRun"]}'
             pod_creationTimestamp = i["metadata"]["creationTimestamp"]
         except KeyError as e:
             logging.warning(f"Missing key details in pods list: {e}")

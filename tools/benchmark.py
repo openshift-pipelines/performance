@@ -262,7 +262,9 @@ def process_events_thread(watcher, data, lock):
         logging.debug(f"Processing event: {json.dumps(event)[:100]}...")
 
         try:
-            e_name = find("object.metadata.name", event)
+            # Generate unique name to avoid duplicates due to same object names in multiple-namespaces
+            e_namespace = find("object.metadata.namespace", event)
+            e_name = e_namespace + "." + find("object.metadata.name", event)
         except KeyError as e:
             logging.warning(f"Missing name in {json.dumps(event)}: {e} => skipping it")
             continue
