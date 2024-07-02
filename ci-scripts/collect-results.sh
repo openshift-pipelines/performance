@@ -26,6 +26,7 @@ mkdir -p "${monitoring_collection_dir}"
 [ -f tests/scaling-pipelines/pipelineruns.json ] && mv tests/scaling-pipelines/pipelineruns.json "${ARTIFACT_DIR}/"
 [ -f tests/scaling-pipelines/taskruns.json ] && mv tests/scaling-pipelines/taskruns.json "${ARTIFACT_DIR}/"
 [ -f tests/scaling-pipelines/pods.json ] && mv tests/scaling-pipelines/pods.json "${ARTIFACT_DIR}/"
+[ -f tests/scaling-pipelines/resolutionrequests.json ] && mv tests/scaling-pipelines/resolutionrequests.json "${ARTIFACT_DIR}/"
 [ -f tests/scaling-pipelines/imagestreamtags.json ] && mv tests/scaling-pipelines/imagestreamtags.json "${ARTIFACT_DIR}/"
 [ -f tests/scaling-pipelines/measure-signed.csv ] && mv tests/scaling-pipelines/measure-signed.csv "${ARTIFACT_DIR}/"
 

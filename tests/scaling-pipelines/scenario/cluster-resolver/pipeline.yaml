@@ -1,0 +1,17 @@
+apiVersion: tekton.dev/v1
+kind: Pipeline
+metadata:
+  name: echo
+spec:
+  params: []
+  tasks: 
+  - name: echo
+    taskRef:
+      resolver: cluster
+      params:
+        - name: kind
+          value: task
+        - name: name
+          value: echo
+        - name: namespace
+          value: utils

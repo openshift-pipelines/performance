@@ -68,6 +68,7 @@ after=$(date -Ins --utc)
 # Capture test stats
 time ../../tools/stats.sh "$before" "$after" PipelineRuns
 time ../../tools/stats.sh "$before" "$after" TaskRuns
+time ../../tools/stats-resolutionrequests.sh
 
 # Calculate cluster level stats
 time ../../tools/convert-benchmark-stats.py "benchmark-stats.csv" "cluster-benchmark-stats.csv"

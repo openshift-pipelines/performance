@@ -289,3 +289,9 @@ function create_pipeline_from_j2_template() {
     info "Populating Jinja2 Template: ${template}"
     time ../../tools/create-pipeline-yaml.py -f "scenario/$TEST_SCENARIO/${template}" -d --extra-data="${extra_data_string}"
 }
+
+function oc_apply_manifest() {
+    local manifest="$1"
+    info "Applying manifest '${manifest}' in Cluster"
+    oc apply -f "scenario/$TEST_SCENARIO/${manifest}"
+}

@@ -1,0 +1,20 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: echo
+  namespace: utils
+spec:
+  description: "Just hello world task"
+  params: []
+  results: []
+  steps:
+    {% for idx in range(1, (step_count or 10) + 1) %}
+    - name: echo{{ idx }}
+      image: registry.redhat.io/ubi8/ubi-minimal@sha256:574f201d7ed185a9932c91cef5d397f5298dff9df08bc2ebb266c6d1e6284cd1
+      script: |
+        #!/usr/bin/env bash
+        set -euo pipefail
+        {%- for line_idx in range(1, (line_count or 15) + 1) %}
+        echo "Hello World Chains Performance Benchmark Test {{ (idx - 1) * (line_count or 15) + line_idx }} from Task{{task_idx}}"{% endfor %}
+
+    {% endfor %}
