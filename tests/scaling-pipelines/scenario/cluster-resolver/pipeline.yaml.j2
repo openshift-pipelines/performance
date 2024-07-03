@@ -5,6 +5,7 @@ metadata:
 spec:
   params: []
   tasks: 
+  {% if resolver_type == "cluster" %}
   - name: echo
     taskRef:
       resolver: cluster
@@ -15,3 +16,10 @@ spec:
           value: echo
         - name: namespace
           value: utils
+
+  {% elif resolver_type == "task" %}
+  - name: echo
+    taskRef:
+      name: echo
+  
+  {% endif %}
