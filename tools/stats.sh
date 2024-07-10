@@ -103,24 +103,28 @@ prs_max=$(echo "$data_overall" | jq -s  '[.[] | select(has("finished_at")) | (( 
 cat $output | jq --arg type "$type" '.results.[$type].running.min = '$prs_min' | .results.[$type].running.avg = '$prs_avg' | .results.[$type].running.max = '$prs_max'' >"$$.json" && mv -f "$$.json" "$output"
 
 ###############################################################################################
-# [Success] total duration (.status.completionTime - .metadata.creationTimestamp)
-prs_avg=$(echo "$data_successful" | jq -s  '[.[] | select(has("finished_at")) | (( (.completionTime // (.finished_at | .[0:19] + "Z")) | fromdate) - (.creationTimestamp | fromdate))] | add / length')
-prs_min=$(echo "$data_successful" | jq -s  '[.[] | select(has("finished_at")) | (( (.completionTime // (.finished_at | .[0:19] + "Z")) | fromdate) - (.creationTimestamp | fromdate))] | min')
-prs_max=$(echo "$data_successful" | jq -s  '[.[] | select(has("finished_at")) | (( (.completionTime // (.finished_at | .[0:19] + "Z")) | fromdate) - (.creationTimestamp | fromdate))] | max')
-cat $output | jq --arg type "$type" '.results.[$type].Success.duration.min = '$prs_min' | .results.[$type].Success.duration.avg = '$prs_avg' | .results.[$type].Success.duration.max = '$prs_max'' >"$$.json" && mv -f "$$.json" "$output"
+if [ "$prs_succeeded" != "0" ]; then
 
-# [Success] pending duration (.status.startTime - .metadata.creationTimestamp)
-prs_avg=$(echo "$data_successful" | jq -s  '[.[] | select(has("startTime")) | ((.startTime | fromdate) - (.creationTimestamp | fromdate))] | add / length')
-prs_min=$(echo "$data_successful" | jq -s  '[.[] | select(has("startTime")) | ((.startTime | fromdate) - (.creationTimestamp | fromdate))] | min')
-prs_max=$(echo "$data_successful" | jq -s  '[.[] | select(has("startTime")) | ((.startTime | fromdate) - (.creationTimestamp | fromdate))] | max')
-cat $output | jq --arg type "$type" '.results.[$type].Success.pending.min = '$prs_min' | .results.[$type].Success.pending.avg = '$prs_avg' | .results.[$type].Success.pending.max = '$prs_max'' >"$$.json" && mv -f "$$.json" "$output"
+    # [Success] total duration (.status.completionTime - .metadata.creationTimestamp)
+    prs_avg=$(echo "$data_successful" | jq -s  '[.[] | select(has("finished_at")) | (( (.completionTime // (.finished_at | .[0:19] + "Z")) | fromdate) - (.creationTimestamp | fromdate))] | add / length')
+    prs_min=$(echo "$data_successful" | jq -s  '[.[] | select(has("finished_at")) | (( (.completionTime // (.finished_at | .[0:19] + "Z")) | fromdate) - (.creationTimestamp | fromdate))] | min')
+    prs_max=$(echo "$data_successful" | jq -s  '[.[] | select(has("finished_at")) | (( (.completionTime // (.finished_at | .[0:19] + "Z")) | fromdate) - (.creationTimestamp | fromdate))] | max')
+    cat $output | jq --arg type "$type" '.results.[$type].Success.duration.min = '$prs_min' | .results.[$type].Success.duration.avg = '$prs_avg' | .results.[$type].Success.duration.max = '$prs_max'' >"$$.json" && mv -f "$$.json" "$output"
 
-# [Success] running duration (.status.completionTime - .status.startTime)
-prs_avg=$(echo "$data_successful" | jq -s  '[.[] | select(has("finished_at")) | (( (.completionTime // (.finished_at | .[0:19] + "Z")) | fromdate) - (.startTime | fromdate))] | add / length')
-prs_min=$(echo "$data_successful" | jq -s  '[.[] | select(has("finished_at")) | (( (.completionTime // (.finished_at | .[0:19] + "Z")) | fromdate) - (.startTime | fromdate))] | min')
-prs_max=$(echo "$data_successful" | jq -s  '[.[] | select(has("finished_at")) | (( (.completionTime // (.finished_at | .[0:19] + "Z")) | fromdate) - (.startTime | fromdate))] | max')
-cat $output | jq --arg type "$type" '.results.[$type].Success.running.min = '$prs_min' | .results.[$type].Success.running.avg = '$prs_avg' | .results.[$type].Success.running.max = '$prs_max'' >"$$.json" && mv -f "$$.json" "$output"
+    # [Success] pending duration (.status.startTime - .metadata.creationTimestamp)
+    prs_avg=$(echo "$data_successful" | jq -s  '[.[] | select(has("startTime")) | ((.startTime | fromdate) - (.creationTimestamp | fromdate))] | add / length')
+    prs_min=$(echo "$data_successful" | jq -s  '[.[] | select(has("startTime")) | ((.startTime | fromdate) - (.creationTimestamp | fromdate))] | min')
+    prs_max=$(echo "$data_successful" | jq -s  '[.[] | select(has("startTime")) | ((.startTime | fromdate) - (.creationTimestamp | fromdate))] | max')
+    cat $output | jq --arg type "$type" '.results.[$type].Success.pending.min = '$prs_min' | .results.[$type].Success.pending.avg = '$prs_avg' | .results.[$type].Success.pending.max = '$prs_max'' >"$$.json" && mv -f "$$.json" "$output"
 
+    # [Success] running duration (.status.completionTime - .status.startTime)
+    prs_avg=$(echo "$data_successful" | jq -s  '[.[] | select(has("finished_at")) | (( (.completionTime // (.finished_at | .[0:19] + "Z")) | fromdate) - (.startTime | fromdate))] | add / length')
+    prs_min=$(echo "$data_successful" | jq -s  '[.[] | select(has("finished_at")) | (( (.completionTime // (.finished_at | .[0:19] + "Z")) | fromdate) - (.startTime | fromdate))] | min')
+    prs_max=$(echo "$data_successful" | jq -s  '[.[] | select(has("finished_at")) | (( (.completionTime // (.finished_at | .[0:19] + "Z")) | fromdate) - (.startTime | fromdate))] | max')
+    cat $output | jq --arg type "$type" '.results.[$type].Success.running.min = '$prs_min' | .results.[$type].Success.running.avg = '$prs_avg' | .results.[$type].Success.running.max = '$prs_max'' >"$$.json" && mv -f "$$.json" "$output"
+else 
+    echo "DEBUG: No successful runs found. Skipping successful run duration calculation..."
+fi 
 
 ###############################################################################################
 if [ "$prs_failed" != "0" ]; then

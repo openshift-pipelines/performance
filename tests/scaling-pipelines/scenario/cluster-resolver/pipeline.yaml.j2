@@ -1,0 +1,25 @@
+apiVersion: tekton.dev/v1
+kind: Pipeline
+metadata:
+  name: echo
+spec:
+  params: []
+  tasks: 
+  {% if resolver_type == "cluster" %}
+  - name: echo
+    taskRef:
+      resolver: cluster
+      params:
+        - name: kind
+          value: task
+        - name: name
+          value: echo
+        - name: namespace
+          value: utils
+
+  {% elif resolver_type == "task" %}
+  - name: echo
+    taskRef:
+      name: echo
+  
+  {% endif %}

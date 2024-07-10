@@ -40,14 +40,16 @@ info "Setup for $TEST_SCENARIO scenario"
 [ -f scenario/$TEST_SCENARIO/setup.sh ] && source scenario/$TEST_SCENARIO/setup.sh
 
 # Create Task and Pipelines in namespace
-for namespace_idx in $(seq 1 ${TEST_NAMESPACE});
-do
-    namespace_tag=$([ "$TEST_NAMESPACE" -eq 1 ] && echo "" || echo "$namespace_idx")
-    namespace="benchmark${namespace_tag}"
+if [ -e "$TEST_PIPELINE" ]; then
+    for namespace_idx in $(seq 1 ${TEST_NAMESPACE});
+    do
+        namespace_tag=$([ "$TEST_NAMESPACE" -eq 1 ] && echo "" || echo "$namespace_idx")
+        namespace="benchmark${namespace_tag}"
 
-    info "Creating Tasks and Pipeline in namespace: ${namespace}"
-    kubectl apply -n "${namespace}" -f "$TEST_PIPELINE"
-done
+        info "Creating Tasks and Pipeline in namespace: ${namespace}"
+        kubectl apply -n "${namespace}" -f "$TEST_PIPELINE"
+    done
+fi
 
 info "Benchmark ${TEST_TOTAL} | ${TEST_CONCURRENT} | ${TEST_RUN} | ${TEST_NAMESPACE}"
 before=$(date -Ins --utc)
@@ -56,6 +58,7 @@ if [ -n "${WAIT_TIME:-}" ]; then
     sleep $WAIT_TIME
     info "Wait timeout completed"
 fi
+
 # Check if the file exists
 if [ -e "$TEST_CONCURRENCY_PATH" ]; then
     TEST_CONCURRENT="$TEST_CONCURRENCY_PATH"
@@ -68,6 +71,7 @@ after=$(date -Ins --utc)
 # Capture test stats
 time ../../tools/stats.sh "$before" "$after" PipelineRuns
 time ../../tools/stats.sh "$before" "$after" TaskRuns
+time ../../tools/stats-resolutionrequests.sh
 
 # Calculate cluster level stats
 time ../../tools/convert-benchmark-stats.py "benchmark-stats.csv" "cluster-benchmark-stats.csv"

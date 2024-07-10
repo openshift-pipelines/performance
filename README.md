@@ -38,6 +38,7 @@ Run the test:
     # export TEST_SCENARIO="signing-ongoing"
     # export TEST_SCENARIO="signing-bigbang"
     # export TEST_SCENARIO="signing-tr-varying-concurrency"
+    # export TEST_SCENARIO="cluster-resolver"
     # export CHAINS_ENABLE_TIME=0
     # ...and more
     ci-scripts/load-test.sh
