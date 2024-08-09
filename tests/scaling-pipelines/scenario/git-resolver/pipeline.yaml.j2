@@ -6,16 +6,16 @@ spec:
   params: []
   tasks: 
   {% if resolver_type == "git" %}
-  - name: "git-task-reference"
+  - name: echo
     taskRef:
       resolver: git
       params:
       - name: url
-        value: https://github.com/tektoncd/catalog.git
+        value: https://github.com/openshift-pipelines/performance.git
       - name: revision
         value: main
       - name: pathInRepo
-        value: task/git-clone/0.6/git-clone.yaml
+        value: tests/scaling-pipelines/scenario/git-resolver/task_for_git.yaml
 
   {% elif resolver_type == "task" %}
   - name: echo
