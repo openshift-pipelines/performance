@@ -1,0 +1,25 @@
+apiVersion: tekton.dev/v1
+kind: Pipeline
+metadata:
+  name: git-resolver
+spec:
+  params: []
+  tasks: 
+  {% if resolver_type == "git" %}
+  - name: "git-task-reference"
+    taskRef:
+      resolver: git
+      params:
+      - name: url
+        value: https://github.com/tektoncd/catalog.git
+      - name: revision
+        value: main
+      - name: pathInRepo
+        value: task/git-clone/0.6/git-clone.yaml
+
+  {% elif resolver_type == "task" %}
+  - name: echo
+    taskRef:
+      name: echo
+  
+  {% endif %}
