@@ -1,4 +1,4 @@
-# "cluster-resolver" scenario
+# "git-resolver" scenario
 
 This scenario is supposed to stress Pipelines controller and OpenShift scheduler.
 
