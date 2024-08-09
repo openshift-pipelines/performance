@@ -1,0 +1,25 @@
+apiVersion: tekton.dev/v1
+kind: Pipeline
+metadata:
+  name: git-resolver
+spec:
+  params: []
+  tasks: 
+  {% if resolver_type == "git" %}
+  - name: echo
+    taskRef:
+      resolver: git
+      params:
+      - name: url
+        value: https://github.com/openshift-pipelines/performance.git
+      - name: revision
+        value: main
+      - name: pathInRepo
+        value: tests/scaling-pipelines/scenario/git-resolver/task_for_git.yaml
+
+  {% elif resolver_type == "task" %}
+  - name: echo
+    taskRef:
+      name: echo
+  
+  {% endif %}
