@@ -15,7 +15,7 @@ spec:
       - name: revision
         value: main
       - name: pathInRepo
-        value: tests/scaling-pipelines/scenario/git-resolver/task_for_git.yaml
+        value: tests/scaling-pipelines/scenario/git-resolver/task-multi-step/task-multi-step-{{ step_count }}.yaml
 
   {% elif resolver_type == "task" %}
   - name: echo
