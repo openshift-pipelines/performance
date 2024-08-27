@@ -1,9 +1,7 @@
-
 apiVersion: tekton.dev/v1
 kind: Task
 metadata:
   name: echo
-  namespace: utils
 spec:
   description: "Just hello world task"
   params: []

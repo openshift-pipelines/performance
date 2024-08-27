@@ -2,7 +2,6 @@ apiVersion: tekton.dev/v1
 kind: Task
 metadata:
   name: echo
-  namespace: benchmark
 spec:
   description: "Just hello world task"
   params: []
@@ -12,4 +11,8 @@ spec:
       image: registry.redhat.io/ubi8/ubi-minimal@sha256:574f201d7ed185a9932c91cef5d397f5298dff9df08bc2ebb266c6d1e6284cd1
       script: |
         #!/usr/bin/env bash
-        echo "Hello World from Git Resolver Performance Benchmark Test resolved by git"
+        echo "Hello World from Git Resolver Performance Benchmark Test 1 from Task"
+        echo "Hello World from Git Resolver Performance Benchmark Test 2 from Task"
+        echo "Hello World from Git Resolver Performance Benchmark Test 3 from Task"
+        echo "Hello World from Git Resolver Performance Benchmark Test 4 from Task"
+        echo "Hello World from Git Resolver Performance Benchmark Test 5 from Task"
