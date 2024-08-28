@@ -22,6 +22,11 @@ Setup the OpenShift cluster (assuming `oc login ...` happened already):
     export DEPLOYMENT_CHAINS_KUBE_API_BURST=""
     export DEPLOYMENT_CHAINS_THREADS_PER_CONTROLLER=""
     export DEPLOYMENT_PIPELINES_CONTROLLER_RESOURCES="1/2Gi/1/2Gi"
+
+    # export INSTALL_RESULTS="true"
+    # export DEPLOYMENT_TYPE_RESULTS="downstream" # "upstream" (Default: downstream)
+    # export DEPLOYMENT_RESULTS_UPSTREAM_VERSION="v0.11.0" # Used only for upstream (Default: latest)
+
     # export DEPLOYMENT_VERSION="1.14"
     # export DEPLOYMENT_VERSION="1.13"
     ci-scripts/setup-cluster.sh

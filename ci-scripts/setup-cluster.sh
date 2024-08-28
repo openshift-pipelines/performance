@@ -12,6 +12,11 @@ pipelines_controller_resources_requests_memory="$( echo "$DEPLOYMENT_PIPELINES_C
 pipelines_controller_resources_limits_cpu="$( echo "$DEPLOYMENT_PIPELINES_CONTROLLER_RESOURCES" | cut -d "/" -f 3 )"
 pipelines_controller_resources_limits_memory="$( echo "$DEPLOYMENT_PIPELINES_CONTROLLER_RESOURCES" | cut -d "/" -f 4 )"
 
+# Tekton Results parameters
+INSTALL_RESULTS="${INSTALL_RESULTS:-false}"
+DEPLOYMENT_TYPE_RESULTS="${DEPLOYMENT_TYPE_RESULTS:-downstream}"
+DEPLOYMENT_RESULTS_UPSTREAM_VERSION="${DEPLOYMENT_RESULTS_UPSTREAM_VERSION:-latest}"
+
 DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS="${DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS:-}"
 if [ -n "$DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS" ]; then
     pipelines_controller_ha_buckets=$(( DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS * 2 ))
@@ -258,6 +263,121 @@ else
     fatal "Unknown deployment type '$DEPLOYMENT_TYPE'"
 
 fi
+
+# Install Tekton results from downstream/upstream
+if [ "$INSTALL_RESULTS" == "true" ]; then
+    # Store temp artifacts for the setup
+    TEMP_DIR_PATH=$(mktemp -d)
+
+    if [ "$DEPLOYMENT_TYPE_RESULTS" == "downstream" ]; then
+        # Read More on Installation: https://docs.openshift.com/pipelines/1.15/records/using-tekton-results-for-openshift-pipelines-observability.html
+        TEKTON_RESULTS_NS="openshift-pipelines"
+        
+        info "Configure resources for tekton-results ($DEPLOYMENT_TYPE_RESULTS)"
+
+        # Setup creds for DB
+        kubectl get ns $TEKTON_RESULTS_NS || kubectl create ns $TEKTON_RESULTS_NS
+
+        kubectl get secret tekton-results-postgres -n $TEKTON_RESULTS_NS || kubectl create secret generic tekton-results-postgres -n "$TEKTON_RESULTS_NS" \
+            --from-literal=POSTGRES_USER=result --from-literal=POSTGRES_PASSWORD=$(openssl rand -base64 20)
+
+        # Setup SSL certs for Results API
+        openssl req -x509 \
+            -newkey rsa:4096 \
+            -keyout "$TEMP_DIR_PATH/key.pem" \
+            -out "$TEMP_DIR_PATH/cert.pem" \
+            -days 365 \
+            -nodes \
+            -subj "/CN=tekton-results-api-service.$TEKTON_RESULTS_NS.svc.cluster.local" \
+            -addext "subjectAltName = DNS:tekton-results-api-service.$TEKTON_RESULTS_NS.svc.cluster.local"
+
+        kubectl get secret tekton-results-tls -n $TEKTON_RESULTS_NS || kubectl create secret tls -n $TEKTON_RESULTS_NS tekton-results-tls \
+            --cert="$TEMP_DIR_PATH/cert.pem" \
+            --key="$TEMP_DIR_PATH/key.pem"
+
+        # TODO: Add S3 storage as alternative option for log storage
+        cat <<EOF | kubectl apply -n $TEKTON_RESULTS_NS -f -
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+    name: tekton-logs
+spec:
+    accessModes:
+    - ReadWriteOnce
+    resources:
+      requests:
+        storage: 4Gi
+EOF
+
+        cat <<EOF | oc apply -n $TEKTON_RESULTS_NS -f -
+apiVersion: operator.tekton.dev/v1alpha1
+kind: TektonResult
+metadata:
+    name: result
+spec:
+    targetNamespace: $TEKTON_RESULTS_NS
+    logs_api: true
+    log_level: debug
+    db_port: 5432
+    db_host: tekton-results-postgres-service.$TEKTON_RESULTS_NS.svc.cluster.local
+    logging_pvc_name: tekton-logs
+    logs_path: /logs
+    logs_type: File
+    logs_buffer_size: 32768
+    auth_disable: true
+    tls_hostname_override: tekton-results-api-service.$TEKTON_RESULTS_NS.svc.cluster.local
+    db_enable_auto_migration: true
+    server_port: 8080
+    prometheus_port: 9090
+EOF
+
+    elif [ "$DEPLOYMENT_TYPE_RESULTS" == "upstream" ]; then
+        # Read More on Installation: https://github.com/tektoncd/results/blob/main/docs/install.md
+        TEKTON_RESULTS_NS="tekton-pipelines"
+        
+        info "Configure resources for tekton-results ($DEPLOYMENT_TYPE_RESULTS:$DEPLOYMENT_RESULTS_UPSTREAM_VERSION)"
+
+        # Setup creds for DB
+        kubectl get ns $TEKTON_RESULTS_NS || kubectl create ns $TEKTON_RESULTS_NS
+
+        kubectl get secret tekton-results-postgres -n $TEKTON_RESULTS_NS || kubectl create secret generic tekton-results-postgres -n "$TEKTON_RESULTS_NS" \
+            --from-literal=POSTGRES_USER=postgres --from-literal=POSTGRES_PASSWORD=$(openssl rand -base64 20)
+
+        # Setup SSL certs for Results API
+        openssl req -x509 \
+            -newkey rsa:4096 \
+            -keyout "$TEMP_DIR_PATH/key.pem" \
+            -out "$TEMP_DIR_PATH/cert.pem" \
+            -days 365 \
+            -nodes \
+            -subj "/CN=tekton-results-api-service.$TEKTON_RESULTS_NS.svc.cluster.local" \
+            -addext "subjectAltName = DNS:tekton-results-api-service.$TEKTON_RESULTS_NS.svc.cluster.local"
+
+        kubectl get secret tekton-results-tls -n $TEKTON_RESULTS_NS || kubectl create secret tls -n $TEKTON_RESULTS_NS tekton-results-tls \
+            --cert="$TEMP_DIR_PATH/cert.pem" \
+            --key="$TEMP_DIR_PATH/key.pem"
+
+        # Install tekton results manifest
+        if [ "$DEPLOYMENT_RESULTS_UPSTREAM_VERSION" == "latest" ]; then
+            kubectl apply -f https://storage.googleapis.com/tekton-releases/results/latest/release.yaml
+        else
+            kubectl apply -f https://storage.googleapis.com/tekton-releases/results/previous/${DEPLOYMENT_RESULTS_UPSTREAM_VERSION}/release.yaml
+        fi
+    else
+        fatal "Unknown deployment type '$DEPLOYMENT_TYPE_RESULTS'"
+    fi
+
+    # Wait for tekton-results resources to start
+    kubectl -n $TEKTON_RESULTS_NS wait --for=condition=ready --timeout=300s pod -l app.kubernetes.io/name=tekton-results-api
+    kubectl -n $TEKTON_RESULTS_NS wait --for=condition=ready --timeout=300s pod -l app.kubernetes.io/name=tekton-results-watcher
+
+    # Setup route to access Results-API endpoint
+    # TODO: Should test this with CI setup and also should evaluate how encryption works
+    oc get route -n $TEKTON_RESULTS_NS tekton-results-api-service || oc create route -n $TEKTON_RESULTS_NS passthrough tekton-results-api-service --service=tekton-results-api-service --port=8080
+
+    info "Tekton-Results Deployment finished"
+fi
+
 
 info "Create namespace 'utils' some scenarios use"
 kubectl create ns utils
