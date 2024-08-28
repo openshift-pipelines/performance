@@ -1,0 +1,24 @@
+apiVersion: tekton.dev/v1
+kind: Pipeline
+metadata:
+  name: echo
+spec:
+  params: []
+  tasks:
+    {% if resolver_type == "bundle" %}
+    - name: echo-{{ step_count }}-step
+      taskRef:
+        resolver: bundles
+        params:
+        - name: bundle
+          value: quay.io/sira_org/pipelines_perftesting@sha256:3c1d7bfe5a44a8f8964a37f82c2dc167c264616d2fb6aa21d4364afed25076bc
+        - name: name
+          value: echo-{{ step_count }}-step
+        - name: kind
+          value: task
+    {% elif resolver_type == "task" %}
+      - name: echo
+        taskRef:
+          name: echo
+
+      {% endif %}
