@@ -30,6 +30,9 @@ column_names = [
     'prs_started_failed',
     'prs_deleted',
     'prs_terminated',
+    "prs_log_present",
+    "prs_result_present",
+    "prs_record_present",
     'trs_total',
     'trs_failed',
     'trs_pending',
@@ -41,6 +44,9 @@ column_names = [
     'trs_finalizers_absent',
     'trs_deleted',
     'trs_terminated',
+    "trs_log_present",
+    "trs_result_present",
+    "trs_record_present",
 ]
 
 

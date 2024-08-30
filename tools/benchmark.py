@@ -24,6 +24,14 @@ import yaml
 TOTAL_RUN__FOR__WAIT_FOR_DURAITON_FLAG = 1_000_000
 NAMESPACE_NAME_FORMAT = "benchmark{idx}"
 
+# The below list stores the annotation names and corresponding key that will be stored in results CSV
+TEKTON_ANNOTATIONS_TO_CAPTURE = [
+    ("chains.tekton.dev/signed", "signed"),
+    ("results.tekton.dev/log", "log"),
+    ("results.tekton.dev/record", "record"),
+    ("results.tekton.dev/result", "result")
+]
+
 
 def setup_logger(stderr_log_lvl, log_file):
     """
@@ -338,13 +346,16 @@ def process_events_thread(watcher, data, lock):
             try:
                 annotations = find("object.metadata.annotations", event)
             except KeyError:
-                if "signed" not in data[e_name]:
-                    data[e_name]["signed"] = "unknown"
+                for _, key in TEKTON_ANNOTATIONS_TO_CAPTURE:
+                    if key not in data[e_name]:
+                        data[e_name][key] = "unknown"
             else:
-                if "chains.tekton.dev/signed" in annotations:
-                    if "signed_at" not in data[e_name]:
-                        data[e_name]["signed_at"] = now()
-                    data[e_name]["signed"] = annotations["chains.tekton.dev/signed"]
+                # Capture annotations from Chains, Tekton Results
+                for annotation, key in TEKTON_ANNOTATIONS_TO_CAPTURE:
+                    if annotation in annotations:
+                        if key + "_at" not in data[e_name]:
+                            data[e_name][key + "_at"] = now()
+                        data[e_name][key] = annotations[annotation]
 
             # Determine deleted status
             if event["type"] == "DELETED":
@@ -472,6 +483,15 @@ def counter_thread(args, pipelineruns, pipelineruns_lock, taskruns, taskruns_loc
                 terminated = len(
                     [i for i in namespaced_pipelineruns if i["terminated"] is True]
                 )
+                log_present = len(
+                    [i for i in namespaced_pipelineruns if "log" in i and i["log"] != 'unknown']
+                )
+                result_present = len(
+                    [i for i in namespaced_pipelineruns if "record" in i and i["record"] != 'unknown']
+                )
+                record_present = len(
+                    [i for i in namespaced_pipelineruns if "result" in i and i["result"] != 'unknown']
+                )
             prs = {
                 "monitoring_start": monitoring_start,
                 "monitoring_now": monitoring_now,
@@ -487,6 +507,9 @@ def counter_thread(args, pipelineruns, pipelineruns_lock, taskruns, taskruns_loc
                 "finalizers_absent": finalizers_absent,
                 "deleted": deleted,
                 "terminated": terminated,
+                "log_present": log_present,
+                "result_present": result_present,
+                "record_present": record_present
             }
 
             if fetch_current_concurrency(args.concurrent) > 0:
@@ -539,6 +562,15 @@ def counter_thread(args, pipelineruns, pipelineruns_lock, taskruns, taskruns_loc
                 terminated = len(
                     [i for i in namespaced_taskruns if i["terminated"] is True]
                 )
+                log_present = len(
+                    [i for i in namespaced_taskruns if "log" in i and i["log"] != 'unknown']
+                )
+                result_present = len(
+                    [i for i in namespaced_taskruns if "result" in i and i["result"] != 'unknown']
+                )
+                record_present = len(
+                    [i for i in namespaced_taskruns if "record" in i and i["record"] != 'unknown']
+                )
             trs = {
                 "monitoring_start": monitoring_start,
                 "monitoring_now": monitoring_now,
@@ -554,6 +586,9 @@ def counter_thread(args, pipelineruns, pipelineruns_lock, taskruns, taskruns_loc
                 "finalizers_absent": finalizers_absent,
                 "deleted": deleted,
                 "terminated": terminated,
+                "log_present": log_present,
+                "result_present": result_present,
+                "record_present": record_present
             }
 
             if monitoring_second > args.delay and prs["should_be_started"] > 0:
@@ -611,6 +646,9 @@ def counter_thread(args, pipelineruns, pipelineruns_lock, taskruns, taskruns_loc
                                 "prs_started_failed",
                                 "prs_deleted",
                                 "prs_terminated",
+                                "prs_log_present",
+                                "prs_result_present",
+                                "prs_record_present",
                                 "trs_total",
                                 "trs_failed",
                                 "trs_pending",
@@ -622,6 +660,9 @@ def counter_thread(args, pipelineruns, pipelineruns_lock, taskruns, taskruns_loc
                                 "trs_finalizers_absent",
                                 "trs_deleted",
                                 "trs_terminated",
+                                "trs_log_present",
+                                "trs_result_present",
+                                "trs_record_present",
                             ]
                         )
                 with open(args.stats_file, "a") as fd:
@@ -645,6 +686,9 @@ def counter_thread(args, pipelineruns, pipelineruns_lock, taskruns, taskruns_loc
                             prs["started_failed"],
                             prs["deleted"],
                             prs["terminated"],
+                            prs["log_present"],
+                            prs["result_present"],
+                            prs["record_present"],
                             trs["total"],
                             trs['failed'],
                             trs["pending"],
@@ -656,6 +700,9 @@ def counter_thread(args, pipelineruns, pipelineruns_lock, taskruns, taskruns_loc
                             trs["finalizers_absent"],
                             trs["deleted"],
                             trs["terminated"],
+                            trs["log_present"],
+                            trs["result_present"],
+                            trs["record_present"],
                         ]
                     )
 
