@@ -331,6 +331,14 @@ spec:
     prometheus_port: 9090
 EOF
 
+        # Wait for tekton-results resources to start
+        kubectl -n $TEKTON_RESULTS_NS wait --for=condition=ready --timeout=300s pod -l app.kubernetes.io/name=tekton-results-api
+        kubectl -n $TEKTON_RESULTS_NS wait --for=condition=ready --timeout=300s pod -l app.kubernetes.io/name=tekton-results-watcher
+
+        # Setup route to access Results-API endpoint
+        # TODO: Should test this with CI setup and also should evaluate how encryption works
+        oc get route -n $TEKTON_RESULTS_NS tekton-results-api-service || oc create route -n $TEKTON_RESULTS_NS passthrough tekton-results-api-service --service=tekton-results-api-service --port=8080
+
     elif [ "$DEPLOYMENT_TYPE_RESULTS" == "upstream" ]; then
         # Read More on Installation: https://github.com/tektoncd/results/blob/main/docs/install.md
         TEKTON_RESULTS_NS="tekton-pipelines"
@@ -363,17 +371,18 @@ EOF
         else
             kubectl apply -f https://storage.googleapis.com/tekton-releases/results/previous/${DEPLOYMENT_RESULTS_UPSTREAM_VERSION}/release.yaml
         fi
+
+        # Wait for tekton-results resources to start
+        kubectl -n $TEKTON_RESULTS_NS wait --for=condition=ready --timeout=300s pod -l app.kubernetes.io/name=tekton-results-api
+        kubectl -n $TEKTON_RESULTS_NS wait --for=condition=ready --timeout=300s pod -l app.kubernetes.io/name=tekton-results-watcher
+
+        # Setup route to access Results-API endpoint
+        # TODO: Should test this with CI setup and also should evaluate how encryption works
+        oc get route -n $TEKTON_RESULTS_NS tekton-results-api-service || oc create route -n $TEKTON_RESULTS_NS passthrough tekton-results-api-service --service=tekton-results-api-service --port=8080
+
     else
         fatal "Unknown deployment type '$DEPLOYMENT_TYPE_RESULTS'"
     fi
-
-    # Wait for tekton-results resources to start
-    kubectl -n $TEKTON_RESULTS_NS wait --for=condition=ready --timeout=300s pod -l app.kubernetes.io/name=tekton-results-api
-    kubectl -n $TEKTON_RESULTS_NS wait --for=condition=ready --timeout=300s pod -l app.kubernetes.io/name=tekton-results-watcher
-
-    # Setup route to access Results-API endpoint
-    # TODO: Should test this with CI setup and also should evaluate how encryption works
-    oc get route -n $TEKTON_RESULTS_NS tekton-results-api-service || oc create route -n $TEKTON_RESULTS_NS passthrough tekton-results-api-service --service=tekton-results-api-service --port=8080
 
     info "Tekton-Results Deployment finished"
 fi
