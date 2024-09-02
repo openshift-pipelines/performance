@@ -332,8 +332,8 @@ spec:
 EOF
 
         # Wait for tekton-results resources to start
-        kubectl -n $TEKTON_RESULTS_NS wait --for=condition=ready --timeout=300s pod -l app.kubernetes.io/name=tekton-results-api
-        kubectl -n $TEKTON_RESULTS_NS wait --for=condition=ready --timeout=300s pod -l app.kubernetes.io/name=tekton-results-watcher
+        wait_for_entity_by_selector 300 $TEKTON_RESULTS_NS pod app.kubernetes.io/name=tekton-results-api
+        wait_for_entity_by_selector 300 $TEKTON_RESULTS_NS pod app.kubernetes.io/name=tekton-results-watcher
 
         # Setup route to access Results-API endpoint
         # TODO: Should test this with CI setup and also should evaluate how encryption works
@@ -373,8 +373,8 @@ EOF
         fi
 
         # Wait for tekton-results resources to start
-        kubectl -n $TEKTON_RESULTS_NS wait --for=condition=ready --timeout=300s pod -l app.kubernetes.io/name=tekton-results-api
-        kubectl -n $TEKTON_RESULTS_NS wait --for=condition=ready --timeout=300s pod -l app.kubernetes.io/name=tekton-results-watcher
+        wait_for_entity_by_selector 300 $TEKTON_RESULTS_NS pod app.kubernetes.io/name=tekton-results-api
+        wait_for_entity_by_selector 300 $TEKTON_RESULTS_NS pod app.kubernetes.io/name=tekton-results-watcher
 
         # Setup route to access Results-API endpoint
         # TODO: Should test this with CI setup and also should evaluate how encryption works
