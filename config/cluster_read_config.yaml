@@ -268,3 +268,11 @@
 {{ monitor_pod('openshift-apiserver', 'apiserver', 15) }}
 {{ monitor_pod('openshift-kube-apiserver', 'kube-apiserver', 15, pod_suffix_regex='-ip-.+') }}
 {{ monitor_pod('openshift-etcd', 'etcd', 15, pod_suffix_regex='-ip-.+') }}
+
+
+
+# Collect data for Tekton Results Pods
+{{ monitor_pod('openshift-pipelines', 'tekton-results-api', 15) }}
+{{ monitor_pod('openshift-pipelines', 'tekton-results-watcher', 15) }}
+{{ monitor_pod('tekton-pipelines', 'tekton-results-api', 15) }}
+{{ monitor_pod('tekton-pipelines', 'tekton-results-watcher', 15) }}
