@@ -323,7 +323,7 @@ spec:
     logging_pvc_name: tekton-logs
     logs_path: /logs
     logs_type: File
-    logs_buffer_size: 32768
+    logs_buffer_size: 2097152
     auth_disable: true
     tls_hostname_override: tekton-results-api-service.$TEKTON_RESULTS_NS.svc.cluster.local
     db_enable_auto_migration: true
