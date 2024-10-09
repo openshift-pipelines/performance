@@ -14,6 +14,7 @@ pipelines_controller_resources_limits_memory="$( echo "$DEPLOYMENT_PIPELINES_CON
 
 # Tekton Results parameters
 INSTALL_RESULTS="${INSTALL_RESULTS:-false}"
+STORE_LOGS_IN_S3="${STORE_LOGS_IN_S3:-false}"
 DEPLOYMENT_TYPE_RESULTS="${DEPLOYMENT_TYPE_RESULTS:-downstream}"
 DEPLOYMENT_RESULTS_UPSTREAM_VERSION="${DEPLOYMENT_RESULTS_UPSTREAM_VERSION:-latest}"
 
@@ -295,8 +296,27 @@ if [ "$INSTALL_RESULTS" == "true" ]; then
             --cert="$TEMP_DIR_PATH/cert.pem" \
             --key="$TEMP_DIR_PATH/key.pem"
 
-        # TODO: Add S3 storage as alternative option for log storage
-        cat <<EOF | kubectl apply -n $TEKTON_RESULTS_NS -f -
+        if [ "$STORE_LOGS_IN_S3" == "true" ]; then
+          CONDITIONAL_FIELDS="
+    logs_type: S3
+    secret_name: s3-credentials"
+          echo "STORE_LOGS_IN_S3 is set to true. Creating S3 credentials secret."
+
+          oc create secret generic s3-credentials -n $TEKTON_RESULTS_NS \
+  --from-literal=S3_BUCKET_NAME="${AWS_BUCKET_NAME}" \
+  --from-literal=S3_ENDPOINT="https://s3.eu-west-1.amazonaws.com" \
+  --from-literal=S3_HOSTNAME_IMMUTABLE="false" \
+  --from-literal=S3_REGION="eu-west-1" \
+  --from-literal=S3_ACCESS_KEY_ID="${AWS_ACCESS_ID}" \
+  --from-literal=S3_SECRET_ACCESS_KEY="${AWS_SECRET_KEY}" \
+  --from-literal=S3_MULTI_PART_SIZE="5242880"
+
+        else
+          CONDITIONAL_FIELDS="
+    logging_pvc_name: tekton-logs
+    logs_type: File"
+          # Apply the PersistentVolumeClaim using kubectl
+          cat <<EOF | kubectl apply -n $TEKTON_RESULTS_NS -f -
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -308,6 +328,7 @@ spec:
       requests:
         storage: 4Gi
 EOF
+        fi
 
         cat <<EOF | oc apply -n $TEKTON_RESULTS_NS -f -
 apiVersion: operator.tekton.dev/v1alpha1
@@ -320,9 +341,8 @@ spec:
     log_level: debug
     db_port: 5432
     db_host: tekton-results-postgres-service.$TEKTON_RESULTS_NS.svc.cluster.local
-    logging_pvc_name: tekton-logs
+$CONDITIONAL_FIELDS
     logs_path: /logs
-    logs_type: File
     logs_buffer_size: 2097152
     auth_disable: true
     tls_hostname_override: tekton-results-api-service.$TEKTON_RESULTS_NS.svc.cluster.local
