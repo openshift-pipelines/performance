@@ -17,6 +17,7 @@ INSTALL_RESULTS="${INSTALL_RESULTS:-false}"
 STORE_LOGS_IN_S3="${STORE_LOGS_IN_S3:-false}"
 DEPLOYMENT_TYPE_RESULTS="${DEPLOYMENT_TYPE_RESULTS:-downstream}"
 DEPLOYMENT_RESULTS_UPSTREAM_VERSION="${DEPLOYMENT_RESULTS_UPSTREAM_VERSION:-latest}"
+DEPLOYMENT_RESULTS_DOWNSTREAM_VERSION="${DEPLOYMENT_RESULTS_DOWNSTREAM_VERSION:-1.16}"
 
 # Locust setup config
 RUN_LOCUST="${RUN_LOCUST:-false}"
@@ -304,13 +305,16 @@ if [ "$INSTALL_RESULTS" == "true" ]; then
             --cert="$TEMP_DIR_PATH/cert.pem" \
             --key="$TEMP_DIR_PATH/key.pem"
 
-        if [ "$STORE_LOGS_IN_S3" == "true" ]; then
-          CONDITIONAL_FIELDS="
+
+        if [ "$DEPLOYMENT_RESULTS_DOWNSTREAM_VERSION" == "1.15" ]; then
+
+          if [ "$STORE_LOGS_IN_S3" == "true" ]; then
+            CONDITIONAL_FIELDS="
     logs_type: S3
     secret_name: s3-credentials"
-          echo "STORE_LOGS_IN_S3 is set to true. Creating S3 credentials secret."
+            echo "STORE_LOGS_IN_S3 is set to true. Creating S3 credentials secret."
 
-          oc create secret generic s3-credentials -n $TEKTON_RESULTS_NS \
+            oc create secret generic s3-credentials -n $TEKTON_RESULTS_NS \
   --from-literal=S3_BUCKET_NAME="${AWS_BUCKET_NAME}" \
   --from-literal=S3_ENDPOINT="https://s3.eu-west-1.amazonaws.com" \
   --from-literal=S3_HOSTNAME_IMMUTABLE="false" \
@@ -319,12 +323,12 @@ if [ "$INSTALL_RESULTS" == "true" ]; then
   --from-literal=S3_SECRET_ACCESS_KEY="${AWS_SECRET_KEY}" \
   --from-literal=S3_MULTI_PART_SIZE="5242880"
 
-        else
-          CONDITIONAL_FIELDS="
+          else
+            CONDITIONAL_FIELDS="
     logging_pvc_name: tekton-logs
     logs_type: File"
           # Apply the PersistentVolumeClaim using kubectl
-          cat <<EOF | kubectl apply -n $TEKTON_RESULTS_NS -f -
+            cat <<EOF | kubectl apply -n $TEKTON_RESULTS_NS -f -
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -336,7 +340,7 @@ spec:
       requests:
         storage: 4Gi
 EOF
-        fi
+          fi
 
         cat <<EOF | oc apply -n $TEKTON_RESULTS_NS -f -
 apiVersion: operator.tekton.dev/v1alpha1
@@ -358,6 +362,81 @@ $CONDITIONAL_FIELDS
     server_port: 8080
     prometheus_port: 9090
 EOF
+      else
+        oc create secret generic logging-loki-s3 \
+  --from-literal=bucketnames="${AWS_BUCKET_NAME}" \
+  --from-literal=endpoint="https://s3.eu-west-1.amazonaws.com" \
+  --from-literal=region="eu-west-1" \
+  --from-literal=access_key_id="${AWS_ACCESS_ID}" \
+  --from-literal=access_key_secret="${AWS_SECRET_KEY}"
+
+        cat <<EOF | oc create -f -
+apiVersion: loki.grafana.com/v1
+kind: LokiStack
+metadata:
+  annotations:
+    loki.grafana.com/rulesDiscoveredAt: "2024-08-04T18:08:15Z"
+  name: logging-loki
+  namespace: openshift-logging
+spec:
+  managementState: Managed
+  size: 1x.small
+  storage:
+    schemas:
+    - effectiveDate: "2023-10-15"
+      version: v13
+    secret:
+      name: logging-loki-s3
+      type: s3
+  storageClassName: storageClass
+  tenants:
+    mode: openshift-logging
+EOF
+        cat <<EOF | oc create -n $TEKTON_RESULTS_NS -f -
+apiVersion: logging.openshift.io/v1
+kind: ClusterLogging
+metadata:
+  name: instance
+  namespace: openshift-logging
+spec:
+  collection:
+    type: vector
+  logStore:
+    lokistack:
+      name: logging-loki
+    type: lokistack
+  managementState: Managed
+EOF
+        cat <<EOF | oc create -f -
+apiVersion: "logging.openshift.io/v1"
+kind: ClusterLogForwarder
+metadata:
+  name: instance
+  namespace: openshift-logging
+spec:
+  inputs:
+  - name: only-tekton
+    application:
+      selector:
+        matchLabels:
+          app.kubernetes.io/managed-by: tekton-pipelines
+  pipelines:
+    - name: enable-default-log-store
+      inputRefs: [ only-tekton ]
+      outputRefs: [ default ]
+EOF
+
+        cat <<EOF | oc apply -n $TEKTON_RESULTS_NS -f -
+apiVersion: operator.tekton.dev/v1alpha1
+kind: TektonResult
+metadata:
+    name: result
+spec:
+  targetNamespace: openshift-pipelines
+  loki_stack_name: logging-loki
+  loki_stack_namespace: openshift-logging
+EOF
+        fi
 
         # Wait for tekton-results resources to start
         wait_for_entity_by_selector 300 $TEKTON_RESULTS_NS pod app.kubernetes.io/name=tekton-results-api
