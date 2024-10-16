@@ -295,3 +295,69 @@ function oc_apply_manifest() {
     info "Applying manifest '${manifest}' in Cluster"
     oc apply -f "scenario/$TEST_SCENARIO/${manifest}"
 }
+
+function run_locust() {
+    # Runs Locust API load test on cluster
+    if [ "$RUN_LOCUST" == "true" ]; then
+        # SCENARIO is the filename of the locust test inside "locust" directory inside test scenario directory. 
+        # The filename should follow alpha,numeric,hyphens and should NOT contain ".py" extension.
+        local SCENARIO="$1"
+        local LOCUST_HOST="$2"
+        local LOCUST_USERS="$3"
+        local LOCUST_SPAWN_RATE="$4"
+        local LOCUST_DURATION="$5"
+        
+
+        # Locust test
+        local LOCUST_NAMESPACE=locust-operator
+        local LOCUST_OPERATOR_REPO=locust-k8s-operator
+        local LOCUST_OPERATOR=locust-operator
+        local LOCUST_TEMPLATE="scenario/common/locust-test-template.yaml"
+        local LOCUST_LOG="locust-test.log"
+
+        TMP_DIR=$(mktemp -d)
+
+        info "Running Locust Scenario: ${SCENARIO}"
+
+        # Apply locust test template with environment variable substitution
+        cat $LOCUST_TEMPLATE | envsubst | kubectl apply --namespace "${LOCUST_NAMESPACE}" -f -
+
+        # Create a ConfigMap from the scenario file
+        kubectl create --namespace "${LOCUST_NAMESPACE}" configmap locust."${SCENARIO}" --from-file="scenario/$TEST_SCENARIO/locust/${SCENARIO}".py --dry-run=client -o yaml | kubectl apply --namespace "${LOCUST_NAMESPACE}" -f -
+
+        # Record test start time
+        date --utc -Ins > "${TMP_DIR}/benchmark-before"
+
+        # Timeout logic to wait for Locust master pod to start
+        timeout=$(date -d "680 seconds" "+%s")
+        while [ -z "$(kubectl get --namespace "${LOCUST_NAMESPACE}" pod -l performance-test-pod-name=${SCENARIO}-test-master -o name)" ]; do
+            if [ "$(date "+%s")" -gt "${timeout}" ]; then
+                echo "ERROR: Timeout waiting for locust master pod to start"
+                exit 1
+            else
+                echo "Waiting for locust master pod to start..."
+                sleep 5s
+            fi
+        done
+
+        # Wait for the Locust master pod to be ready
+        kubectl wait --namespace "${LOCUST_NAMESPACE}" --for=condition=Ready=true $(kubectl get --namespace "${LOCUST_NAMESPACE}" pod -l performance-test-pod-name=${SCENARIO}-test-master -o name)
+
+        # Get Locust master logs
+        echo "Getting locust master log:"
+        kubectl logs --namespace "${LOCUST_NAMESPACE}" -f -l performance-test-pod-name=${SCENARIO}-test-master | tee $LOCUST_LOG
+
+        # Record test end time
+        date --utc -Ins > "${TMP_DIR}/benchmark-after"
+
+        # TODO: Collect Prometheus metrics for Locust test 
+
+
+        # Cleanup locust job and configmaps
+        kubectl delete --namespace "${LOCUST_NAMESPACE}" LocustTest "${SCENARIO}.test"
+
+        kubectl delete --namespace "${LOCUST_NAMESPACE}" configmap locust."${SCENARIO}"
+    else 
+        warning "RUN_LOCUST env variable is not set for Locust testing."
+    fi
+}
