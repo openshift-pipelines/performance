@@ -18,6 +18,13 @@ STORE_LOGS_IN_S3="${STORE_LOGS_IN_S3:-false}"
 DEPLOYMENT_TYPE_RESULTS="${DEPLOYMENT_TYPE_RESULTS:-downstream}"
 DEPLOYMENT_RESULTS_UPSTREAM_VERSION="${DEPLOYMENT_RESULTS_UPSTREAM_VERSION:-latest}"
 
+# Locust setup config
+RUN_LOCUST="${RUN_LOCUST:-false}"
+LOCUST_NAMESPACE=locust-operator
+LOCUST_OPERATOR_REPO=locust-k8s-operator
+LOCUST_OPERATOR=locust-operator
+LOCUST_HELM_CONFIG=./config/locust-k8s-operator.values.yaml
+
 DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS="${DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS:-}"
 if [ -n "$DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS" ]; then
     pipelines_controller_ha_buckets=$(( DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS * 2 ))
@@ -410,5 +417,55 @@ EOF
 fi
 
 
+if [ "$RUN_LOCUST" == "true" ]; then
+    # Create namespace if not exists
+    oc get ns "${LOCUST_NAMESPACE}" || oc create ns "${LOCUST_NAMESPACE}"
+
+    # Check if the Helm repo already exists, and add it if it doesn't
+    if ! helm repo list --namespace "${LOCUST_NAMESPACE}" | grep -q "${LOCUST_OPERATOR_REPO}"; then
+        helm repo add "${LOCUST_OPERATOR_REPO}" https://abdelrhmanhamouda.github.io/locust-k8s-operator/ --namespace "${LOCUST_NAMESPACE}"
+    else
+        info "Helm repo \"${LOCUST_OPERATOR_REPO}\" already exists"
+    fi
+
+    # Check if the Helm release already exists, and install it if it doesn't
+    if ! helm list --namespace "${LOCUST_NAMESPACE}" | grep -q "${LOCUST_OPERATOR}"; then
+        helm install "${LOCUST_OPERATOR}" locust-k8s-operator/locust-k8s-operator --namespace "${LOCUST_NAMESPACE}" -f "$LOCUST_HELM_CONFIG"
+    else
+        info "Helm release \"${LOCUST_OPERATOR}\" already exists"
+    fi
+
+    # Wait for all pods in the namespace to be ready
+    wait_for_entity_by_selector 180 "${LOCUST_NAMESPACE}" pod app.kubernetes.io/name=locust-k8s-operator
+
+    # Enable monitoring prometheus metrics
+    cat <<EOF | kubectl -n "${LOCUST_NAMESPACE}" apply -f -
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  labels:
+    app: locust-operator
+  annotations:
+    networkoperator.openshift.io/ignore-errors: ""
+  name: locust-operator-monitor
+spec:
+  endpoints:
+    - interval: 10s
+      port: prometheus-metrics
+      honorLabels: true
+  jobLabel: app
+  namespaceSelector:
+    matchNames:
+      - locust-operator
+  selector: {}
+EOF
+
+    info "Locust-Operator deployment finished"
+
+else
+    info "Skipping Locust setup"
+fi
+
+
 info "Create namespace 'utils' some scenarios use"
-kubectl create ns utils
+kubectl get ns utils || kubectl create ns utils

@@ -29,6 +29,7 @@ mkdir -p "${monitoring_collection_dir}"
 [ -f tests/scaling-pipelines/resolutionrequests.json ] && mv tests/scaling-pipelines/resolutionrequests.json "${ARTIFACT_DIR}/"
 [ -f tests/scaling-pipelines/imagestreamtags.json ] && mv tests/scaling-pipelines/imagestreamtags.json "${ARTIFACT_DIR}/"
 [ -f tests/scaling-pipelines/measure-signed.csv ] && mv tests/scaling-pipelines/measure-signed.csv "${ARTIFACT_DIR}/"
+[ -f tests/scaling-pipelines/locust-test.log ] && mv tests/scaling-pipelines/locust-test.log "${ARTIFACT_DIR}/"
 
 info "Collecting logs..."
 oc -n openshift-pipelines logs --tail=-1 --all-containers=true --max-log-requests=10 -l app.kubernetes.io/name=controller,app.kubernetes.io/part-of=tekton-pipelines,app=tekton-pipelines-controller >"$tekton_pipelines_controller_log" || true

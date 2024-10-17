@@ -19,3 +19,4 @@ tests/scaling-pipelines/measure-signed.csv
 tests/scaling-pipelines/pipelineruns.json
 tests/scaling-pipelines/pods.json
 tests/scaling-pipelines/taskruns.json
+tests/scaling-pipelines/locust-test.log

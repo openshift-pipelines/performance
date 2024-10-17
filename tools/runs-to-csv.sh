@@ -80,7 +80,18 @@ find . -name benchmark-tekton.json -print0 | while IFS= read -r -d '' filename; 
         .measurements.apiserver.cpu.mean,
         .measurements.apiserver.memory.mean,
         .measurements."kube-apiserver".cpu.mean,
-        .measurements."kube-apiserver".memory.mean
+        .measurements."kube-apiserver".memory.mean,
+        .results.Aggregated.locust_requests_current_rps.mean,
+        .results.Aggregated.locust_requests_current_rps.max,
+        .results.Aggregated.locust_requests_num_failures.max,
+        .results.locust_requests_fail_ratio.mean,
+        .results.Aggregated.locust_requests_avg_response_time.min,
+        .results.Aggregated.locust_requests_avg_response_time.mean,
+        .results.Aggregated.locust_requests_avg_response_time.percentile90,
+        .results.Aggregated.locust_requests_avg_response_time.percentile99,
+        .results.Aggregated.locust_requests_avg_response_time.percentile999,
+        .results.Aggregated.locust_requests_avg_response_time.max,
+        .results.Aggregated.locust_requests_avg_content_length.max
         ] | @csv' \
         && rc=0 || rc=1
     if [[ "$rc" -ne 0 ]]; then
