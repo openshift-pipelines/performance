@@ -1,0 +1,14 @@
+[req]
+distinguished_name = req_distinguished_name
+req_extensions = v3_req
+x509_extensions = v3_req
+prompt = no
+
+[req_distinguished_name]
+CN = ${ENV::TEKTON_RESULTS_FQDN}
+
+[v3_req]
+subjectAltName = @alt_names
+
+[alt_names]
+DNS.1 = ${ENV::TEKTON_RESULTS_FQDN}

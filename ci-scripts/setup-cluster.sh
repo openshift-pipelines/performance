@@ -273,7 +273,8 @@ if [ "$INSTALL_RESULTS" == "true" ]; then
     if [ "$DEPLOYMENT_TYPE_RESULTS" == "downstream" ]; then
         # Read More on Installation: https://docs.openshift.com/pipelines/1.15/records/using-tekton-results-for-openshift-pipelines-observability.html
         TEKTON_RESULTS_NS="openshift-pipelines"
-        
+        export TEKTON_RESULTS_FQDN="tekton-results-api-service.$TEKTON_RESULTS_NS.svc.cluster.local"
+
         info "Configure resources for tekton-results ($DEPLOYMENT_TYPE_RESULTS)"
 
         # Setup creds for DB
@@ -289,8 +290,8 @@ if [ "$INSTALL_RESULTS" == "true" ]; then
             -out "$TEMP_DIR_PATH/cert.pem" \
             -days 365 \
             -nodes \
-            -subj "/CN=tekton-results-api-service.$TEKTON_RESULTS_NS.svc.cluster.local" \
-            -addext "subjectAltName = DNS:tekton-results-api-service.$TEKTON_RESULTS_NS.svc.cluster.local"
+            -subj "/CN=$TEKTON_RESULTS_FQDN" \
+            -config <(envsubst < config/openssl.cnf)
 
         kubectl get secret tekton-results-tls -n $TEKTON_RESULTS_NS || kubectl create secret tls -n $TEKTON_RESULTS_NS tekton-results-tls \
             --cert="$TEMP_DIR_PATH/cert.pem" \
@@ -362,7 +363,8 @@ EOF
     elif [ "$DEPLOYMENT_TYPE_RESULTS" == "upstream" ]; then
         # Read More on Installation: https://github.com/tektoncd/results/blob/main/docs/install.md
         TEKTON_RESULTS_NS="tekton-pipelines"
-        
+        export TEKTON_RESULTS_FQDN="tekton-results-api-service.$TEKTON_RESULTS_NS.svc.cluster.local"
+
         info "Configure resources for tekton-results ($DEPLOYMENT_TYPE_RESULTS:$DEPLOYMENT_RESULTS_UPSTREAM_VERSION)"
 
         # Setup creds for DB
@@ -378,8 +380,8 @@ EOF
             -out "$TEMP_DIR_PATH/cert.pem" \
             -days 365 \
             -nodes \
-            -subj "/CN=tekton-results-api-service.$TEKTON_RESULTS_NS.svc.cluster.local" \
-            -addext "subjectAltName = DNS:tekton-results-api-service.$TEKTON_RESULTS_NS.svc.cluster.local"
+            -subj "/CN=$TEKTON_RESULTS_FQDN" \
+            -config <(envsubst < config/openssl.cnf)
 
         kubectl get secret tekton-results-tls -n $TEKTON_RESULTS_NS || kubectl create secret tls -n $TEKTON_RESULTS_NS tekton-results-tls \
             --cert="$TEMP_DIR_PATH/cert.pem" \
