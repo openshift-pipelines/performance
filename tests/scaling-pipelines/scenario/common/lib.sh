@@ -320,6 +320,10 @@ function run_locust() {
 
         info "Running Locust Scenario: ${SCENARIO}"
 
+        # Cleanup locust jobs if it already exists
+        kubectl delete --ignore-not-found=true --namespace "${LOCUST_NAMESPACE}" LocustTest "${SCENARIO}.test"
+        kubectl delete --ignore-not-found=true --namespace "${LOCUST_NAMESPACE}" configmap locust."${SCENARIO}"
+
         # Apply locust test template with environment variable substitution
         cat $LOCUST_TEMPLATE | envsubst | kubectl apply --namespace "${LOCUST_NAMESPACE}" -f -
 
@@ -351,13 +355,6 @@ function run_locust() {
         # Record test end time
         date --utc -Ins > "${TMP_DIR}/benchmark-after"
 
-        # TODO: Collect Prometheus metrics for Locust test 
-
-
-        # Cleanup locust job and configmaps
-        kubectl delete --namespace "${LOCUST_NAMESPACE}" LocustTest "${SCENARIO}.test"
-
-        kubectl delete --namespace "${LOCUST_NAMESPACE}" configmap locust."${SCENARIO}"
     else 
         warning "RUN_LOCUST env variable is not set for Locust testing."
     fi

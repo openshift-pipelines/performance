@@ -13,22 +13,11 @@ TOTAL_TIMEOUT=${TOTAL_TIMEOUT:-7200}
 CHAINS_WAIT_TIME=${CHAINS_WAIT_TIME:-600} # [Default: 10 mins]
 PRUNER_WAIT_TIME=${PRUNER_WAIT_TIME:-600} # [Default: 10 mins]
 
-# Locust test configurations
-LOCUST_HOST="https://tekton-results-api-service.openshift-pipelines.svc.cluster.local:8080"
-LOCUST_USERS=${LOCUST_USERS:-100}
-LOCUST_SPAWN_RATE=${LOCUST_SPAWN_RATE:-10}
-LOCUST_DURATION="$((TOTAL_TIMEOUT * 1 / 8))s" # Run the test for 1/8th duration of the overall test 
-LOCUST_WORKERS=${LOCUST_WORKERS:-5}
-LOCUST_EXTRA_CMD="${LOCUST_EXTRA_CMD:-}"
-
 chains_setup_tekton_tekton_
 
 chains_stop
 
 pruner_stop
-
-# We will use varying concurrency to set the concurreny to zero before starting locust test
-echo $TEST_CONCURRENT > scenario/$TEST_SCENARIO/concurrency.txt
 
 #  Timeout before enabling Chains 
 (
@@ -41,23 +30,6 @@ echo $TEST_CONCURRENT > scenario/$TEST_SCENARIO/concurrency.txt
 (
     wait_for_timeout $PRUNER_WAIT_TIME "enable Pruner"
     pruner_start
-) &
-
-# Timeout before setting concurrency to zero
-(
-    wait_for_timeout $((TOTAL_TIMEOUT * 3 / 4)) "reducing concurrency to 0"
-    echo 0 > scenario/$TEST_SCENARIO/concurrency.txt
-) &
-
-# Timeout before starting Locust test
-(
-    wait_for_timeout $((TOTAL_TIMEOUT * 3 / 4)) "starting Locust Test"
-
-    # Run fetch-log loadtest scenario
-    run_locust "fetch-log" $LOCUST_HOST $LOCUST_USERS $LOCUST_SPAWN_RATE $LOCUST_DURATION $LOCUST_WORKERS "$LOCUST_EXTRA_CMD"
-
-    # Run fetch-records loadtest scenario
-    run_locust "fetch-records" $LOCUST_HOST $LOCUST_USERS $LOCUST_SPAWN_RATE $LOCUST_DURATION $LOCUST_WORKERS "$LOCUST_EXTRA_CMD"
 ) &
 
 # Stop the execution after total timeout duration

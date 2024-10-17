@@ -22,6 +22,7 @@ RUN_LOCUST="${RUN_LOCUST:-false}"
 LOCUST_NAMESPACE=locust-operator
 LOCUST_OPERATOR_REPO=locust-k8s-operator
 LOCUST_OPERATOR=locust-operator
+LOCUST_HELM_CONFIG=./config/locust-k8s-operator.values.yaml
 
 DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS="${DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS:-}"
 if [ -n "$DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS" ]; then
@@ -407,18 +408,40 @@ if [ "$RUN_LOCUST" == "true" ]; then
 
     # Check if the Helm release already exists, and install it if it doesn't
     if ! helm list --namespace "${LOCUST_NAMESPACE}" | grep -q "${LOCUST_OPERATOR}"; then
-        helm install "${LOCUST_OPERATOR}" locust-k8s-operator/locust-k8s-operator --namespace "${LOCUST_NAMESPACE}" -f locust-k8s-operator.values.yaml
+        helm install "${LOCUST_OPERATOR}" locust-k8s-operator/locust-k8s-operator --namespace "${LOCUST_NAMESPACE}" -f "$LOCUST_HELM_CONFIG"
     else
         info "Helm release \"${LOCUST_OPERATOR}\" already exists"
     fi
 
     # Wait for all pods in the namespace to be ready
-    kubectl wait --timeout=180s --namespace "${LOCUST_NAMESPACE}" --for=condition=ready $(kubectl get --namespace "${LOCUST_NAMESPACE}" pod -o name)
+    wait_for_entity_by_selector 180 "${LOCUST_NAMESPACE}" pod app.kubernetes.io/name=locust-k8s-operator
+
+    # Enable monitoring prometheus metrics
+    cat <<EOF | kubectl -n "${LOCUST_NAMESPACE}" apply -f -
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  labels:
+    app: locust-operator
+  annotations:
+    networkoperator.openshift.io/ignore-errors: ""
+  name: locust-operator-monitor
+spec:
+  endpoints:
+    - interval: 10s
+      port: prometheus-metrics
+      honorLabels: true
+  jobLabel: app
+  namespaceSelector:
+    matchNames:
+      - locust-operator
+  selector: {}
+EOF
 
     info "Locust-Operator deployment finished"
 
 else
-    fatal "Skipping Locust setup"
+    info "Skipping Locust setup"
 fi
 
 
