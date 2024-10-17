@@ -299,14 +299,15 @@ function oc_apply_manifest() {
 function run_locust() {
     # Runs Locust API load test on cluster
     if [ "$RUN_LOCUST" == "true" ]; then
-        # SCENARIO is the filename of the locust test inside "locust" directory inside test scenario directory. 
-        # The filename should follow alpha,numeric,hyphens and should NOT contain ".py" extension.
-        local SCENARIO="$1"
-        local LOCUST_HOST="$2"
-        local LOCUST_USERS="$3"
-        local LOCUST_SPAWN_RATE="$4"
-        local LOCUST_DURATION="$5"
-        
+        # SCENARIO is the filename of the locust test in "locust" directory. 
+        # The filename should only follow alpha,numeric,hyphens characters and should NOT contain ".py" extension.
+        export SCENARIO="$1"
+        export LOCUST_HOST="$2"
+        export LOCUST_USERS="$3"
+        export LOCUST_SPAWN_RATE="$4"
+        export LOCUST_DURATION="$5"
+        export LOCUST_WORKERS="$6"
+        export LOCUST_EXTRA_CMD="$7"
 
         # Locust test
         local LOCUST_NAMESPACE=locust-operator
@@ -345,7 +346,7 @@ function run_locust() {
 
         # Get Locust master logs
         echo "Getting locust master log:"
-        kubectl logs --namespace "${LOCUST_NAMESPACE}" -f -l performance-test-pod-name=${SCENARIO}-test-master | tee $LOCUST_LOG
+        kubectl logs --namespace "${LOCUST_NAMESPACE}" -f -l performance-test-pod-name=${SCENARIO}-test-master 2>&1 | tee -a $LOCUST_LOG
 
         # Record test end time
         date --utc -Ins > "${TMP_DIR}/benchmark-after"
