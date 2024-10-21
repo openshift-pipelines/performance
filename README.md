@@ -27,6 +27,7 @@ Setup the OpenShift cluster (assuming `oc login ...` happened already):
     # export STORE_LOGS_IN_S3="true"
     # export DEPLOYMENT_TYPE_RESULTS="downstream" # "upstream" (Default: downstream)
     # export DEPLOYMENT_RESULTS_UPSTREAM_VERSION="v0.11.0" # Used only for upstream (Default: latest)
+    # export RUN_LOCUST="true"
 
     # export DEPLOYMENT_VERSION="1.14"
     # export DEPLOYMENT_VERSION="1.13"
