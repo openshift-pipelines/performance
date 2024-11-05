@@ -314,9 +314,9 @@ if [ "$INSTALL_RESULTS" == "true" ]; then
 
             oc create secret generic s3-credentials -n $TEKTON_RESULTS_NS \
   --from-literal=S3_BUCKET_NAME="${AWS_BUCKET_NAME}" \
-  --from-literal=S3_ENDPOINT="https://s3.eu-west-1.amazonaws.com" \
+  --from-literal=S3_ENDPOINT="${AWS_ENDPOINT}" \
   --from-literal=S3_HOSTNAME_IMMUTABLE="false" \
-  --from-literal=S3_REGION="eu-west-1" \
+  --from-literal=S3_REGION="${AWS_REGION}" \
   --from-literal=S3_ACCESS_KEY_ID="${AWS_ACCESS_ID}" \
   --from-literal=S3_SECRET_ACCESS_KEY="${AWS_SECRET_KEY}" \
   --from-literal=S3_MULTI_PART_SIZE="5242880"
@@ -363,8 +363,8 @@ EOF
       else
         oc create secret generic logging-loki-s3 \
   --from-literal=bucketnames="${AWS_BUCKET_NAME}" \
-  --from-literal=endpoint="https://s3.eu-west-1.amazonaws.com" \
-  --from-literal=region="eu-west-1" \
+  --from-literal=endpoint="${AWS_ENDPOINT}" \
+  --from-literal=region="${AWS_REGION}" \
   --from-literal=access_key_id="${AWS_ACCESS_ID}" \
   --from-literal=access_key_secret="${AWS_SECRET_KEY}"
 
@@ -394,7 +394,6 @@ spec:
   sourceNamespace: openshift-marketplace
 
 EOF
-        sleep 60
 
         echo "Checking for InstallPlan..."
         INSTALL_PLAN=$(oc get installplan -n openshift-operators -o json | jq -r '.items[] | select(.spec.approved == false) | .metadata.name')
@@ -404,7 +403,7 @@ EOF
           oc patch installplan $INSTALL_PLAN -n openshift-operators --type='merge' -p '{"spec":{"approved":true}}'
         fi
 
-        sleep 240
+        wait_for_entity_by_selector 300 openshift-operators-redhat pod name=loki-operator-controller-manager
 
         # Create Namespace for installing openshift-logging
         cat <<EOF | oc apply -f -
@@ -444,8 +443,8 @@ spec:
   source: redhat-operators
   sourceNamespace: openshift-marketplace
 EOF
-        sleep 120
-#        wait_for_entity_by_selector 300 openshift-logging pod name=cluster-logging-operator
+
+        wait_for_entity_by_selector 300 openshift-logging pod name=cluster-logging-operator
 
         # Installing Loki
 

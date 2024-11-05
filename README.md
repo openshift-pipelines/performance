@@ -29,6 +29,8 @@ Setup the OpenShift cluster (assuming `oc login ...` happened already):
     # export DEPLOYMENT_RESULTS_UPSTREAM_VERSION="v0.11.0" # Used only for upstream (Default: latest)
     # export RUN_LOCUST="true"
     # export DEPLOYMENT_RESULTS_DOWNSTREAM_VERSION="1.16" (Default: 1.16)
+    # export AWS_REGION="eu-west-1"
+    # export AWS_ENDPOINT="https://s3.eu-west-1.amazonaws.com"
 
 
     # export DEPLOYMENT_VERSION="1.14"
