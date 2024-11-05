@@ -17,7 +17,6 @@ INSTALL_RESULTS="${INSTALL_RESULTS:-false}"
 STORE_LOGS_IN_S3="${STORE_LOGS_IN_S3:-false}"
 DEPLOYMENT_TYPE_RESULTS="${DEPLOYMENT_TYPE_RESULTS:-downstream}"
 DEPLOYMENT_RESULTS_UPSTREAM_VERSION="${DEPLOYMENT_RESULTS_UPSTREAM_VERSION:-latest}"
-DEPLOYMENT_RESULTS_DOWNSTREAM_VERSION="${DEPLOYMENT_RESULTS_DOWNSTREAM_VERSION:-1.16}"
 
 # Locust setup config
 RUN_LOCUST="${RUN_LOCUST:-false}"
@@ -291,22 +290,21 @@ if [ "$INSTALL_RESULTS" == "true" ]; then
         kubectl get secret tekton-results-postgres -n $TEKTON_RESULTS_NS || kubectl create secret generic tekton-results-postgres -n "$TEKTON_RESULTS_NS" \
             --from-literal=POSTGRES_USER=result --from-literal=POSTGRES_PASSWORD=$(openssl rand -base64 20)
 
-        # Setup SSL certs for Results API
-        openssl req -x509 \
-            -newkey rsa:4096 \
-            -keyout "$TEMP_DIR_PATH/key.pem" \
-            -out "$TEMP_DIR_PATH/cert.pem" \
-            -days 365 \
-            -nodes \
-            -subj "/CN=$TEKTON_RESULTS_FQDN" \
-            -config <(envsubst < config/openssl.cnf)
+        if [ "$DEPLOYMENT_VERSION" == "1.15" ]; then
 
-        kubectl get secret tekton-results-tls -n $TEKTON_RESULTS_NS || kubectl create secret tls -n $TEKTON_RESULTS_NS tekton-results-tls \
-            --cert="$TEMP_DIR_PATH/cert.pem" \
-            --key="$TEMP_DIR_PATH/key.pem"
+          # Setup SSL certs for Results API
+          openssl req -x509 \
+                -newkey rsa:4096 \
+                -keyout "$TEMP_DIR_PATH/key.pem" \
+                -out "$TEMP_DIR_PATH/cert.pem" \
+                -days 365 \
+                -nodes \
+                -subj "/CN=$TEKTON_RESULTS_FQDN" \
+                -config <(envsubst < config/openssl.cnf)
 
-
-        if [ "$DEPLOYMENT_RESULTS_DOWNSTREAM_VERSION" == "1.15" ]; then
+          kubectl get secret tekton-results-tls -n $TEKTON_RESULTS_NS || kubectl create secret tls -n $TEKTON_RESULTS_NS tekton-results-tls \
+                --cert="$TEMP_DIR_PATH/cert.pem" \
+                --key="$TEMP_DIR_PATH/key.pem"
 
           if [ "$STORE_LOGS_IN_S3" == "true" ]; then
             CONDITIONAL_FIELDS="
@@ -370,12 +368,91 @@ EOF
   --from-literal=access_key_id="${AWS_ACCESS_ID}" \
   --from-literal=access_key_secret="${AWS_SECRET_KEY}"
 
-        cat <<EOF | oc create -f -
+        oc create namespace openshift-operators-redhat
+
+        # Create OperatorGroup for installing loki-operator
+        oc create -f - <<EOF
+apiVersion: operators.coreos.com/v1
+kind: OperatorGroup
+metadata:
+  name: cluster-logging
+  namespace: openshift-operators-redhat
+EOF
+
+
+        # Create Subscription for installing Loki Operator
+        oc create -f - <<EOF
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: loki-operator
+  namespace: openshift-operators-redhat
+spec:
+  channel: stable-6.0
+  name: loki-operator
+  source: redhat-operators
+  sourceNamespace: openshift-marketplace
+
+EOF
+        sleep 60
+
+        echo "Checking for InstallPlan..."
+        INSTALL_PLAN=$(oc get installplan -n openshift-operators -o json | jq -r '.items[] | select(.spec.approved == false) | .metadata.name')
+
+        if [[ -n "$INSTALL_PLAN" ]]; then
+          echo "Approving InstallPlan: $INSTALL_PLAN"
+          oc patch installplan $INSTALL_PLAN -n openshift-operators --type='merge' -p '{"spec":{"approved":true}}'
+        fi
+
+        sleep 240
+
+        # Create Namespace for installing openshift-logging
+        cat <<EOF | oc apply -f -
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: openshift-logging
+  annotations:
+    openshift.io/node-selector: ""
+  labels:
+    openshift.io/cluster-logging: "true"
+    openshift.io/cluster-monitoring: "true"
+EOF
+
+        # Create OperatorGroup for installing openshift-logging
+        cat <<EOF | oc apply -f -
+apiVersion: operators.coreos.com/v1
+kind: OperatorGroup
+metadata:
+  name: cluster-logging
+  namespace: openshift-logging
+spec:
+  targetNamespaces:
+  - openshift-logging
+EOF
+
+        # Create Subscription for installing openshift-logging
+        cat <<EOF | oc apply -f -
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: cluster-logging
+  namespace: openshift-logging
+spec:
+  channel: stable-6.0
+  name: cluster-logging
+  source: redhat-operators
+  sourceNamespace: openshift-marketplace
+EOF
+        sleep 120
+#        wait_for_entity_by_selector 300 openshift-logging pod name=cluster-logging-operator
+
+        # Installing Loki
+
+        cat <<EOF | oc apply -f -
 apiVersion: loki.grafana.com/v1
 kind: LokiStack
 metadata:
-  annotations:
-    loki.grafana.com/rulesDiscoveredAt: "2024-08-04T18:08:15Z"
   name: logging-loki
   namespace: openshift-logging
 spec:
@@ -388,42 +465,63 @@ spec:
     secret:
       name: logging-loki-s3
       type: s3
-  storageClassName: storageClass
+  storageClassName: standard-csi
   tenants:
     mode: openshift-logging
 EOF
-        cat <<EOF | oc create -n $TEKTON_RESULTS_NS -f -
-apiVersion: logging.openshift.io/v1
-kind: ClusterLogging
-metadata:
-  name: instance
-  namespace: openshift-logging
-spec:
-  collection:
-    type: vector
-  logStore:
-    lokistack:
-      name: logging-loki
-    type: lokistack
-  managementState: Managed
-EOF
+
+        # Installing OpenShift Logging
+        # Create Service Account and give it permission required.
+        oc create sa collector -n openshift-logging
+        oc adm policy add-cluster-role-to-user logging-collector-logs-writer system:serviceaccount:openshift-logging:collector
+        oc adm policy add-cluster-role-to-user collect-application-logs system:serviceaccount:openshift-logging:collector
+        oc adm policy add-cluster-role-to-user collect-audit-logs system:serviceaccount:openshift-logging:collector
+        oc adm policy add-cluster-role-to-user collect-infrastructure-logs system:serviceaccount:openshift-logging:collector
+
         cat <<EOF | oc create -f -
-apiVersion: "logging.openshift.io/v1"
+apiVersion: observability.openshift.io/v1
 kind: ClusterLogForwarder
 metadata:
-  name: instance
+  name: collector
   namespace: openshift-logging
 spec:
   inputs:
-  - name: only-tekton
-    application:
+  - application:
       selector:
         matchLabels:
           app.kubernetes.io/managed-by: tekton-pipelines
+    name: only-tekton
+    type: application
+  managementState: Managed
+  outputs:
+  - lokiStack:
+      labelKeys:
+        application:
+          ignoreGlobal: true
+          labelKeys:
+          - log_type
+          - kubernetes.namespace_name
+          - openshift_cluster_id
+      authentication:
+        token:
+          from: serviceAccount
+      target:
+        name: logging-loki
+        namespace: openshift-logging
+    name: default-lokistack
+    tls:
+      ca:
+        configMapName: openshift-service-ca.crt
+        key: service-ca.crt
+    type: lokiStack
   pipelines:
-    - name: enable-default-log-store
-      inputRefs: [ only-tekton ]
-      outputRefs: [ default ]
+  - inputRefs:
+    - only-tekton
+    name: default-logstore
+    outputRefs:
+    - default-lokistack
+  serviceAccount:
+    name: collector
 EOF
 
         cat <<EOF | oc apply -n $TEKTON_RESULTS_NS -f -
@@ -432,6 +530,7 @@ kind: TektonResult
 metadata:
     name: result
 spec:
+  auth_disable: true
   targetNamespace: openshift-pipelines
   loki_stack_name: logging-loki
   loki_stack_namespace: openshift-logging
