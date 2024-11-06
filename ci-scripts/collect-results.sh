@@ -13,6 +13,10 @@ monitoring_collection_dir=$ARTIFACT_DIR/monitoring-collection-raw-data-dir
 tekton_pipelines_controller_log=$ARTIFACT_DIR/tekton-pipelines-controller.log
 tekton_chains_controller_log=$ARTIFACT_DIR/tekton-chains-controller.log
 creationtimestamp_collection_log=$ARTIFACT_DIR/creationtimestamp-collection.log
+results_api_logs="$ARTIFACT_DIR/results-api-logs.txt"
+results_api_json="$ARTIFACT_DIR/results-api-logs.json"
+results_api_error_logs="$ARTIFACT_DIR/results-api-logs-parse-errors.txt"
+results_api_db_sql="$ARTIFACT_DIR/tekton-results-postgres-pgdump.sql"
 
 info "Collecting artifacts..."
 mkdir -p "${ARTIFACT_DIR}"
@@ -93,17 +97,24 @@ fi
 
 
 if [ "$INSTALL_RESULTS" == "true" ]; then
+    info "Collecting Results-API DB Dump"
+    
+    # Fetch Postgres User & Password 
+    pg_user=$(oc -n openshift-pipelines get secret tekton-results-postgres -o json | jq -r '.data.POSTGRES_USER' | base64 -d)
+    pg_pwd=$(oc -n openshift-pipelines get secret tekton-results-postgres -o json | jq -r '.data.POSTGRES_PASSWORD' | base64 -d)
+
+    # Dump Postgres Database into SQL file
+    oc -n openshift-pipelines exec -it tekton-results-postgres-0 -- bash -c "PGPASSWORD=$pg_pwd pg_dump tekton-results -U $pg_user" > $results_api_db_sql
+
+
     info "Collecting Results-API log data"
-    results_api_logs="$ARTIFACT_DIR/results-api-logs.txt"
-    results_api_json="$ARTIFACT_DIR/results-api-logs.json"
-    results_api_error_logs="$ARTIFACT_DIR/results-api-logs-parse-errors.txt"
 
     # JSON fields from log lines
     JQ_FIELDS_TO_EXTRACT='{timestamp: .ts, "grpc.start_time": .["grpc.start_time"], "grpc.request.deadline": .["grpc.request.deadline"], "grpc.method": .["grpc.method"], "grpc.code": .["grpc.code"], "grpc.time_duration_in_ms": .["grpc.time_duration_in_ms"]}'
 
     # Fetch logs from results-api pods
-    oc -n openshift-pipelines logs --tail=-1 --since-time="$mstart" -l app.kubernetes.io/name=tekton-results-api >> "$results_api_logs"
-    oc -n tekton-pipelines logs --tail=-1 --since-time="$mstart" -l app.kubernetes.io/name=tekton-results-api >> "$results_api_logs"
+    oc -n openshift-pipelines logs --tail=-1 -l app.kubernetes.io/name=tekton-results-api >> "$results_api_logs"
+    oc -n tekton-pipelines logs --tail=-1 -l app.kubernetes.io/name=tekton-results-api >> "$results_api_logs"
 
     # Parse and store JSON log lines 
     echo "[" > "$results_api_json"
@@ -111,7 +122,6 @@ if [ "$INSTALL_RESULTS" == "true" ]; then
         | jq -e -c "$JQ_FIELDS_TO_EXTRACT" 2>"$results_api_error_logs" \
         | sed '$!s/$/,/' >> "$results_api_json"
     echo "]" >> "$results_api_json"
-
 else
     info "Skipping Results-API log data"
 fi

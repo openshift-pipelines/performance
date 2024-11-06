@@ -307,4 +307,6 @@
   monitoring_query: locust_users
   monitoring_step: 15
 
-{{ results_scenario('Aggregated') }}
+{{ results_scenario('/log') }}
+{{ results_scenario('/record') }}
+{{ results_scenario('/records') }}
