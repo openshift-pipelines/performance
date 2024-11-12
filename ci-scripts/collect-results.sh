@@ -17,6 +17,7 @@ results_api_logs="$ARTIFACT_DIR/results-api-logs.txt"
 results_api_json="$ARTIFACT_DIR/results-api-logs.json"
 results_api_error_logs="$ARTIFACT_DIR/results-api-logs-parse-errors.txt"
 results_api_db_sql="$ARTIFACT_DIR/tekton-results-postgres-pgdump.sql"
+INSTALL_RESULTS="${INSTALL_RESULTS:-false}"
 
 info "Collecting artifacts..."
 mkdir -p "${ARTIFACT_DIR}"
