@@ -22,7 +22,7 @@ benchmark_result_file="$1"
 pipelineruns_out_file="pipelineruns-stats.csv"
 taskruns_out_file="taskruns-stats.csv"
 
-headers="creationTimestamp,state,finalizers,signed,startTime,completionTime,finished_at,outcome,finalizers_at,signed_at,terminated,terminating,deleted,deleted_at\n"
+headers="creationTimestamp,state,finalizers,signed,startTime,completionTime,finished_at,outcome,finalizers_at,signed_at,terminated,terminating,deleted,deleted_at,log_at,result_at\n"
 
 if [ -z "$benchmark_result_file" ]
 then
@@ -34,10 +34,10 @@ fi
 
 printf $headers > $pipelineruns_out_file
 
-cat $benchmark_result_file | jq -r '.pipelineruns | to_entries | map(.value | [.creationTimestamp, .state, .finalizers, .signed, .startTime, .completionTime, .finished_at, .outcome, .finalizers_at, .signed_at, .terminated, .deletionTimestamp, .deleted, .deleted_at] | @csv)[]' >> $pipelineruns_out_file
+cat $benchmark_result_file | jq -r '.pipelineruns | to_entries | map(.value | [.creationTimestamp, .state, .finalizers, .signed, .startTime, .completionTime, .finished_at, .outcome, .finalizers_at, .signed_at, .terminated, .deletionTimestamp, .deleted, .deleted_at, .log_at, .result_at] | @csv)[]' >> $pipelineruns_out_file
 
 # Collect finalizer, sign statuses for taskruns
 
 printf $headers > $taskruns_out_file
 
-cat $benchmark_result_file | jq -r '.taskruns | to_entries | map(.value | [.creationTimestamp, .state, .finalizers, .signed, .startTime, .completionTime, .finished_at, .outcome, .finalizers_at, .signed_at, .terminated, .deletionTimestamp, .deleted, .deleted_at] | @csv)[]' >> $taskruns_out_file
+cat $benchmark_result_file | jq -r '.taskruns | to_entries | map(.value | [.creationTimestamp, .state, .finalizers, .signed, .startTime, .completionTime, .finished_at, .outcome, .finalizers_at, .signed_at, .terminated, .deletionTimestamp, .deleted, .deleted_at, .log_at, .result_at] | @csv)[]' >> $taskruns_out_file
