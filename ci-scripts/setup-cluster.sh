@@ -361,17 +361,17 @@ $CONDITIONAL_FIELDS
     prometheus_port: 9090
 EOF
       else
-        oc create secret generic logging-loki-s3 \
+        oc get secret logging-loki-s3 || oc create secret generic logging-loki-s3 \
   --from-literal=bucketnames="${AWS_BUCKET_NAME}" \
   --from-literal=endpoint="${AWS_ENDPOINT}" \
   --from-literal=region="${AWS_REGION}" \
   --from-literal=access_key_id="${AWS_ACCESS_ID}" \
   --from-literal=access_key_secret="${AWS_SECRET_KEY}"
 
-        oc create namespace openshift-operators-redhat
+        oc get ns openshift-operators-redhat || oc create namespace openshift-operators-redhat
 
         # Create OperatorGroup for installing loki-operator
-        oc create -f - <<EOF
+        oc apply -f - <<EOF
 apiVersion: operators.coreos.com/v1
 kind: OperatorGroup
 metadata:
@@ -381,7 +381,7 @@ EOF
 
 
         # Create Subscription for installing Loki Operator
-        oc create -f - <<EOF
+        oc apply -f - <<EOF
 apiVersion: operators.coreos.com/v1alpha1
 kind: Subscription
 metadata:
@@ -471,13 +471,13 @@ EOF
 
         # Installing OpenShift Logging
         # Create Service Account and give it permission required.
-        oc create sa collector -n openshift-logging
+        oc get sa collector -n openshift-logging || oc create sa collector -n openshift-logging
         oc adm policy add-cluster-role-to-user logging-collector-logs-writer system:serviceaccount:openshift-logging:collector
         oc adm policy add-cluster-role-to-user collect-application-logs system:serviceaccount:openshift-logging:collector
         oc adm policy add-cluster-role-to-user collect-audit-logs system:serviceaccount:openshift-logging:collector
         oc adm policy add-cluster-role-to-user collect-infrastructure-logs system:serviceaccount:openshift-logging:collector
 
-        cat <<EOF | oc create -f -
+        cat <<EOF | oc apply -f -
 apiVersion: observability.openshift.io/v1
 kind: ClusterLogForwarder
 metadata:
