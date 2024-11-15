@@ -29,7 +29,8 @@ TEKTON_ANNOTATIONS_TO_CAPTURE = [
     ("chains.tekton.dev/signed", "signed"),
     ("results.tekton.dev/log", "log"),
     ("results.tekton.dev/record", "record"),
-    ("results.tekton.dev/result", "result")
+    ("results.tekton.dev/result", "result"),
+    ("results.tekton.dev/stored", "result_stored"),
 ]
 
 
@@ -492,6 +493,12 @@ def counter_thread(args, pipelineruns, pipelineruns_lock, taskruns, taskruns_loc
                 record_present = len(
                     [i for i in namespaced_pipelineruns if "result" in i and i["result"] != 'unknown']
                 )
+                result_stored_true = len(
+                    [i for i in namespaced_pipelineruns if "result_stored" in i and i["result_stored"] == 'true']
+                )
+                result_stored_false = len(
+                    [i for i in namespaced_pipelineruns if "result_stored" in i and i["result_stored"] == 'false']
+                )
             prs = {
                 "monitoring_start": monitoring_start,
                 "monitoring_now": monitoring_now,
@@ -509,7 +516,9 @@ def counter_thread(args, pipelineruns, pipelineruns_lock, taskruns, taskruns_loc
                 "terminated": terminated,
                 "log_present": log_present,
                 "result_present": result_present,
-                "record_present": record_present
+                "record_present": record_present,
+                "result_stored_true": result_stored_true,
+                "result_stored_false": result_stored_false,
             }
 
             if fetch_current_concurrency(args.concurrent) > 0:
@@ -571,6 +580,12 @@ def counter_thread(args, pipelineruns, pipelineruns_lock, taskruns, taskruns_loc
                 record_present = len(
                     [i for i in namespaced_taskruns if "record" in i and i["record"] != 'unknown']
                 )
+                result_stored_true = len(
+                    [i for i in namespaced_taskruns if "result_stored" in i and i["result_stored"] == 'true']
+                )
+                result_stored_false = len(
+                    [i for i in namespaced_taskruns if "result_stored" in i and i["result_stored"] == 'false']
+                )
             trs = {
                 "monitoring_start": monitoring_start,
                 "monitoring_now": monitoring_now,
@@ -588,7 +603,9 @@ def counter_thread(args, pipelineruns, pipelineruns_lock, taskruns, taskruns_loc
                 "terminated": terminated,
                 "log_present": log_present,
                 "result_present": result_present,
-                "record_present": record_present
+                "record_present": record_present,
+                "result_stored_true": result_stored_true,
+                "result_stored_false": result_stored_false,
             }
 
             if monitoring_second > args.delay and prs["should_be_started"] > 0:
@@ -649,6 +666,8 @@ def counter_thread(args, pipelineruns, pipelineruns_lock, taskruns, taskruns_loc
                                 "prs_log_present",
                                 "prs_result_present",
                                 "prs_record_present",
+                                "prs_result_stored_true",
+                                "prs_result_stored_false",
                                 "trs_total",
                                 "trs_failed",
                                 "trs_pending",
@@ -663,6 +682,8 @@ def counter_thread(args, pipelineruns, pipelineruns_lock, taskruns, taskruns_loc
                                 "trs_log_present",
                                 "trs_result_present",
                                 "trs_record_present",
+                                "trs_result_stored_true",
+                                "trs_result_stored_false",
                             ]
                         )
                 with open(args.stats_file, "a") as fd:
@@ -689,6 +710,8 @@ def counter_thread(args, pipelineruns, pipelineruns_lock, taskruns, taskruns_loc
                             prs["log_present"],
                             prs["result_present"],
                             prs["record_present"],
+                            prs["result_stored_true"],
+                            prs["result_stored_false"],
                             trs["total"],
                             trs['failed'],
                             trs["pending"],
@@ -703,6 +726,8 @@ def counter_thread(args, pipelineruns, pipelineruns_lock, taskruns, taskruns_loc
                             trs["log_present"],
                             trs["result_present"],
                             trs["record_present"],
+                            trs["result_stored_true"],
+                            trs["result_stored_false"],
                         ]
                     )
 
