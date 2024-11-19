@@ -12,6 +12,7 @@ TEST_NAMESPACE="${TEST_NAMESPACE:-1}"
 TEST_SCENARIO="${TEST_SCENARIO:-math}"
 TEST_TIMEOUT="${TEST_TIMEOUT:-18000}"   # 5 hours
 TEST_PARAMS="${TEST_PARAMS:-}"
+TEST_DO_CLEANUP="${TEST_DO_CLEANUP:-true}"
 
 measure_signed_pid=""
 
@@ -95,7 +96,7 @@ do
     info "Dump Pods from namespace: ${namespace}"
     pod_jsons+=("$(kubectl get po -o json -n "${namespace}")")
 
-    if ${TEST_DO_CLEANUP:-true}; then
+    if [ "$TEST_DO_CLEANUP" == "true" ]; then
         info "Cleanup PipelineRuns in namespace: ${namespace}"
         kubectl delete -n "${namespace}" --all PipelineRuns
     fi

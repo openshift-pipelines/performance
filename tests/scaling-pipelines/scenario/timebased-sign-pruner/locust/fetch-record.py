@@ -7,7 +7,7 @@ urllib3.disable_warnings(InsecureRequestWarning)
 
 class FetchRecordsTest(HttpUser):
     '''
-    User scenario fetches a specific record
+    User scenario to fetch a specific record
     '''
     def on_start(self):
         self.client.verify = False
@@ -19,9 +19,9 @@ class FetchRecordsTest(HttpUser):
         self.record_id = response[0]['name']
 
     @task
-    def get_records(self) -> None:
-        """Get Records for a particular result"""
+    def get_record(self) -> None:
+        """Get Record for a particular result"""
         self.client.get(
             f"/apis/results.tekton.dev/v1alpha2/parents/{self.record_id}",
-            name="/records"
+            name="/record"
         )

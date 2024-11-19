@@ -11,8 +11,11 @@ LOCUST_EXTRA_CMD="${LOCUST_EXTRA_CMD:-}"
 # Run fetch-log loadtest scenario
 run_locust "fetch-log" $LOCUST_HOST $LOCUST_USERS $LOCUST_SPAWN_RATE $LOCUST_DURATION $LOCUST_WORKERS "$LOCUST_EXTRA_CMD"
 
-# Run fetch-records loadtest scenario
-run_locust "fetch-records" $LOCUST_HOST $LOCUST_USERS $LOCUST_SPAWN_RATE $LOCUST_DURATION $LOCUST_WORKERS "$LOCUST_EXTRA_CMD"
+# Run fetch-record loadtest scenario
+run_locust "fetch-record" $LOCUST_HOST $LOCUST_USERS $LOCUST_SPAWN_RATE $LOCUST_DURATION $LOCUST_WORKERS "$LOCUST_EXTRA_CMD"
+
+# Run fetch-all-records loadtest scenario
+run_locust "fetch-all-records" $LOCUST_HOST $LOCUST_USERS $LOCUST_SPAWN_RATE $LOCUST_DURATION $LOCUST_WORKERS "$LOCUST_EXTRA_CMD"
 
 # Update test end time
 set_ended_now

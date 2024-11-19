@@ -321,8 +321,7 @@ function run_locust() {
         info "Running Locust Scenario: ${SCENARIO}"
 
         # Cleanup locust jobs if it already exists
-        kubectl delete --ignore-not-found=true --namespace "${LOCUST_NAMESPACE}" LocustTest "${SCENARIO}.test"
-        kubectl delete --ignore-not-found=true --namespace "${LOCUST_NAMESPACE}" configmap locust."${SCENARIO}"
+        cleanup_locust "$SCENARIO"
 
         # Apply locust test template with environment variable substitution
         cat $LOCUST_TEMPLATE | envsubst | kubectl apply --namespace "${LOCUST_NAMESPACE}" -f -
@@ -352,10 +351,21 @@ function run_locust() {
         echo "Getting locust master log:"
         kubectl logs --namespace "${LOCUST_NAMESPACE}" -f -l performance-test-pod-name=${SCENARIO}-test-master 2>&1 | tee -a $LOCUST_LOG
 
+        # Cleanup locust job after test end
+        cleanup_locust "$SCENARIO"
+
         # Record test end time
         date --utc -Ins > "${TMP_DIR}/benchmark-after"
 
     else 
         warning "RUN_LOCUST env variable is not set for Locust testing."
     fi
+}
+
+function cleanup_locust(){
+    export SCENARIO="$1"
+    local LOCUST_NAMESPACE=locust-operator
+    info "Cleaning LocustTest ${SCENARIO}.test"
+    kubectl delete --ignore-not-found=true --namespace "${LOCUST_NAMESPACE}" LocustTest "${SCENARIO}.test"
+    kubectl delete --ignore-not-found=true --namespace "${LOCUST_NAMESPACE}" configmap locust."${SCENARIO}"
 }
