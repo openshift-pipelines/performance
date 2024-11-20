@@ -105,7 +105,7 @@ if [ "$INSTALL_RESULTS" == "true" ]; then
     pg_pwd=$(oc -n openshift-pipelines get secret tekton-results-postgres -o json | jq -r '.data.POSTGRES_PASSWORD' | base64 -d)
 
     # Dump Postgres Database into SQL file
-    oc -n openshift-pipelines exec -it tekton-results-postgres-0 -- bash -c "PGPASSWORD=$pg_pwd pg_dump tekton-results -U $pg_user" > $results_api_db_sql
+    oc -n openshift-pipelines exec -i tekton-results-postgres-0 -- bash -c "PGPASSWORD=$pg_pwd pg_dump tekton-results -U $pg_user" > $results_api_db_sql
 
 
     info "Collecting Results-API log data"
