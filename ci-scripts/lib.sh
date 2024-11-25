@@ -23,6 +23,14 @@ function fatal() {
     exit 1
 }
 
+function describe_entity(){
+    local ns="$1"
+    local entity="$2"
+    local l="$3"
+    
+    kubectl -n "$ns" describe "$entity" -l "$l"
+}
+
 function entity_by_selector_exists() {
     local ns
     local entity
@@ -72,6 +80,7 @@ function wait_for_entity_by_selector() {
     while ! entity_by_selector_exists "$ns" "$entity" "$l" "$expected"; do
         now=$(date --utc +%s)
         if [[ $(( now - before )) -ge "$timeout" ]]; then
+            describe_entity "$ns" "$entity" "$l"
             fatal "Required $entity did not appeared before timeout"
         fi
         debug "Still not ready ($(( now - before ))/$timeout), waiting and trying again"

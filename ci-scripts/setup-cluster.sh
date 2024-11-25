@@ -635,7 +635,7 @@ data:
 EOF
   fi
 
-    wait_for_entity_by_selector 300 "openshift-user-workload-monitoring" StatefulSet operator.prometheus.io/name=user-workload
+    wait_for_entity_by_selector 600 "openshift-user-workload-monitoring" StatefulSet operator.prometheus.io/name=user-workload
     kubectl -n openshift-user-workload-monitoring rollout status --watch --timeout=600s StatefulSet/prometheus-user-workload
     kubectl -n openshift-user-workload-monitoring wait --for=condition=ready pod -l app.kubernetes.io/component=prometheus
     kubectl -n openshift-user-workload-monitoring get pod
