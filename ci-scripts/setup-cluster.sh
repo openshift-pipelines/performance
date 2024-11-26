@@ -616,12 +616,12 @@ if [ "$RUN_LOCUST" == "true" ]; then
     wait_for_entity_by_selector 180 "${LOCUST_NAMESPACE}" pod app.kubernetes.io/name=locust-k8s-operator
 
     info "Enabling user workload monitoring"
-    config_file=$(mktemp)
+    config_dir=$(mktemp -d)
     if oc -n openshift-monitoring get cm cluster-monitoring-config; then
-        oc -n openshift-monitoring extract configmap/cluster-monitoring-config --to=. --keys=$config_file
-        sed -i '/^enableUserWorkload:/d' $config_file
-        echo -e "\nenableUserWorkload: true" >> $config_file
-        oc -n openshift-monitoring set data configmap/cluster-monitoring-config --from-file=$config_file
+        oc -n openshift-monitoring extract configmap/cluster-monitoring-config --to=$config_dir --keys=config.yaml
+        sed -i '/^enableUserWorkload:/d' $config_dir/config.yaml
+        echo -e "\nenableUserWorkload: true" >> $config_dir/config.yaml
+        oc -n openshift-monitoring set data configmap/cluster-monitoring-config --from-file=$config_dir/config.yaml
     else
         cat <<EOF | kubectl apply -f -
 apiVersion: v1
@@ -635,7 +635,7 @@ data:
 EOF
   fi
 
-    wait_for_entity_by_selector 300 "openshift-user-workload-monitoring" StatefulSet operator.prometheus.io/name=user-workload
+    wait_for_entity_by_selector 600 "openshift-user-workload-monitoring" StatefulSet operator.prometheus.io/name=user-workload
     kubectl -n openshift-user-workload-monitoring rollout status --watch --timeout=600s StatefulSet/prometheus-user-workload
     kubectl -n openshift-user-workload-monitoring wait --for=condition=ready pod -l app.kubernetes.io/component=prometheus
     kubectl -n openshift-user-workload-monitoring get pod
