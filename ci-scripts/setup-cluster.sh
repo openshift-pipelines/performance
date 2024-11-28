@@ -18,6 +18,9 @@ STORE_LOGS_IN_S3="${STORE_LOGS_IN_S3:-false}"
 DEPLOYMENT_TYPE_RESULTS="${DEPLOYMENT_TYPE_RESULTS:-downstream}"
 DEPLOYMENT_RESULTS_UPSTREAM_VERSION="${DEPLOYMENT_RESULTS_UPSTREAM_VERSION:-latest}"
 
+# Loki stack configuration: https://access.redhat.com/solutions/7006859
+LOKI_STACK_SIZE="1x.demo" # Other options: 1x.demo, 1x.small, 1x.extra-small
+
 # Locust setup config
 RUN_LOCUST="${RUN_LOCUST:-false}"
 LOCUST_NAMESPACE=locust-operator
@@ -361,7 +364,20 @@ $CONDITIONAL_FIELDS
     prometheus_port: 9090
 EOF
       else
-        oc get secret logging-loki-s3 || oc create secret generic logging-loki-s3 \
+        # Create Namespace for installing openshift-logging
+        cat <<EOF | oc apply -f -
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: openshift-logging
+  annotations:
+    openshift.io/node-selector: ""
+  labels:
+    openshift.io/cluster-logging: "true"
+    openshift.io/cluster-monitoring: "true"
+EOF
+
+        oc get secret logging-loki-s3 -n openshift-logging || oc -n openshift-logging create secret generic logging-loki-s3 \
   --from-literal=bucketnames="${AWS_BUCKET_NAME}" \
   --from-literal=endpoint="${AWS_ENDPOINT}" \
   --from-literal=region="${AWS_REGION}" \
@@ -405,19 +421,6 @@ EOF
 
         wait_for_entity_by_selector 300 openshift-operators-redhat pod name=loki-operator-controller-manager
 
-        # Create Namespace for installing openshift-logging
-        cat <<EOF | oc apply -f -
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: openshift-logging
-  annotations:
-    openshift.io/node-selector: ""
-  labels:
-    openshift.io/cluster-logging: "true"
-    openshift.io/cluster-monitoring: "true"
-EOF
-
         # Create OperatorGroup for installing openshift-logging
         cat <<EOF | oc apply -f -
 apiVersion: operators.coreos.com/v1
@@ -446,8 +449,9 @@ EOF
 
         wait_for_entity_by_selector 300 openshift-logging pod name=cluster-logging-operator
 
-        # Installing Loki
+        default_storage_class=$(kubectl get storageclass -o jsonpath='{.items[?(@.metadata.annotations.storageclass\.kubernetes\.io/is-default-class=="true")].metadata.name}')
 
+        # Installing Loki
         cat <<EOF | oc apply -f -
 apiVersion: loki.grafana.com/v1
 kind: LokiStack
@@ -456,7 +460,8 @@ metadata:
   namespace: openshift-logging
 spec:
   managementState: Managed
-  size: 1x.small
+  replicationFactor: 1
+  size: $LOKI_STACK_SIZE
   storage:
     schemas:
     - effectiveDate: "2023-10-15"
@@ -464,7 +469,7 @@ spec:
     secret:
       name: logging-loki-s3
       type: s3
-  storageClassName: standard-csi
+  storageClassName: $default_storage_class
   tenants:
     mode: openshift-logging
 EOF
