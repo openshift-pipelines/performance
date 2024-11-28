@@ -19,7 +19,7 @@ DEPLOYMENT_TYPE_RESULTS="${DEPLOYMENT_TYPE_RESULTS:-downstream}"
 DEPLOYMENT_RESULTS_UPSTREAM_VERSION="${DEPLOYMENT_RESULTS_UPSTREAM_VERSION:-latest}"
 
 # Loki stack configuration: https://access.redhat.com/solutions/7006859
-LOKI_STACK_SIZE="1x.extra-small" # Other options: 1x.demo, 1x.small
+LOKI_STACK_SIZE="1x.demo" # Other options: 1x.demo, 1x.small, 1x.extra-small
 
 # Locust setup config
 RUN_LOCUST="${RUN_LOCUST:-false}"
