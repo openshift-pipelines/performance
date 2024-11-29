@@ -16,7 +16,8 @@ creationtimestamp_collection_log=$ARTIFACT_DIR/creationtimestamp-collection.log
 results_api_logs="$ARTIFACT_DIR/results-api-logs.txt"
 results_api_json="$ARTIFACT_DIR/results-api-logs.json"
 results_api_error_logs="$ARTIFACT_DIR/results-api-logs-parse-errors.txt"
-results_api_db_sql="$ARTIFACT_DIR/tekton-results-postgres-pgdump.sql"
+results_api_db_sql="$ARTIFACT_DIR/tekton-results-postgres-pgdump.dump"
+results_api_db_query_stat="$ARTIFACT_DIR/tekton-results-postgres-query.json"
 INSTALL_RESULTS="${INSTALL_RESULTS:-false}"
 
 info "Collecting artifacts..."
@@ -104,8 +105,23 @@ if [ "$INSTALL_RESULTS" == "true" ]; then
     pg_user=$(oc -n openshift-pipelines get secret tekton-results-postgres -o json | jq -r '.data.POSTGRES_USER' | base64 -d)
     pg_pwd=$(oc -n openshift-pipelines get secret tekton-results-postgres -o json | jq -r '.data.POSTGRES_PASSWORD' | base64 -d)
 
-    # Dump Postgres Database into SQL file
-    oc -n openshift-pipelines exec -i tekton-results-postgres-0 -- bash -c "PGPASSWORD=$pg_pwd pg_dump tekton-results -U $pg_user" > $results_api_db_sql
+    # Dump Postgres Database
+    oc -n openshift-pipelines exec -i tekton-results-postgres-0 -- bash -c "PGPASSWORD=$pg_pwd pg_dump --format=c tekton-results -U $pg_user --file=/tmp/pg_data.dump"
+
+    kubectl -n openshift-pipelines cp --retries 10 tekton-results-postgres-0:/tmp/pg_data.dump $results_api_db_sql
+    
+    # Capture DB Table counts
+    info "Collecting Results-API DB Table Counts"
+
+    capture_results_db_query "$pg_user" "$pg_pwd" "tekton-results" "select type, count(*) from records group by type" "$results_api_db_query_stat"
+
+    capture_results_db_query "$pg_user" "$pg_pwd" "tekton-results" "select recordsummary_type , count(*) from results group by recordsummary_type" "$results_api_db_query_stat"
+
+    capture_results_db_query "$pg_user" "$pg_pwd" "tekton-results" "select * from results where recordsummary_type = ''" "$results_api_db_query_stat"
+
+    capture_results_db_query "$pg_user" "$pg_pwd" "tekton-results" "select parent, count(*) from records group by parent order by parent" "$results_api_db_query_stat"
+
+    capture_results_db_query "$pg_user" "$pg_pwd" "tekton-results" "select parent, type, count(*) from records group by parent, type order by parent" "$results_api_db_query_stat"
 
 
     info "Collecting Results-API log data"

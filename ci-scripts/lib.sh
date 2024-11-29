@@ -78,3 +78,34 @@ function wait_for_entity_by_selector() {
         sleep 3
     done
 }
+
+function capture_results_db_query(){
+    local pg_user=$1
+    local pg_pwd=$2
+    local pg_db=$3
+    local query=$4
+    local output_file=$5
+
+    local result
+    result=$(oc -n openshift-pipelines exec -i tekton-results-postgres-0 -- bash -c "PGPASSWORD=$pg_pwd psql -d $pg_db -U $pg_user -c \"SELECT json_agg(t) from ($query) t\" --tuples-only --no-align ")
+    
+    if [ -z "$result" ]; then
+        warning "No results found or query failed."
+        return
+    fi
+
+    # Create the JSON structure for the current query
+    local new_entry
+    new_entry=$(jq -n --arg query "$query" --argjson result "$result" '
+        {query: $query, result: $result}'
+    )
+
+    # Check if the output file exists
+    if [ -f "$output_file" ]; then
+        # Append to existing JSON array in the file
+        jq --argjson new_entry "$new_entry" '. += [$new_entry]' "$output_file" > "${output_file}.tmp" && mv "${output_file}.tmp" "$output_file"
+    else
+        # Create a new JSON array and add the new entry
+        echo "[$new_entry]" > "$output_file"
+    fi
+}
