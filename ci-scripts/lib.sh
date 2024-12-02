@@ -103,9 +103,9 @@ function capture_results_db_query(){
     # Check if the output file exists
     if [ -f "$output_file" ]; then
         # Append to existing JSON array in the file
-        jq --argjson new_entry "$new_entry" '. += [$new_entry]' "$output_file" > "${output_file}.tmp" && mv "${output_file}.tmp" "$output_file"
+        jq --argjson new_entry "$new_entry" '.results.ResultsDB.queries += [$new_entry]' "$output_file" > "${output_file}.tmp" && mv "${output_file}.tmp" "$output_file"
     else
         # Create a new JSON array and add the new entry
-        echo "[$new_entry]" > "$output_file"
+        echo "{}" | jq ".results.ResultsDB.queries = [$new_entry]" > "$output_file"
     fi
 }

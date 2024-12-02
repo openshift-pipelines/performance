@@ -17,7 +17,6 @@ results_api_logs="$ARTIFACT_DIR/results-api-logs.txt"
 results_api_json="$ARTIFACT_DIR/results-api-logs.json"
 results_api_error_logs="$ARTIFACT_DIR/results-api-logs-parse-errors.txt"
 results_api_db_sql="$ARTIFACT_DIR/tekton-results-postgres-pgdump.dump"
-results_api_db_query_stat="$ARTIFACT_DIR/tekton-results-postgres-query.json"
 INSTALL_RESULTS="${INSTALL_RESULTS:-false}"
 
 info "Collecting artifacts..."
@@ -113,15 +112,15 @@ if [ "$INSTALL_RESULTS" == "true" ]; then
     # Capture DB Table counts
     info "Collecting Results-API DB Table Counts"
 
-    capture_results_db_query "$pg_user" "$pg_pwd" "tekton-results" "select type, count(*) from records group by type" "$results_api_db_query_stat"
+    capture_results_db_query "$pg_user" "$pg_pwd" "tekton-results" "select type, count(*) from records group by type" "$monitoring_collection_data"
 
-    capture_results_db_query "$pg_user" "$pg_pwd" "tekton-results" "select recordsummary_type , count(*) from results group by recordsummary_type" "$results_api_db_query_stat"
+    capture_results_db_query "$pg_user" "$pg_pwd" "tekton-results" "select recordsummary_type , count(*) from results group by recordsummary_type" "$monitoring_collection_data"
 
-    capture_results_db_query "$pg_user" "$pg_pwd" "tekton-results" "select * from results where recordsummary_type = ''" "$results_api_db_query_stat"
+    capture_results_db_query "$pg_user" "$pg_pwd" "tekton-results" "select * from results where recordsummary_type = ''" "$monitoring_collection_data"
 
-    capture_results_db_query "$pg_user" "$pg_pwd" "tekton-results" "select parent, count(*) from records group by parent order by parent" "$results_api_db_query_stat"
+    capture_results_db_query "$pg_user" "$pg_pwd" "tekton-results" "select parent, count(*) from records group by parent order by parent" "$monitoring_collection_data"
 
-    capture_results_db_query "$pg_user" "$pg_pwd" "tekton-results" "select parent, type, count(*) from records group by parent, type order by parent" "$results_api_db_query_stat"
+    capture_results_db_query "$pg_user" "$pg_pwd" "tekton-results" "select parent, type, count(*) from records group by parent, type order by parent" "$monitoring_collection_data"
 
 
     info "Collecting Results-API log data"
