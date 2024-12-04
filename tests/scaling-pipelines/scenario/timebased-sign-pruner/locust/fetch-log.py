@@ -1,6 +1,7 @@
-from locust import HttpUser, task
-from urllib3.exceptions import InsecureRequestWarning
 import urllib3
+from random import shuffle
+from urllib3.exceptions import InsecureRequestWarning
+from locust import HttpUser, task
 
 urllib3.disable_warnings(InsecureRequestWarning)
 
@@ -17,26 +18,41 @@ class FetchResultLogTest(HttpUser):
             "/apis/results.tekton.dev/v1alpha2/parents/-/results/-/records",
             name='fetch_id').json()['records']
 
+        # Small Randomness in picking first taskrun for fetching log
+        shuffle(records)
+
         self.log_id = None
 
-        # Look for TaskRun/PipelineRun object to fetch logs
+        # Look for TaskRun object to fetch logs
         for record in records:
             if "data" in record and 'type' in record['data'] and (
-                record['data']['type'].endswith(".PipelineRun") or
                 record['data']['type'].endswith(".TaskRun")
+                # Uncomment below to include PipelineRun for search
+                # or record['data']['type'].endswith(".PipelineRun")
             ):
                 self.log_id = record['name']
                 break
 
-        # Replace /records with /logs endpoint to fetch the log data for the PipelineRun or TaskRun
+        # Replace /records with /logs endpoint to fetch the log data for the TaskRun
         if self.log_id:
             self.log_id = self.log_id.replace("/records", "/logs")
+
+    def validate_response(self, response):
+        '''Check whether the log response contains actual data when returning 200 status code'''
+        if response.status_code == 200 and len(response.text) > 0:
+            return True
+        return False
 
     @task
     def get_log(self) -> None:
         """Get Log content for a result"""
         if self.log_id:
-            self.client.get(
+            with self.client.get(
                 f"/apis/results.tekton.dev/v1alpha2/parents/{self.log_id}",
-                name="/log"
-            )
+                name="/log",
+                catch_response=True
+            ) as response:
+                if self.validate_response(response):
+                    response.success()
+                else:
+                    response.failure("Response validation failed")
