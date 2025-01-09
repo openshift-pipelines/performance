@@ -6,6 +6,7 @@ set -o pipefail
 
 source "$(dirname "$0")/lib.sh"
 
+DEPLOYMENT_PIPELINES_CONTROLLER_TYPE="${DEPLOYMENT_PIPELINES_CONTROLLER_TYPE:-deployments}" # Types available: deployments / statefulSets 
 DEPLOYMENT_PIPELINES_CONTROLLER_RESOURCES="${DEPLOYMENT_PIPELINES_CONTROLLER_RESOURCES:-1/2Gi/1/2Gi}"   # In form of "requests.cpu/requests.memory/limits.cpu/limits.memory", use "///" to skip this
 pipelines_controller_resources_requests_cpu="$( echo "$DEPLOYMENT_PIPELINES_CONTROLLER_RESOURCES" | cut -d "/" -f 1 )"
 pipelines_controller_resources_requests_memory="$( echo "$DEPLOYMENT_PIPELINES_CONTROLLER_RESOURCES" | cut -d "/" -f 2 )"
@@ -95,7 +96,12 @@ EOF
             resources_json=$(echo "$resources_json" | jq -c ".limits.memory=\"$pipelines_controller_resources_limits_memory\"")
         fi
         wait_for_entity_by_selector 300 "" TektonConfig openshift-pipelines.tekton.dev/sa-created=true
-        kubectl patch TektonConfig/config --type merge --patch '{"spec":{"pipeline":{"options":{"deployments":{"tekton-pipelines-controller":{"spec":{"template":{"spec":{"containers":[{"name":"tekton-pipelines-controller","resources":'"$resources_json"'}]}}}}}}}}}'
+        
+        if [ "$DEPLOYMENT_PIPELINES_CONTROLLER_TYPE" == "statefulSets" ]; then
+          kubectl patch TektonConfig/config --type merge --patch '{"spec":{"pipeline":{"performance":{"statefulset-ordinals":true}}}}'
+        fi
+
+        kubectl patch TektonConfig/config --type merge --patch '{"spec":{"pipeline":{"options":{"'$DEPLOYMENT_PIPELINES_CONTROLLER_TYPE'":{"tekton-pipelines-controller":{"spec":{"template":{"spec":{"containers":[{"name":"tekton-pipelines-controller","resources":'"$resources_json"'}]}}}}}}}}}'
 
         info "Configure Pipelines HA: ${DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS:-no}"
         if [ -n "$DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS" ]; then
@@ -103,7 +109,8 @@ EOF
             wait_for_entity_by_selector 300 "" TektonConfig openshift-pipelines.tekton.dev/sa-created=true
             # Patch TektonConfig with replicas and buckets
             kubectl patch TektonConfig/config --type merge --patch '{"spec":{"pipeline":{"performance":{"disable-ha":false,"buckets":'"$pipelines_controller_ha_buckets"'}}}}'
-            kubectl patch TektonConfig/config --type merge --patch '{"spec":{"pipeline":{"options":{"deployments":{"tekton-pipelines-controller":{"spec":{"replicas":'"$DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS"'}}}}}}}'
+            kubectl patch TektonConfig/config --type merge --patch '{"spec":{"pipeline":{"options":{"'$DEPLOYMENT_PIPELINES_CONTROLLER_TYPE'":{"tekton-pipelines-controller":{"spec":{"replicas":'"$DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS"'}}}}}}}'
+
             # Wait for pods to come up
             wait_for_entity_by_selector 300 openshift-pipelines pod app=tekton-pipelines-controller "$DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS"
             kubectl -n openshift-pipelines wait --for=condition=ready pod -l app=tekton-pipelines-controller
@@ -249,7 +256,7 @@ spec:
     matchLabels:
       app: tekton-pipelines-controller
 EOF
-
+    # TODO: Support statefulSets based deployment of pipelines-controller using DEPLOYMENT_PIPELINES_CONTROLLER_TYPE
     info "Configure resources for tekton-pipelines-controller: $DEPLOYMENT_PIPELINES_CONTROLLER_RESOURCES"
     wait_for_entity_by_selector 300 tekton-pipelines pod app=tekton-pipelines-controller
     pipelines_controller_resources_requests_cpu="${pipelines_controller_resources_requests_cpu:-0}"
