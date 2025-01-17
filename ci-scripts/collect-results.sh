@@ -72,6 +72,23 @@ if [ -f "$monitoring_collection_data" ]; then
         --prometheus-port 443 \
         --prometheus-token "$(oc whoami -t)" \
         -d &>"$monitoring_collection_log"
+    
+    # Check whether there are cluster_read_config.yaml in test scenario
+    if [ -f tests/scaling-pipelines/scenario/$TEST_SCENARIO/cluster_read_config.yaml ]; then
+        status_data.py \
+            --status-data-file "$monitoring_collection_data" \
+            --additional "tests/scaling-pipelines/scenario/$TEST_SCENARIO/cluster_read_config.yaml" \
+            --monitoring-start "$mstart" \
+            --monitoring-end "$mend" \
+            --monitoring-raw-data-dir "$monitoring_collection_dir" \
+            --prometheus-host "https://$mhost" \
+            --prometheus-port 443 \
+            --prometheus-token "$(oc whoami -t)" \
+            -d &>>"$monitoring_collection_log"
+    else 
+        warning "File cluster_read_config.yaml not found in test scenario $TEST_SCENARIO"
+    fi
+
     set +u
     deactivate
     set -u

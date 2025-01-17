@@ -20,3 +20,4 @@ tests/scaling-pipelines/pipelineruns.json
 tests/scaling-pipelines/pods.json
 tests/scaling-pipelines/taskruns.json
 tests/scaling-pipelines/locust-test.log
+tests/scaling-pipelines/monitoring-collection-raw-data-dir/
