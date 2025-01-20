@@ -1,3 +1,5 @@
+{% import 'config/cluster_read_library.yaml' as cluster_read_library %}
+
 # Cluster resources related metrics
 - name: measurements.storage_count_attachable_volumes_in_use
   monitoring_query: sum(storage_count_attachable_volumes_in_use)
@@ -197,47 +199,6 @@
   output: json
 
 
-
-{% macro monitor_pod(namespace, pod, step=15, pod_suffix_regex='-[0-9a-f]+-.*') -%}
-# Gather monitoring data about the pod
-- name: measurements.{{ pod }}.cpu
-  monitoring_query: sum(pod:container_cpu_usage:sum{namespace='{{ namespace }}', pod=~'{{ pod }}{{ pod_suffix_regex }}'})
-  monitoring_step: {{ step }}
-- name: measurements.{{ pod }}.memory
-  monitoring_query: sum(container_memory_usage_bytes{namespace='{{ namespace }}', pod=~'{{ pod }}{{ pod_suffix_regex }}', container!='POD', container!=''})
-  monitoring_step: {{ step }}
-- name: measurements.{{ pod }}.network_throughput
-  monitoring_query: sum( rate(container_network_transmit_bytes_total{namespace='{{ namespace }}', pod=~'{{ pod }}{{ pod_suffix_regex }}'}[{{ step * 4 }}s]) + rate(container_network_receive_bytes_total{namespace='{{ namespace }}', pod=~'{{ pod }}{{ pod_suffix_regex }}'}[{{ step * 4 }}s]) )
-  monitoring_step: {{ step * 4 }}
-- name: measurements.{{ pod }}.network_drop
-  monitoring_query: sum( rate(container_network_transmit_packets_dropped_total{namespace='{{ namespace }}', pod=~'{{ pod }}{{ pod_suffix_regex }}'}[{{ step * 4 }}s]) + rate(container_network_receive_packets_dropped_total{namespace='{{ namespace }}', pod=~'{{ pod }}{{ pod_suffix_regex }}'}[{{ step * 4 }}s]) )
-  monitoring_step: {{ step * 4 }}
-- name: measurements.{{ pod }}.disk_throughput
-  monitoring_query: sum( sum(rate(container_fs_reads_bytes_total{namespace='{{ namespace }}', pod=~'{{ pod }}{{ pod_suffix_regex }}', device!='/dev/dm-0'}[{{ step * 4 }}s])) + sum(rate(container_fs_writes_bytes_total{namespace='{{ namespace }}', pod=~'{{ pod }}{{ pod_suffix_regex }}', device!='/dev/dm-0'}[{{ step * 4 }}s])) )
-  monitoring_step: {{ step * 4 }}
-- name: measurements.{{ pod }}.restarts
-  monitoring_query: sum(kube_pod_container_status_restarts_total{namespace='{{ namespace }}', pod=~'{{ pod }}{{ pod_suffix_regex }}'})
-  monitoring_step: {{ step }}
-- name: measurements.{{ pod }}.count_ready
-  monitoring_query: sum( kube_pod_status_ready{namespace='{{ namespace }}', pod=~'{{ pod }}{{ pod_suffix_regex }}'} )
-  monitoring_step: {{ step }}
-{%- endmacro %}
-
-{% macro pod_info(namespace, deployment, container) -%}
-# Gather info about pod configuration
-- name: parameters.cluster.pods.{{ deployment }}-{{ container }}.count
-  command: oc -n {{ namespace }} get deployment/{{ deployment }} -o json | jq '.spec | if has("replicas") then .replicas else -1 end'
-- name: parameters.cluster.pods.{{ deployment }}-{{ container }}.resources
-  command: oc -n {{ namespace }} get deployment/{{ deployment }} -o json | jq '.spec.template.spec.containers | map(select(.name == "{{ container }}"))[0].resources'
-  output: json
-- name: parameters.cluster.pods.{{ deployment }}-{{ container }}.image
-  command: oc -n {{ namespace }} get deployment/{{ deployment }} -o json | jq --raw-output '.spec.template.spec.containers | map(select(.name == "{{ container }}"))[0].image'
-- name: parameters.cluster.pods.{{ deployment }}-{{ container }}.image_tag
-  command: oc -n {{ namespace }} get deployment/{{ deployment }} -o json | jq --raw-output '.spec.template.spec.containers | map(select(.name == "{{ container }}"))[0].image | split(":")[1]'
-{%- endmacro %}
-
-
-
 # Collect data for relevant pods
 {% if DEPLOYMENT_TYPE == 'downstream' %}
 
@@ -258,47 +219,25 @@
 {% endif %}
 
 {% for item in deployments %}
-{{ monitor_pod(namespace, deployments[loop.index0], 15) }}
-{{ pod_info(namespace, deployments[loop.index0], containers[loop.index0]) }}
+{{ cluster_read_library.monitor_pod(namespace, deployments[loop.index0], 15) }}
+{{ cluster_read_library.pod_info(namespace, deployments[loop.index0], containers[loop.index0]) }}
 {% endfor %}
 
 
 
 # Collect data for API pods
-{{ monitor_pod('openshift-apiserver', 'apiserver', 15) }}
-{{ monitor_pod('openshift-kube-apiserver', 'kube-apiserver', 15, pod_suffix_regex='-ip-.+') }}
-{{ monitor_pod('openshift-etcd', 'etcd', 15, pod_suffix_regex='-ip-.+') }}
+{{ cluster_read_library.monitor_pod('openshift-apiserver', 'apiserver', 15) }}
+{{ cluster_read_library.monitor_pod('openshift-kube-apiserver', 'kube-apiserver', 15, pod_suffix_regex='-ip-.+') }}
+{{ cluster_read_library.monitor_pod('openshift-etcd', 'etcd', 15, pod_suffix_regex='-ip-.+') }}
 
 
 
 # Collect data for Tekton Results Pods
-{{ monitor_pod('openshift-pipelines', 'tekton-results-api', 15) }}
-{{ monitor_pod('openshift-pipelines', 'tekton-results-watcher', 15) }}
-{{ monitor_pod('tekton-pipelines', 'tekton-results-api', 15) }}
-{{ monitor_pod('tekton-pipelines', 'tekton-results-watcher', 15) }}
+{{ cluster_read_library.monitor_pod('openshift-pipelines', 'tekton-results-api', 15) }}
+{{ cluster_read_library.monitor_pod('openshift-pipelines', 'tekton-results-watcher', 15) }}
+{{ cluster_read_library.monitor_pod('tekton-pipelines', 'tekton-results-api', 15) }}
+{{ cluster_read_library.monitor_pod('tekton-pipelines', 'tekton-results-watcher', 15) }}
 
-
-# Collect data for Locust Test Results
-{%macro results_scenario(name) -%}
-- name: results.{{name}}.locust_requests_avg_response_time
-  monitoring_query: sum(locust_requests_avg_response_time{name="{{name}}"})
-  monitoring_step: 15
-- name: results.{{name}}.locust_requests_avg_content_length
-  monitoring_query: sum(locust_requests_avg_content_length{name="{{name}}"})
-  monitoring_step: 15
-- name: results.{{name}}.locust_requests_current_rps
-  monitoring_query: sum(locust_requests_current_rps{name="{{name}}"})
-  monitoring_step: 15
-- name: results.{{name}}.locust_requests_current_fail_per_sec
-  monitoring_query: sum(locust_requests_current_fail_per_sec{name="{{name}}"})
-  monitoring_step: 15
-- name: results.{{name}}.locust_requests_num_failures
-  monitoring_query: sum(locust_requests_num_failures{name="{{name}}"})
-  monitoring_step: 15
-- name: results.{{name}}.locust_errors
-  monitoring_query: sum(locust_errors{name="{{name}}"})
-  monitoring_step: 15
-{%- endmacro %}
 
 - name: results.locust_requests_fail_ratio
   monitoring_query: locust_requests_fail_ratio
@@ -307,6 +246,6 @@
   monitoring_query: locust_users
   monitoring_step: 15
 
-{{ results_scenario('/log') }}
-{{ results_scenario('/record') }}
-{{ results_scenario('/records') }}
+{{ cluster_read_library.results_scenario('/log') }}
+{{ cluster_read_library.results_scenario('/record') }}
+{{ cluster_read_library.results_scenario('/records') }}
