@@ -57,10 +57,6 @@ def process_extra_data_argument(extra_data_arg:str):
 def populate_and_save_j2_template(args):
     '''Use jinja2 template to create test pipeline/task definition'''
 
-    # Read template
-    with open(args.file, 'r', encoding='utf-8') as template_file:
-        template = template_file.read()
-
     # Load data
     data = {}
     if args.extra_data:
@@ -72,9 +68,19 @@ def populate_and_save_j2_template(args):
         if data[k].isdigit():
             data[k] = int(data[k])
 
+    base_dir = os.path.dirname(args.file)
+    filename = os.path.basename(args.file)
+
     # Render the template
-    jinja_env = jinja2.Environment(loader=jinja2.BaseLoader())
-    rendered_template = jinja_env.from_string(template).render(**data)
+    jinja_env = jinja2.Environment(loader=jinja2.ChoiceLoader([
+        # Directory to the template file
+        jinja2.FileSystemLoader(base_dir),
+
+        # Directory to access config under this project's parent
+        jinja2.FileSystemLoader(os.path.join(base_dir, "../../../../config"))
+    ]))
+
+    rendered_template = jinja_env.get_template(filename).render(**data)
 
     # Save the rendered template to a file
     if not args.output:

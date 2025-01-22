@@ -1,0 +1,5 @@
+{% import 'cluster_read_library.yaml' as cluster_read_library %}
+
+{% for podName in pod_list.split() %}
+{{ cluster_read_library.monitor_pod("openshift-pipelines", podName, 15, '') }}
+{% endfor %}
