@@ -1,4 +1,4 @@
-{% macro monitor_pod(namespace, pod, step=15, pod_suffix_regex='-[0-9a-f]+-.*') -%}
+{% macro monitor_pod(namespace, pod, step=15, pod_suffix_regex='.*') -%}
 # Gather monitoring data about the pod
 - name: measurements.{{ pod }}.cpu
   monitoring_query: sum(pod:container_cpu_usage:sum{namespace='{{ namespace }}', pod=~'{{ pod }}{{ pod_suffix_regex }}'})
