@@ -249,3 +249,43 @@
 {{ cluster_read_library.results_scenario('/log') }}
 {{ cluster_read_library.results_scenario('/record') }}
 {{ cluster_read_library.results_scenario('/records') }}
+
+
+# Collect metrics related to logging
+## Rate metrics
+- name: measurements.logs.collection_rate # Bytes per second (Bps)
+  monitoring_query: sum(rate(vector_component_received_bytes_total{component_kind="source", component_type!="internal_metrics"}[5m]))
+  monitoring_step: 15
+- name: measurements.logs.sent_rate # Bytes per second (Bps)
+  monitoring_query: sum(rate(vector_component_sent_bytes_total{component_kind="sink", component_type!="prometheus_exporter"}[5m]))
+  monitoring_step: 15
+
+## Resource Usage
+- name: measurements.logs.collector.cpu # No. of CPU cores
+  monitoring_query: sum(node_namespace_pod_container:container_cpu_usage_seconds_total:sum_irate{container='collector'})
+  monitoring_step: 15
+- name: measurements.logs.collector.memory # Bytes
+  monitoring_query: sum(node_namespace_pod_container:container_memory_rss{container="collector"})
+  monitoring_step: 15
+
+## File System Usage
+- name: measurements.logs.open_files
+  monitoring_query: sum(vector_open_files{component_kind="source", component_type="kubernetes_logs"})
+  monitoring_step: 15
+
+## Loki metrics
+- name: measurements.logs.loki.events_sent
+  monitoring_query: sum(vector_component_sent_events_total{component_kind='sink', component_type='loki'})
+  monitoring_step: 15
+- name: measurements.logs.loki.event_bytes_sent # Bytes
+  monitoring_query: sum(vector_component_sent_event_bytes_total{component_kind='sink', component_type='loki'}) 
+  monitoring_step: 15
+- name: measurements.logs.loki.distributor_lines_received
+  monitoring_query: sum(loki_distributor_lines_received_total)
+  monitoring_step: 15
+- name: measurements.logs.loki.distributor_ingester_appends
+  monitoring_query: sum(loki_distributor_ingester_appends_total)
+  monitoring_step: 15
+- name: measurements.logs.loki.ingester_records_logged_rate
+  monitoring_query: sum(rate(loki_ingester_wal_records_logged_total[5m]))
+  monitoring_step: 15
