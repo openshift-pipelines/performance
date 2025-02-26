@@ -289,3 +289,15 @@
 - name: measurements.logs.loki.ingester_records_logged_rate
   monitoring_query: sum(rate(loki_ingester_wal_records_logged_total[5m]))
   monitoring_step: 15
+- name: measurements.logs.loki.internal_error_log_count
+  monitoring_query: sum(loki_internal_log_messages_total{level='error'})
+  monitoring_step: 15
+- name: measurements.logs.loki.internal_debug_log_count
+  monitoring_query: sum(loki_internal_log_messages_total{level='debug'})
+  monitoring_step: 15
+- name: measurements.logs.loki.internal_info_log_count
+  monitoring_query: sum(loki_internal_log_messages_total{level='info'})
+  monitoring_step: 15
+- name: measurements.logs.loki.internal_warn_log_count
+  monitoring_query: sum(loki_internal_log_messages_total{level='warn'})
+  monitoring_step: 15
