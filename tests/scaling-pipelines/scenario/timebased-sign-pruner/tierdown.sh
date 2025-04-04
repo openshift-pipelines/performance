@@ -7,6 +7,11 @@ LOCUST_SPAWN_RATE=${LOCUST_SPAWN_RATE:-10}
 LOCUST_DURATION="${LOCUST_DURATION:-15m}"
 LOCUST_WORKERS=${LOCUST_WORKERS:-5}
 LOCUST_EXTRA_CMD="${LOCUST_EXTRA_CMD:-}"
+LOCUST_WAIT_TIME=${LOCUST_WAIT_TIME:-600} # [Default: 10 mins]
+
+# Wait before starting locust test
+# This is implemented to give enough time for openshift-logging to do log sync ups
+wait_for_timeout $LOCUST_WAIT_TIME "start Locust test"
 
 # Run fetch-log loadtest scenario
 run_locust "fetch-log" $LOCUST_HOST $LOCUST_USERS $LOCUST_SPAWN_RATE $LOCUST_DURATION $LOCUST_WORKERS "$LOCUST_EXTRA_CMD"
