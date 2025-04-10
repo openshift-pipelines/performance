@@ -101,7 +101,7 @@ EOF
           kubectl patch TektonConfig/config --type merge --patch '{"spec":{"pipeline":{"performance":{"statefulset-ordinals":true,"buckets":1,"replicas":1}}}}'
         fi
 
-        kubectl patch TektonConfig/config --type merge --patch '{"spec":{"pipeline":{"options":{"'$DEPLOYMENT_PIPELINES_CONTROLLER_TYPE'":{"tekton-pipelines-controller":{"spec":{"template":{"spec":{"containers":[{"name":"tekton-pipelines-controller","resources":'"$resources_json"'}]}}}}}}}}}'
+        kubectl patch TektonConfig/config --type merge --patch '{"spec":{"result":{"disabled":true},"pipeline":{"options":{"'$DEPLOYMENT_PIPELINES_CONTROLLER_TYPE'":{"tekton-pipelines-controller":{"spec":{"template":{"spec":{"containers":[{"name":"tekton-pipelines-controller","resources":'"$resources_json"'}]}}}}}}}}}'
 
         info "Configure Pipelines HA: ${DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS:-no}"
         if [ -n "$DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS" ]; then
