@@ -109,3 +109,9 @@ function capture_results_db_query(){
         echo "{}" | jq ".results.ResultsDB.queries = [$new_entry]" > "$output_file"
     fi
 }
+
+version_gte() {
+    # Compare whether the version number specified in the first argument
+    # is greater than or equal to the version number in the second argument.
+    printf '%s\n%s\n' "$2" "$1" | sort --check=quiet --version-sort
+}

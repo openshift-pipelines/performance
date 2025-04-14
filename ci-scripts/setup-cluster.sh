@@ -382,6 +382,7 @@ $CONDITIONAL_FIELDS
     server_port: 8080
     prometheus_port: 9090
 EOF
+
       else
         # Create Namespace for installing openshift-logging
         cat <<EOF | oc apply -f -
@@ -547,6 +548,13 @@ spec:
     name: collector
 EOF
 
+      if version_gte "$DEPLOYMENT_VERSION" "1.18"; then
+        # Starting 1.18, Results is installed as part of Operator
+        # https://docs.redhat.com/en/documentation/red_hat_openshift_pipelines/1.18/html/release_notes/op-release-notes#tekton-results-new-features-1-18_op-release-notes
+        info "Enabling Tekton-Result in Tekton Operator"
+        kubectl patch TektonConfig/config --type merge --patch '{"spec":{"result":{"disabled":false,"auth_disable":true,"targetNamespace":"openshift-pipelines","loki_stack_name":"logging-loki","loki_stack_namespace":"openshift-logging"}}}'
+      else
+        info "Installing Tekton-Result Operator"
         cat <<EOF | oc apply -n $TEKTON_RESULTS_NS -f -
 apiVersion: operator.tekton.dev/v1alpha1
 kind: TektonResult
@@ -558,6 +566,8 @@ spec:
   loki_stack_name: logging-loki
   loki_stack_namespace: openshift-logging
 EOF
+      fi
+
         fi
 
         # Wait for tekton-results resources to start
