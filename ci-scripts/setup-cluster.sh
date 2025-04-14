@@ -549,13 +549,13 @@ spec:
 EOF
 
       if version_gte "$DEPLOYMENT_VERSION" "1.18"; then
-        # Starting 1.18, Results is installed as part of Operator
-        # https://docs.redhat.com/en/documentation/red_hat_openshift_pipelines/1.18/html/release_notes/op-release-notes#tekton-results-new-features-1-18_op-release-notes
-        info "Enabling Tekton-Result in Tekton Operator"
-        kubectl patch TektonConfig/config --type merge --patch '{"spec":{"result":{"disabled":false,"auth_disable":true,"targetNamespace":"openshift-pipelines","loki_stack_name":"logging-loki","loki_stack_namespace":"openshift-logging"}}}'
+          # Starting 1.18, Results is installed as part of Operator
+          # https://docs.redhat.com/en/documentation/red_hat_openshift_pipelines/1.18/html/release_notes/op-release-notes#tekton-results-new-features-1-18_op-release-notes
+          info "Enabling Tekton-Result in Tekton Operator"
+          kubectl patch TektonConfig/config --type merge --patch '{"spec":{"result":{"disabled":false,"auth_disable":true,"targetNamespace":"openshift-pipelines","loki_stack_name":"logging-loki","loki_stack_namespace":"openshift-logging"}}}'
       else
-        info "Installing Tekton-Result Operator"
-        cat <<EOF | oc apply -n $TEKTON_RESULTS_NS -f -
+          info "Installing Tekton-Result Operator"
+          cat <<EOF | oc apply -n $TEKTON_RESULTS_NS -f -
 apiVersion: operator.tekton.dev/v1alpha1
 kind: TektonResult
 metadata:
