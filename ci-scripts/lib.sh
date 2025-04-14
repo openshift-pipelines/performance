@@ -113,5 +113,8 @@ function capture_results_db_query(){
 version_gte() {
     # Compare whether the version number specified in the first argument
     # is greater than or equal to the version number in the second argument.
+
+    # TODO: Use package manager utility for version comparison
+    # https://github.com/openshift-pipelines/performance/pull/64#discussion_r2041881415
     printf '%s\n%s\n' "$2" "$1" | sort --check=quiet --version-sort
 }
