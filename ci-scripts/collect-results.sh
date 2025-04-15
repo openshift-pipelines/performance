@@ -133,7 +133,7 @@ if [ "$INSTALL_RESULTS" == "true" ]; then
 
     capture_results_db_query "$pg_user" "$pg_pwd" "tekton-results" "select recordsummary_type , count(*) from results group by recordsummary_type" "$monitoring_collection_data"
 
-    capture_results_db_query "$pg_user" "$pg_pwd" "tekton-results" "select * from results where recordsummary_type = ''" "$monitoring_collection_data"
+    capture_results_db_query "$pg_user" "$pg_pwd" "tekton-results" "select count(*) from results where recordsummary_type = ''" "$monitoring_collection_data"
 
     capture_results_db_query "$pg_user" "$pg_pwd" "tekton-results" "select parent, count(*) from records group by parent order by parent" "$monitoring_collection_data"
 
