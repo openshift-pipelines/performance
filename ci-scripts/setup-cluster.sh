@@ -101,7 +101,13 @@ EOF
           kubectl patch TektonConfig/config --type merge --patch '{"spec":{"pipeline":{"performance":{"statefulset-ordinals":true,"buckets":1,"replicas":1}}}}'
         fi
 
-        kubectl patch TektonConfig/config --type merge --patch '{"spec":{"result":{"disabled":true},"pipeline":{"options":{"'$DEPLOYMENT_PIPELINES_CONTROLLER_TYPE'":{"tekton-pipelines-controller":{"spec":{"template":{"spec":{"containers":[{"name":"tekton-pipelines-controller","resources":'"$resources_json"'}]}}}}}}}}}'
+        kubectl patch TektonConfig/config --type merge --patch '{"spec":{"pipeline":{"options":{"'$DEPLOYMENT_PIPELINES_CONTROLLER_TYPE'":{"tekton-pipelines-controller":{"spec":{"template":{"spec":{"containers":[{"name":"tekton-pipelines-controller","resources":'"$resources_json"'}]}}}}}}}}}'
+
+        # Disable Results as its enabled by default in 1.18+ release
+        if version_gte "$DEPLOYMENT_VERSION" "1.18"; then
+            info "Disabling Tekton Results"
+            kubectl patch TektonConfig/config --type merge --patch '{"spec":{"result":{"disabled":true}}}'
+        fi
 
         info "Configure Pipelines HA: ${DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS:-no}"
         if [ -n "$DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS" ]; then
