@@ -8,6 +8,7 @@ source "$(dirname "$0")/lib.sh"
 
 DEPLOYMENT_PIPELINES_CONTROLLER_TYPE="${DEPLOYMENT_PIPELINES_CONTROLLER_TYPE:-deployments}" # Types available: deployments / statefulSets 
 DEPLOYMENT_PIPELINES_CONTROLLER_RESOURCES="${DEPLOYMENT_PIPELINES_CONTROLLER_RESOURCES:-1/2Gi/1/2Gi}"   # In form of "requests.cpu/requests.memory/limits.cpu/limits.memory", use "///" to skip this
+NIGHTLY_BUILD="${NIGHTLY_BUILD:-false}"
 pipelines_controller_resources_requests_cpu="$( echo "$DEPLOYMENT_PIPELINES_CONTROLLER_RESOURCES" | cut -d "/" -f 1 )"
 pipelines_controller_resources_requests_memory="$( echo "$DEPLOYMENT_PIPELINES_CONTROLLER_RESOURCES" | cut -d "/" -f 2 )"
 pipelines_controller_resources_limits_cpu="$( echo "$DEPLOYMENT_PIPELINES_CONTROLLER_RESOURCES" | cut -d "/" -f 3 )"
@@ -49,14 +50,53 @@ chains_kube_api_qps="${DEPLOYMENT_CHAINS_KUBE_API_QPS:-}"
 chains_kube_api_burst="${DEPLOYMENT_CHAINS_KUBE_API_BURST:-}"
 chains_threads_per_controller="${DEPLOYMENT_CHAINS_THREADS_PER_CONTROLLER:-}"
 
+OCP_VERSION=$(oc get clusterversion version -o jsonpath='{.status.desired.version}'|cut -d. -f1,2)
+
 info "Deploy pipelines $DEPLOYMENT_TYPE/$DEPLOYMENT_VERSION"
+if ${NIGHTLY_BUILD}; then
+    info "Deploy pipelines nightly build"
+    unset DEPLOYMENT_VERSION
+    export DEPLOYMENT_VERSION="5.0"
+fi
 if [ "$DEPLOYMENT_TYPE" == "downstream" ]; then
 
     DEPLOYMENT_CSV_VERSION="$DEPLOYMENT_VERSION.0"
     [ "$DEPLOYMENT_VERSION" == "1.11" ] && DEPLOYMENT_CSV_VERSION="1.11.1"
     [ "$DEPLOYMENT_VERSION" == "1.14" ] && DEPLOYMENT_CSV_VERSION="1.14.3"
 
-    cat <<EOF | kubectl apply -f -
+    if version_gte "$DEPLOYMENT_VERSION" "5"; then
+        info "Deploy CatalogSource and Subscription for downstream nightly build"
+        cat <<EOF | oc apply -f-
+apiVersion: operators.coreos.com/v1alpha1
+kind: CatalogSource
+metadata:
+  name: "custom-osp-nightly"
+  namespace: openshift-marketplace
+spec:
+  sourceType: grpc
+  image: quay.io/openshift-pipeline/pipelines-index-${OCP_VERSION}:next
+  displayName: "Custom OSP Nightly"
+  publisher: Red Hat Local
+  updateStrategy:
+    registryPoll:
+      interval: 30m
+EOF
+
+        cat <<EOF | oc apply -f-
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: openshift-pipelines-operator
+  namespace: openshift-operators
+spec:
+  channel: latest
+  name: openshift-pipelines-operator-rh
+  source: "custom-osp-nightly"
+  sourceNamespace: openshift-marketplace
+EOF
+    else
+
+        cat <<EOF | kubectl apply -f -
 apiVersion: operators.coreos.com/v1alpha1
 kind: Subscription
 metadata:
@@ -72,6 +112,7 @@ spec:
   sourceNamespace: openshift-marketplace
   startingCSV: openshift-pipelines-operator-rh.v${DEPLOYMENT_CSV_VERSION}
 EOF
+    fi
 
     info "Wait for installplan to appear"
     wait_for_entity_by_selector 300 openshift-operators InstallPlan operators.coreos.com/openshift-pipelines-operator-rh.openshift-operators=
