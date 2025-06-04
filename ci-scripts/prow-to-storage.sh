@@ -156,24 +156,34 @@ format_date() {
 
 counter=0
 
+# https://gcsweb-ci.apps.ci.l2s4.p1.openshiftapps.com/gcs/test-platform-results/logs/periodic-ci-openshift-pipelines-performance-main-max-concurrency-downstream-nightly-daily/1929810529623216128/artifacts/max-concurrency-downstream-nightly-daily/openshift-pipelines-max-concurrency/artifacts/
+
+function prow_list_subjobs() {
+    local job="$1"
+    local id="$2"
+    local run="$3"
+    local path="$4"
+    shovel.py html links --url $PROW_GCSWEB_HOST/gcs/test-platform-results/logs/$job/$id/artifacts/$run/$path/ --regexp ".*/run-[0-9-]+/" | rev | cut -d "/" -f 2 | rev
+}
+
 # Fetch JSON files from main test that runs every 12 hours
-job_path="openshift-pipelines-scaling-pipelines/artifacts/"
+job_path="openshift-pipelines-max-concurrency/artifacts/"
 subjob_file="benchmark-tekton.json"
-for job in "scaling-pipelines-upstream-stable-daily" "scaling-pipelines-upstream-nightly-daily"; do
+for job in "max-concurrency-downstream-nightly-daily"; do
     prow_job="periodic-ci-openshift-pipelines-performance-main-$job"
     job_base="$PROW_GCSWEB_HOST/gcs/test-platform-results/logs/$prow_job"
     for i in $( prow_list "$prow_job" ); do
-        ### TODO: We are running more sub-jobs in one job, so need to loop over this:
-        ###prow_subjob_list "$job_base/$i/artifacts/$job/$job_path"
-        out="$CACHE_DIR/$i-$subjob.benchmark-tekton.json"
-        prow_download "$prow_job" "$i" "$job" "$job_path/$subjob/$file" "$out"
-        check_json "$out" || continue
-        json_complete "$out" || continue
-        enritch_stuff "$out" "jobLink" "$job_base/$i/artifacts/$job/$job_path/$subjob/$subjob_file"
-        enritch_stuff "$out" "\$schema" "urn:openshift-pipelines-perfscale-scalingPipelines:0.1"
-        horreum_upload "$out" "metadata.env.BUILD_ID" ".metadata.env.BUILD_ID"
-        resultsdashboard_upload "$out" "Developer" "OpenShift Pipelines" "$( date --utc -Idate )"
-        let counter+=1
+        for subjob in $( prow_list_subjobs "$prow_job" "$i" "$job" "$job_path" ); do
+            out="$CACHE_DIR/$i-$subjob.benchmark-tekton.json"
+            prow_download "$prow_job" "$i" "$job" "$job_path/$subjob/$subjob_file" "$out"
+            check_json "$out" || continue
+            json_complete "$out" || continue
+            enritch_stuff "$out" "jobLink" "$job_base/$i/artifacts/$job/$job_path/$subjob/$subjob_file"
+            enritch_stuff "$out" "\$schema" "urn:openshift-pipelines-perfscale-scalingPipelines:0.1"
+            horreum_upload "$out" "metadata.env.BUILD_ID" ".metadata.env.BUILD_ID"
+            resultsdashboard_upload "$out" "Developer" "OpenShift Pipelines" "$( date --utc -Idate )"
+            let counter+=1
+        done
     done
 done
 
