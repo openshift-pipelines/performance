@@ -1,0 +1,75 @@
+{
+  "description": "Dashboard visualizes TODO",
+  "panels": [
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "insertNulls": 129600000
+          },
+          "min": 0,
+          "unit": "s"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24
+      },
+      "id": 1,
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "time_series",
+          "rawSql": "SELECT\n    EXTRACT(EPOCH FROM start) AS \"time\",\n    (label_values->>'__results_PipelineRuns_duration_avg')::DOUBLE PRECISION AS \"value\",\n    '__results_PipelineRuns_duration_avg concurrency 12' as \"metric\"\nFROM\n    data\nWHERE\n    horreum_testid = 391\n    AND (label_values->>'__parameters_test_concurrent')::DOUBLE PRECISION = 12\nORDER BY\n    start;\n"
+        },
+        {
+          "format": "time_series",
+          "rawSql": "SELECT\n    EXTRACT(EPOCH FROM start) AS \"time\",\n    (label_values->>'__results_PipelineRuns_duration_avg')::DOUBLE PRECISION AS \"value\",\n    '__results_PipelineRuns_duration_avg concurrency 14' as \"metric\"\nFROM\n    data\nWHERE\n    horreum_testid = 391\n    AND (label_values->>'__parameters_test_concurrent')::DOUBLE PRECISION = 14\nORDER BY\n    start;\n"
+        },
+        {
+          "format": "time_series",
+          "rawSql": "SELECT\n    EXTRACT(EPOCH FROM start) AS \"time\",\n    (label_values->>'__results_PipelineRuns_duration_avg')::DOUBLE PRECISION AS \"value\",\n    '__results_PipelineRuns_duration_avg concurrency 16' as \"metric\"\nFROM\n    data\nWHERE\n    horreum_testid = 391\n    AND (label_values->>'__parameters_test_concurrent')::DOUBLE PRECISION = 16\nORDER BY\n    start;\n"
+        },
+        {
+          "format": "time_series",
+          "rawSql": "SELECT\n    EXTRACT(EPOCH FROM start) AS \"time\",\n    (label_values->>'__results_PipelineRuns_duration_avg')::DOUBLE PRECISION AS \"value\",\n    '__results_PipelineRuns_duration_avg concurrency 18' as \"metric\"\nFROM\n    data\nWHERE\n    horreum_testid = 391\n    AND (label_values->>'__parameters_test_concurrent')::DOUBLE PRECISION = 18\nORDER BY\n    start;\n"
+        },
+        {
+          "format": "time_series",
+          "rawSql": "SELECT\n    EXTRACT(EPOCH FROM start) AS \"time\",\n    (label_values->>'__results_PipelineRuns_duration_avg')::DOUBLE PRECISION AS \"value\",\n    '__results_PipelineRuns_duration_avg concurrency 20' as \"metric\"\nFROM\n    data\nWHERE\n    horreum_testid = 391\n    AND (label_values->>'__parameters_test_concurrent')::DOUBLE PRECISION = 20\nORDER BY\n    start;\n"
+        }
+      ],
+      "title": "Mean duration",
+      "type": "timeseries"
+    }
+  ],
+  "schemaVersion": 39,
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "selected": false,
+          "text": "grafana-postgresql-datasource",
+          "value": "grafana-postgresql-datasource"
+        },
+        "description": "Description",
+        "label": "Datasource",
+        "name": "datasource",
+        "query": "grafana-postgresql-datasource",
+        "regex": ".*grafana-postgresql-datasource.*",
+        "type": "datasource"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-14d",
+    "to": "now"
+  },
+  "timezone": "utc",
+  "title": "Pipelines TODO",
+  "uid": "Pipelines_TODO"
+}
