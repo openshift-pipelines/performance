@@ -461,7 +461,10 @@ metadata:
   name: cluster-logging
   namespace: openshift-operators-redhat
 EOF
-
+        oc get packagemanifest loki-operator -o json | jq -e '.status.channels[] | select(.name == "alpha")' >/dev/null || {
+          echo "ERROR: 'alpha' channel not found for loki-operator. Aborting."
+          exit 1
+        }
 
         # Create Subscription for installing Loki Operator
         oc apply -f - <<EOF
@@ -471,19 +474,19 @@ metadata:
   name: loki-operator
   namespace: openshift-operators-redhat
 spec:
-  channel: stable-6.0
+  channel: alpha
   name: loki-operator
-  source: redhat-operators
+  source: community-operators
   sourceNamespace: openshift-marketplace
 
 EOF
 
         echo "Checking for InstallPlan..."
-        INSTALL_PLAN=$(oc get installplan -n openshift-operators -o json | jq -r '.items[] | select(.spec.approved == false) | .metadata.name')
+        INSTALL_PLAN=$(oc get installplan -n openshift-operators-redhat -o json | jq -r '.items[] | select(.spec.approved == false) | .metadata.name')
 
         if [[ -n "$INSTALL_PLAN" ]]; then
           echo "Approving InstallPlan: $INSTALL_PLAN"
-          oc patch installplan $INSTALL_PLAN -n openshift-operators --type='merge' -p '{"spec":{"approved":true}}'
+          oc patch installplan $INSTALL_PLAN -n openshift-operators-redhat --type='merge' -p '{"spec":{"approved":true}}'
         fi
 
         wait_for_entity_by_selector 300 openshift-operators-redhat pod name=loki-operator-controller-manager
@@ -508,7 +511,7 @@ metadata:
   name: cluster-logging
   namespace: openshift-logging
 spec:
-  channel: stable-6.0
+  channel: stable-6.3
   name: cluster-logging
   source: redhat-operators
   sourceNamespace: openshift-marketplace
@@ -599,7 +602,7 @@ EOF
           # Starting 1.18, Results is installed as part of Operator
           # https://docs.redhat.com/en/documentation/red_hat_openshift_pipelines/1.18/html/release_notes/op-release-notes#tekton-results-new-features-1-18_op-release-notes
           info "Enabling Tekton-Result in Tekton Operator"
-          kubectl patch TektonConfig/config --type merge --patch '{"spec":{"result":{"disabled":false,"auth_disable":true,"targetNamespace":"openshift-pipelines","loki_stack_name":"logging-loki","loki_stack_namespace":"openshift-logging"}}}'
+          kubectl patch TektonConfig/config --type merge --patch '{"spec":{"result":{"disabled":false,"auth_disable":true,"loki_stack_name":"logging-loki","loki_stack_namespace":"openshift-logging"}}}'
       else
           info "Installing Tekton-Result Operator"
           cat <<EOF | oc apply -n $TEKTON_RESULTS_NS -f -
