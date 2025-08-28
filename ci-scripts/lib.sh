@@ -118,3 +118,80 @@ version_gte() {
     # https://github.com/openshift-pipelines/performance/pull/64#discussion_r2041881415
     printf '%s\n%s\n' "$2" "$1" | sort --check=quiet --version-sort
 }
+
+capture_nightly_build_info() {
+    local output_file=$1
+    
+    info "Collecting nightly build information"
+    
+    # Get CatalogSource image reference
+    local catalog_image
+    catalog_image=$(oc get catalogsource custom-osp-nightly -n openshift-marketplace -o jsonpath='{.spec.image}' 2>/dev/null || echo "unknown")
+    
+    # Get image digest and details if image is available
+    local image_digest="unknown"
+    local image_created="unknown"
+    local build_release="unknown"
+    local build_version="unknown"
+    local os_git_commit="unknown"
+    
+    if [ "$catalog_image" != "unknown" ]; then
+        # Check if image info command succeeds
+        if oc image info "$catalog_image" --filter-by-os=linux/amd64 >/dev/null 2>&1; then
+            image_digest=$(oc image info "$catalog_image" --filter-by-os=linux/amd64 | grep "Digest:" | awk '{print $2}' 2>/dev/null || echo "unknown")
+            
+            # Extract build information from image labels
+            local image_info_json
+            image_info_json=$(oc image info "$catalog_image" --filter-by-os=linux/amd64 -o json 2>/dev/null)
+            
+            if [ -n "$image_info_json" ] && [ "$image_info_json" != "null" ]; then
+                image_created=$(echo "$image_info_json" | jq -r '.config.created // .config.config.Labels["build-date"] // "unknown"' 2>/dev/null || echo "unknown")
+                build_release=$(echo "$image_info_json" | jq -r '.config.config.Env[] | select(startswith("BUILD_RELEASE=")) | split("=")[1] // "unknown"' 2>/dev/null || echo "unknown")
+                build_version=$(echo "$image_info_json" | jq -r '.config.config.Env[] | select(startswith("BUILD_VERSION=")) | split("=")[1] // "unknown"' 2>/dev/null || echo "unknown")
+                os_git_commit=$(echo "$image_info_json" | jq -r '.config.config.Env[] | select(startswith("OS_GIT_COMMIT=")) | split("=")[1] // "unknown"' 2>/dev/null || echo "unknown")
+            fi
+        fi
+    fi
+    
+    # Determine deployment context
+    local deployment_type="${DEPLOYMENT_TYPE:-unknown}"
+    local deployment_version="${DEPLOYMENT_VERSION:-unknown}"
+    local is_nightly_build="${NIGHTLY_BUILD:-false}"
+    
+    # Create the JSON structure for deployment and nightly build info
+    local deployment_info_entry
+    deployment_info_entry=$(jq -n \
+        --arg deployment_type "$deployment_type" \
+        --arg deployment_version "$deployment_version" \
+        --arg is_nightly_build "$is_nightly_build" \
+        --arg image "$catalog_image" \
+        --arg digest "$image_digest" \
+        --arg created "$image_created" \
+        --arg build_release "$build_release" \
+        --arg build_version "$build_version" \
+        --arg os_git_commit "$os_git_commit" \
+        '{
+            type: $deployment_type,
+            version: $deployment_version,
+            is_nightly_build: ($is_nightly_build | test("true"; "i")),
+            nightly_build: {
+                image: $image,
+                digest: $digest,
+                created: $created,
+                build_release: $build_release,
+                build_version: $build_version,
+                os_git_commit: $os_git_commit
+            }
+        }')
+    
+    # Check if the output file exists and add the deployment info
+    if [ -f "$output_file" ]; then
+        # Add deployment info to existing JSON file
+        jq --argjson deployment_info "$deployment_info_entry" '.deployment = $deployment_info' "$output_file" > "${output_file}.tmp" && mv "${output_file}.tmp" "$output_file"
+    else
+        # Create a new JSON file with deployment info
+        echo "{}" | jq --argjson deployment_info "$deployment_info_entry" '.deployment = $deployment_info' > "$output_file"
+    fi
+    
+    info "Nightly build info collected: $catalog_image ($image_digest)"
+}

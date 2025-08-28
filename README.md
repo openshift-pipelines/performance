@@ -11,8 +11,10 @@ If you want to run the test manually, you will need these tools:
 
 Setup the OpenShift cluster (assuming `oc login ...` happened already):
 
+## For Regular Builds
+
     export DEPLOYMENT_TYPE="downstream"
-    export DEPLOYMENT_VERSION="1.15"
+    export DEPLOYMENT_VERSION="1.15"          # Required for regular builds
     export DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS=""
     export DEPLOYMENT_CHAINS_CONTROLLER_HA_REPLICAS=""
     export DEPLOYMENT_PIPELINES_KUBE_API_QPS=""
@@ -35,6 +37,29 @@ Setup the OpenShift cluster (assuming `oc login ...` happened already):
 
     # export DEPLOYMENT_VERSION="1.14"
     # export DEPLOYMENT_VERSION="1.13"
+    ci-scripts/setup-cluster.sh
+
+## For Nightly Builds
+
+    export DEPLOYMENT_TYPE="downstream"
+    export NIGHTLY_BUILD="true"               # DEPLOYMENT_VERSION not needed for nightly builds
+    export DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS=""
+    export DEPLOYMENT_CHAINS_CONTROLLER_HA_REPLICAS=""
+    export DEPLOYMENT_PIPELINES_KUBE_API_QPS=""
+    export DEPLOYMENT_PIPELINES_KUBE_API_BURST=""
+    export DEPLOYMENT_PIPELINES_THREADS_PER_CONTROLLER=""
+    export DEPLOYMENT_CHAINS_KUBE_API_QPS=""
+    export DEPLOYMENT_CHAINS_KUBE_API_BURST=""
+    export DEPLOYMENT_CHAINS_THREADS_PER_CONTROLLER=""
+    export DEPLOYMENT_PIPELINES_CONTROLLER_RESOURCES="1/2Gi/1/2Gi"
+
+    # export INSTALL_RESULTS="true"
+    # export STORE_LOGS_IN_S3="true"
+    # export DEPLOYMENT_TYPE_RESULTS="downstream" # "upstream" (Default: downstream)
+    # export DEPLOYMENT_RESULTS_UPSTREAM_VERSION="v0.11.0" # Used only for upstream (Default: latest)
+    # export RUN_LOCUST="true"
+    # export AWS_REGION="eu-west-1"
+    # export AWS_ENDPOINT="https://s3.eu-west-1.amazonaws.com"
     ci-scripts/setup-cluster.sh
 
 Run the test:
