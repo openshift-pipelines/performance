@@ -71,7 +71,7 @@ if [ -f "$monitoring_collection_data" ]; then
         --prometheus-host "https://$mhost" \
         --prometheus-port 443 \
         --prometheus-token "$(oc whoami -t)" \
-        -d &>"$monitoring_collection_log"
+        -d >"$monitoring_collection_log" 2>&1
     
     # Check whether there are cluster_read_config.yaml in test scenario
     if [ -f tests/scaling-pipelines/scenario/$TEST_SCENARIO/cluster_read_config.yaml ]; then
@@ -84,7 +84,7 @@ if [ -f "$monitoring_collection_data" ]; then
             --prometheus-host "https://$mhost" \
             --prometheus-port 443 \
             --prometheus-token "$(oc whoami -t)" \
-            -d &>>"$monitoring_collection_log"
+            -d >>"$monitoring_collection_log" 2>&1
     else 
         warning "File cluster_read_config.yaml not found in test scenario $TEST_SCENARIO"
     fi
@@ -105,7 +105,7 @@ if [ -f "$monitoring_collection_data" ] && [ -f "${ARTIFACT_DIR}/taskruns.json" 
         --status-data-file "$monitoring_collection_data" \
         --taskruns-list "${ARTIFACT_DIR}/taskruns.json" \
         --pods-list "${ARTIFACT_DIR}/pods.json" \
-        -d &>"$creationtimestamp_collection_log"
+        -d >"$creationtimestamp_collection_log" 2>&1
     set +u
     deactivate
     set -u
@@ -113,6 +113,12 @@ else
     warning "Required files not found!"
 fi
 
+info "Collecting nightly build information..."
+if [ -f "$monitoring_collection_data" ]; then
+    capture_nightly_build_info "$monitoring_collection_data"
+else
+    warning "Status data file $monitoring_collection_data not found, skipping nightly build info collection"
+fi
 
 if [ "$INSTALL_RESULTS" == "true" ]; then
     info "Collecting Results-API DB Dump"

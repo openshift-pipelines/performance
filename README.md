@@ -11,8 +11,11 @@ If you want to run the test manually, you will need these tools:
 
 Setup the OpenShift cluster (assuming `oc login ...` happened already):
 
+## For Regular Builds
+
     export DEPLOYMENT_TYPE="downstream"
-    export DEPLOYMENT_VERSION="1.15"
+    export DEPLOYMENT_VERSION="1.15"          # Required for regular builds
+    # export NIGHTLY_BUILD="true"               # DEPLOYMENT_VERSION not needed for nightly builds
     export DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS=""
     export DEPLOYMENT_CHAINS_CONTROLLER_HA_REPLICAS=""
     export DEPLOYMENT_PIPELINES_KUBE_API_QPS=""

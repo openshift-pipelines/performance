@@ -118,3 +118,75 @@ version_gte() {
     # https://github.com/openshift-pipelines/performance/pull/64#discussion_r2041881415
     printf '%s\n%s\n' "$2" "$1" | sort --check=quiet --version-sort
 }
+
+capture_nightly_build_info() {
+    local output_file=$1
+
+    info "Collecting nightly build information"
+
+    # CatalogSource image reference
+    local catalog_image
+    catalog_image=$(oc get catalogsource custom-osp-nightly -n openshift-marketplace -o jsonpath='{.spec.image}' 2>/dev/null || echo "unknown")
+
+    # Defaults
+    local image_digest="unknown" image_created="unknown"
+    local build_release="unknown" build_version="unknown" os_git_commit="unknown"
+
+    if [ "$catalog_image" != "unknown" ]; then
+        local image_info_json
+        image_info_json=$(oc image info "$catalog_image" --filter-by-os=linux/amd64 -o json 2>/dev/null || echo "")
+
+        if [ -n "$image_info_json" ]; then
+            read -r image_digest image_created build_release build_version os_git_commit <<<"$(
+              echo "$image_info_json" | jq -r '
+                [
+                  .digest // "unknown",
+                  .config.created // .config.config.Labels["build-date"] // "unknown",
+                  (.config.config.Env[] | select(startswith("BUILD_RELEASE=")) | split("=")[1]) // "unknown",
+                  (.config.config.Env[] | select(startswith("BUILD_VERSION=")) | split("=")[1]) // "unknown",
+                  (.config.config.Env[] | select(startswith("OS_GIT_COMMIT=")) | split("=")[1]) // "unknown"
+                ] | @tsv
+              '
+            )"
+        fi
+    fi
+
+    # Deployment context
+    local deployment_type="${DEPLOYMENT_TYPE:-unknown}"
+    local deployment_version="${DEPLOYMENT_VERSION:-unknown}"
+    local is_nightly_build="${NIGHTLY_BUILD:-false}"
+
+    # JSON struct
+    local deployment_info_entry
+    deployment_info_entry=$(jq -n \
+        --arg deployment_type "$deployment_type" \
+        --arg deployment_version "$deployment_version" \
+        --arg is_nightly_build "$is_nightly_build" \
+        --arg image "$catalog_image" \
+        --arg digest "$image_digest" \
+        --arg created "$image_created" \
+        --arg build_release "$build_release" \
+        --arg build_version "$build_version" \
+        --arg os_git_commit "$os_git_commit" \
+        '{
+            type: $deployment_type,
+            version: $deployment_version,
+            is_nightly_build: ($is_nightly_build | test("true"; "i")),
+            nightly_build: {
+                image: $image,
+                digest: $digest,
+                created: $created,
+                build_release: $build_release,
+                build_version: $build_version,
+                os_git_commit: $os_git_commit
+            }
+        }')
+
+    # Merge into output file (create if not exists)
+    (jq --argjson deployment_info "$deployment_info_entry" \
+        '.deployment = $deployment_info' "$output_file" 2>/dev/null \
+     || echo "{}" | jq --argjson deployment_info "$deployment_info_entry" '.deployment = $deployment_info') \
+     > "${output_file}.tmp" && mv "${output_file}.tmp" "$output_file"
+
+    info "Nightly build info collected: $catalog_image ($image_digest)"
+}

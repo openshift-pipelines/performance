@@ -52,19 +52,25 @@ chains_threads_per_controller="${DEPLOYMENT_CHAINS_THREADS_PER_CONTROLLER:-}"
 
 OCP_VERSION=$(oc get clusterversion version -o jsonpath='{.status.desired.version}'|cut -d. -f1,2)
 
-info "Deploy pipelines $DEPLOYMENT_TYPE/$DEPLOYMENT_VERSION"
+# Configure deployment version based on build type
 if ${NIGHTLY_BUILD}; then
     info "Deploy pipelines nightly build"
-    unset DEPLOYMENT_VERSION
-    export DEPLOYMENT_VERSION="5.0"
+    export DEPLOYMENT_VERSION="nightly"
+else
+    # For non-nightly builds, DEPLOYMENT_VERSION is mandatory
+    if [ -z "${DEPLOYMENT_VERSION:-}" ]; then
+        fatal "DEPLOYMENT_VERSION must be set for non-nightly builds (e.g., export DEPLOYMENT_VERSION=\"1.17\")"
+    fi
 fi
+
+info "Deploy pipelines $DEPLOYMENT_TYPE/$DEPLOYMENT_VERSION"
 if [ "$DEPLOYMENT_TYPE" == "downstream" ]; then
 
     DEPLOYMENT_CSV_VERSION="$DEPLOYMENT_VERSION.0"
     [ "$DEPLOYMENT_VERSION" == "1.11" ] && DEPLOYMENT_CSV_VERSION="1.11.1"
     [ "$DEPLOYMENT_VERSION" == "1.14" ] && DEPLOYMENT_CSV_VERSION="1.14.3"
 
-    if version_gte "$DEPLOYMENT_VERSION" "5"; then
+    if [ "$DEPLOYMENT_VERSION" == "nightly" ] || version_gte "$DEPLOYMENT_VERSION" "5"; then
         info "Deploy CatalogSource and Subscription for downstream nightly build"
         cat <<EOF | oc apply -f-
 apiVersion: operators.coreos.com/v1alpha1
@@ -145,7 +151,7 @@ EOF
         kubectl patch TektonConfig/config --type merge --patch '{"spec":{"pipeline":{"options":{"'$DEPLOYMENT_PIPELINES_CONTROLLER_TYPE'":{"tekton-pipelines-controller":{"spec":{"template":{"spec":{"containers":[{"name":"tekton-pipelines-controller","resources":'"$resources_json"'}]}}}}}}}}}'
 
         # Disable Results as its enabled by default in 1.18+ release
-        if version_gte "$DEPLOYMENT_VERSION" "1.18"; then
+        if [ "$DEPLOYMENT_VERSION" == "nightly" ] || version_gte "$DEPLOYMENT_VERSION" "1.18"; then
             info "Disabling Tekton Results"
             kubectl patch TektonConfig/config --type merge --patch '{"spec":{"result":{"disabled":true}}}'
         fi
@@ -598,7 +604,7 @@ spec:
     name: collector
 EOF
 
-      if version_gte "$DEPLOYMENT_VERSION" "1.18"; then
+      if [ "$DEPLOYMENT_VERSION" == "nightly" ] || version_gte "$DEPLOYMENT_VERSION" "1.18"; then
           # Starting 1.18, Results is installed as part of Operator
           # https://docs.redhat.com/en/documentation/red_hat_openshift_pipelines/1.18/html/release_notes/op-release-notes#tekton-results-new-features-1-18_op-release-notes
           info "Enabling Tekton-Result in Tekton Operator"
