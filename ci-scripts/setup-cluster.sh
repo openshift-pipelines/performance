@@ -9,6 +9,8 @@ source "$(dirname "$0")/lib.sh"
 DEPLOYMENT_PIPELINES_CONTROLLER_TYPE="${DEPLOYMENT_PIPELINES_CONTROLLER_TYPE:-deployments}" # Types available: deployments / statefulSets 
 DEPLOYMENT_PIPELINES_CONTROLLER_RESOURCES="${DEPLOYMENT_PIPELINES_CONTROLLER_RESOURCES:-1/2Gi/1/2Gi}"   # In form of "requests.cpu/requests.memory/limits.cpu/limits.memory", use "///" to skip this
 NIGHTLY_BUILD="${NIGHTLY_BUILD:-false}"
+CUSTOM_BUILD="${CUSTOM_BUILD:-false}"
+CUSTOM_BUILD_TAG="${CUSTOM_BUILD_TAG:-}"
 pipelines_controller_resources_requests_cpu="$( echo "$DEPLOYMENT_PIPELINES_CONTROLLER_RESOURCES" | cut -d "/" -f 1 )"
 pipelines_controller_resources_requests_memory="$( echo "$DEPLOYMENT_PIPELINES_CONTROLLER_RESOURCES" | cut -d "/" -f 2 )"
 pipelines_controller_resources_limits_cpu="$( echo "$DEPLOYMENT_PIPELINES_CONTROLLER_RESOURCES" | cut -d "/" -f 3 )"
@@ -50,16 +52,22 @@ chains_kube_api_qps="${DEPLOYMENT_CHAINS_KUBE_API_QPS:-}"
 chains_kube_api_burst="${DEPLOYMENT_CHAINS_KUBE_API_BURST:-}"
 chains_threads_per_controller="${DEPLOYMENT_CHAINS_THREADS_PER_CONTROLLER:-}"
 
-OCP_VERSION=$(oc get clusterversion version -o jsonpath='{.status.desired.version}'|cut -d. -f1,2)
+OCP_VERSION="${OCP_VERSION:-$(oc get clusterversion version -o jsonpath='{.status.desired.version}'|cut -d. -f1,2)}"
 
 # Configure deployment version based on build type
 if ${NIGHTLY_BUILD}; then
     info "Deploy pipelines nightly build"
     export DEPLOYMENT_VERSION="nightly"
+elif ${CUSTOM_BUILD}; then
+    if [ -z "${CUSTOM_BUILD_TAG}" ]; then
+        fatal "CUSTOM_BUILD_TAG must be set when CUSTOM_BUILD=true (e.g., export CUSTOM_BUILD_TAG=\"1.20\")"
+    fi
+    info "Deploy pipelines custom build with tag: ${CUSTOM_BUILD_TAG}"
+    export DEPLOYMENT_VERSION="custom"
 else
-    # For non-nightly builds, DEPLOYMENT_VERSION is mandatory
+    # For non-nightly and non-custom builds, DEPLOYMENT_VERSION is mandatory
     if [ -z "${DEPLOYMENT_VERSION:-}" ]; then
-        fatal "DEPLOYMENT_VERSION must be set for non-nightly builds (e.g., export DEPLOYMENT_VERSION=\"1.17\")"
+        fatal "DEPLOYMENT_VERSION must be set for regular operator builds (e.g., export DEPLOYMENT_VERSION=\"1.17\")"
     fi
 fi
 
@@ -70,18 +78,35 @@ if [ "$DEPLOYMENT_TYPE" == "downstream" ]; then
     [ "$DEPLOYMENT_VERSION" == "1.11" ] && DEPLOYMENT_CSV_VERSION="1.11.1"
     [ "$DEPLOYMENT_VERSION" == "1.14" ] && DEPLOYMENT_CSV_VERSION="1.14.3"
 
-    if [ "$DEPLOYMENT_VERSION" == "nightly" ] || version_gte "$DEPLOYMENT_VERSION" "5"; then
-        info "Deploy CatalogSource and Subscription for downstream nightly build"
+    if [ "$DEPLOYMENT_VERSION" == "nightly" ] || [ "$DEPLOYMENT_VERSION" == "custom" ] || version_gte "$DEPLOYMENT_VERSION" "5"; then
+        # Set the image tag based on build type
+        if [ "$DEPLOYMENT_VERSION" == "nightly" ]; then
+            IMAGE_TAG="next"
+            CATALOG_NAME="custom-osp-nightly"
+            DISPLAY_NAME="Custom OSP Nightly"
+            info "Deploy CatalogSource and Subscription for downstream nightly build"
+        elif [ "$DEPLOYMENT_VERSION" == "custom" ]; then
+            IMAGE_TAG="${CUSTOM_BUILD_TAG}"
+            CATALOG_NAME="custom-osp-build"
+            DISPLAY_NAME="Custom OSP Build"
+            info "Deploy CatalogSource and Subscription for downstream custom build with tag: ${CUSTOM_BUILD_TAG}"
+        else
+            IMAGE_TAG="next"
+            CATALOG_NAME="custom-osp-nightly"
+            DISPLAY_NAME="Custom OSP Nightly"
+            info "Deploy CatalogSource and Subscription for downstream nightly build"
+        fi
+
         cat <<EOF | oc apply -f-
 apiVersion: operators.coreos.com/v1alpha1
 kind: CatalogSource
 metadata:
-  name: "custom-osp-nightly"
+  name: "${CATALOG_NAME}"
   namespace: openshift-marketplace
 spec:
   sourceType: grpc
-  image: quay.io/openshift-pipeline/pipelines-index-${OCP_VERSION}:next
-  displayName: "Custom OSP Nightly"
+  image: quay.io/openshift-pipeline/pipelines-index-${OCP_VERSION}:${IMAGE_TAG}
+  displayName: "${DISPLAY_NAME}"
   publisher: Red Hat Local
   updateStrategy:
     registryPoll:
@@ -97,7 +122,7 @@ metadata:
 spec:
   channel: latest
   name: openshift-pipelines-operator-rh
-  source: "custom-osp-nightly"
+  source: "${CATALOG_NAME}"
   sourceNamespace: openshift-marketplace
 EOF
     else
@@ -151,7 +176,7 @@ EOF
         kubectl patch TektonConfig/config --type merge --patch '{"spec":{"pipeline":{"options":{"'$DEPLOYMENT_PIPELINES_CONTROLLER_TYPE'":{"tekton-pipelines-controller":{"spec":{"template":{"spec":{"containers":[{"name":"tekton-pipelines-controller","resources":'"$resources_json"'}]}}}}}}}}}'
 
         # Disable Results as its enabled by default in 1.18+ release
-        if [ "$DEPLOYMENT_VERSION" == "nightly" ] || version_gte "$DEPLOYMENT_VERSION" "1.18"; then
+        if [ "$DEPLOYMENT_VERSION" == "nightly" ] || [ "$DEPLOYMENT_VERSION" == "custom" ] || version_gte "$DEPLOYMENT_VERSION" "1.18"; then
             info "Disabling Tekton Results"
             kubectl patch TektonConfig/config --type merge --patch '{"spec":{"result":{"disabled":true}}}'
         fi
@@ -278,6 +303,11 @@ elif [ "$DEPLOYMENT_TYPE" == "upstream" ]; then
             | yq 'del(.spec.template.spec.containers[].securityContext.runAsUser, .spec.template.spec.containers[].securityContext.runAsGroup)' \
             | kubectl apply --validate=warn -f - || true
     elif [ "$DEPLOYMENT_VERSION" == "nightly" ]; then
+        curl https://storage.googleapis.com/tekton-releases-nightly/pipeline/latest/release.notags.yaml \
+            | yq 'del(.spec.template.spec.containers[].securityContext.runAsUser, .spec.template.spec.containers[].securityContext.runAsGroup)' \
+            | kubectl apply --validate=warn -f - || true
+    elif [ "$DEPLOYMENT_VERSION" == "custom" ]; then
+        warning "Custom build deployment not supported for upstream deployment type. Falling back to nightly."
         curl https://storage.googleapis.com/tekton-releases-nightly/pipeline/latest/release.notags.yaml \
             | yq 'del(.spec.template.spec.containers[].securityContext.runAsUser, .spec.template.spec.containers[].securityContext.runAsGroup)' \
             | kubectl apply --validate=warn -f - || true
@@ -604,7 +634,7 @@ spec:
     name: collector
 EOF
 
-      if [ "$DEPLOYMENT_VERSION" == "nightly" ] || version_gte "$DEPLOYMENT_VERSION" "1.18"; then
+      if [ "$DEPLOYMENT_VERSION" == "nightly" ] || [ "$DEPLOYMENT_VERSION" == "custom" ] || version_gte "$DEPLOYMENT_VERSION" "1.18"; then
           # Starting 1.18, Results is installed as part of Operator
           # https://docs.redhat.com/en/documentation/red_hat_openshift_pipelines/1.18/html/release_notes/op-release-notes#tekton-results-new-features-1-18_op-release-notes
           info "Enabling Tekton-Result in Tekton Operator"
