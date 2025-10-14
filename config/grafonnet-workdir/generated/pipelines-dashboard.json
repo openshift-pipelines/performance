@@ -1,0 +1,734 @@
+{
+  "description": "Dashboard visualizes OpenShift Pipelines performance metrics including PipelineRuns, TaskRuns, controller performance, and cluster resource usage",
+  "editable": true,
+  "graphTooltip": 1,
+  "panels": [
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 0
+          },
+          "min": 0,
+          "unit": "short"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "time_series",
+          "rawSql": "SELECT\n    EXTRACT(EPOCH FROM start) AS \"time\",\n    (label_values->>'__results_PipelineRuns_count_succeeded')::DOUBLE PRECISION AS \"value\",\n    '__results_PipelineRuns_count_succeeded concurrency 12' as \"metric\"\nFROM\n    data\nWHERE\n    horreum_testid = 391\n    AND (label_values->>'__parameters_test_concurrent')::DOUBLE PRECISION = 12\nORDER BY\n    start;\n",
+          "refId": "A"
+        },
+        {
+          "format": "time_series",
+          "rawSql": "SELECT\n    EXTRACT(EPOCH FROM start) AS \"time\",\n    (label_values->>'__results_PipelineRuns_count_succeeded')::DOUBLE PRECISION AS \"value\",\n    '__results_PipelineRuns_count_succeeded concurrency 14' as \"metric\"\nFROM\n    data\nWHERE\n    horreum_testid = 391\n    AND (label_values->>'__parameters_test_concurrent')::DOUBLE PRECISION = 14\nORDER BY\n    start;\n",
+          "refId": "C"
+        },
+        {
+          "format": "time_series",
+          "rawSql": "SELECT\n    EXTRACT(EPOCH FROM start) AS \"time\",\n    (label_values->>'__results_PipelineRuns_count_succeeded')::DOUBLE PRECISION AS \"value\",\n    '__results_PipelineRuns_count_succeeded concurrency 16' as \"metric\"\nFROM\n    data\nWHERE\n    horreum_testid = 391\n    AND (label_values->>'__parameters_test_concurrent')::DOUBLE PRECISION = 16\nORDER BY\n    start;\n",
+          "refId": "E"
+        },
+        {
+          "format": "time_series",
+          "rawSql": "SELECT\n    EXTRACT(EPOCH FROM start) AS \"time\",\n    (label_values->>'__results_PipelineRuns_count_succeeded')::DOUBLE PRECISION AS \"value\",\n    '__results_PipelineRuns_count_succeeded concurrency 18' as \"metric\"\nFROM\n    data\nWHERE\n    horreum_testid = 391\n    AND (label_values->>'__parameters_test_concurrent')::DOUBLE PRECISION = 18\nORDER BY\n    start;\n",
+          "refId": "G"
+        },
+        {
+          "format": "time_series",
+          "rawSql": "SELECT\n    EXTRACT(EPOCH FROM start) AS \"time\",\n    (label_values->>'__results_PipelineRuns_count_succeeded')::DOUBLE PRECISION AS \"value\",\n    '__results_PipelineRuns_count_succeeded concurrency 20' as \"metric\"\nFROM\n    data\nWHERE\n    horreum_testid = 391\n    AND (label_values->>'__parameters_test_concurrent')::DOUBLE PRECISION = 20\nORDER BY\n    start;\n",
+          "refId": "I"
+        }
+      ],
+      "title": "PipelineRun Succeeded",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 0
+          },
+          "min": 0,
+          "unit": "short"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "id": 2,
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "time_series",
+          "rawSql": "SELECT\n    EXTRACT(EPOCH FROM start) AS \"time\",\n    (label_values->>' __results_PipelineRuns_count_failed')::DOUBLE PRECISION AS \"value\",\n    '__results_PipelineRuns_count_failed concurrency 12' as \"metric\"\nFROM\n    data\nWHERE\n    horreum_testid = 391\n    AND (label_values->>'__parameters_test_concurrent')::DOUBLE PRECISION = 12\nORDER BY\n    start;\n",
+          "refId": "A"
+        },
+        {
+          "format": "time_series",
+          "rawSql": "SELECT\n    EXTRACT(EPOCH FROM start) AS \"time\",\n    (label_values->>' __results_PipelineRuns_count_failed')::DOUBLE PRECISION AS \"value\",\n    '__results_PipelineRuns_count_failed concurrency 14' as \"metric\"\nFROM\n    data\nWHERE\n    horreum_testid = 391\n    AND (label_values->>'__parameters_test_concurrent')::DOUBLE PRECISION = 14\nORDER BY\n    start;\n",
+          "refId": "C"
+        },
+        {
+          "format": "time_series",
+          "rawSql": "SELECT\n    EXTRACT(EPOCH FROM start) AS \"time\",\n    (label_values->>' __results_PipelineRuns_count_failed')::DOUBLE PRECISION AS \"value\",\n    '__results_PipelineRuns_count_failed concurrency 16' as \"metric\"\nFROM\n    data\nWHERE\n    horreum_testid = 391\n    AND (label_values->>'__parameters_test_concurrent')::DOUBLE PRECISION = 16\nORDER BY\n    start;\n",
+          "refId": "E"
+        },
+        {
+          "format": "time_series",
+          "rawSql": "SELECT\n    EXTRACT(EPOCH FROM start) AS \"time\",\n    (label_values->>' __results_PipelineRuns_count_failed')::DOUBLE PRECISION AS \"value\",\n    '__results_PipelineRuns_count_failed concurrency 18' as \"metric\"\nFROM\n    data\nWHERE\n    horreum_testid = 391\n    AND (label_values->>'__parameters_test_concurrent')::DOUBLE PRECISION = 18\nORDER BY\n    start;\n",
+          "refId": "G"
+        },
+        {
+          "format": "time_series",
+          "rawSql": "SELECT\n    EXTRACT(EPOCH FROM start) AS \"time\",\n    (label_values->>' __results_PipelineRuns_count_failed')::DOUBLE PRECISION AS \"value\",\n    '__results_PipelineRuns_count_failed concurrency 20' as \"metric\"\nFROM\n    data\nWHERE\n    horreum_testid = 391\n    AND (label_values->>'__parameters_test_concurrent')::DOUBLE PRECISION = 20\nORDER BY\n    start;\n",
+          "refId": "I"
+        }
+      ],
+      "title": "PipelineRun Failed",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 0
+          },
+          "min": 0,
+          "unit": "s"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
+      "id": 3,
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "time_series",
+          "rawSql": "SELECT\n    EXTRACT(EPOCH FROM start) AS \"time\",\n    (label_values->>'__results_PipelineRuns_duration_avg')::DOUBLE PRECISION AS \"value\",\n    '__results_PipelineRuns_duration_avg concurrency 12' as \"metric\"\nFROM\n    data\nWHERE\n    horreum_testid = 391\n    AND (label_values->>'__parameters_test_concurrent')::DOUBLE PRECISION = 12\nORDER BY\n    start;\n",
+          "refId": "A"
+        },
+        {
+          "format": "time_series",
+          "rawSql": "SELECT\n    EXTRACT(EPOCH FROM start) AS \"time\",\n    (label_values->>'__results_PipelineRuns_duration_avg')::DOUBLE PRECISION AS \"value\",\n    '__results_PipelineRuns_duration_avg concurrency 14' as \"metric\"\nFROM\n    data\nWHERE\n    horreum_testid = 391\n    AND (label_values->>'__parameters_test_concurrent')::DOUBLE PRECISION = 14\nORDER BY\n    start;\n",
+          "refId": "C"
+        },
+        {
+          "format": "time_series",
+          "rawSql": "SELECT\n    EXTRACT(EPOCH FROM start) AS \"time\",\n    (label_values->>'__results_PipelineRuns_duration_avg')::DOUBLE PRECISION AS \"value\",\n    '__results_PipelineRuns_duration_avg concurrency 16' as \"metric\"\nFROM\n    data\nWHERE\n    horreum_testid = 391\n    AND (label_values->>'__parameters_test_concurrent')::DOUBLE PRECISION = 16\nORDER BY\n    start;\n",
+          "refId": "E"
+        },
+        {
+          "format": "time_series",
+          "rawSql": "SELECT\n    EXTRACT(EPOCH FROM start) AS \"time\",\n    (label_values->>'__results_PipelineRuns_duration_avg')::DOUBLE PRECISION AS \"value\",\n    '__results_PipelineRuns_duration_avg concurrency 18' as \"metric\"\nFROM\n    data\nWHERE\n    horreum_testid = 391\n    AND (label_values->>'__parameters_test_concurrent')::DOUBLE PRECISION = 18\nORDER BY\n    start;\n",
+          "refId": "G"
+        },
+        {
+          "format": "time_series",
+          "rawSql": "SELECT\n    EXTRACT(EPOCH FROM start) AS \"time\",\n    (label_values->>'__results_PipelineRuns_duration_avg')::DOUBLE PRECISION AS \"value\",\n    '__results_PipelineRuns_duration_avg concurrency 20' as \"metric\"\nFROM\n    data\nWHERE\n    horreum_testid = 391\n    AND (label_values->>'__parameters_test_concurrent')::DOUBLE PRECISION = 20\nORDER BY\n    start;\n",
+          "refId": "I"
+        }
+      ],
+      "title": "PR Mean duration",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 0
+          },
+          "min": 0,
+          "unit": "s"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      },
+      "id": 4,
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "time_series",
+          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_concurrent')::INTEGER AS concurrency,\n    AVG((label_values->>'__results_PipelineRuns_Success_pending_avg')::DOUBLE PRECISION) AS pending,\n    AVG((label_values->>'__results_PipelineRuns_Success_running_avg')::DOUBLE PRECISION) AS running\n  FROM data\n  WHERE horreum_testid = 391\n    AND $__timeFilter(start)\n    AND label_values ? '__parameters_test_concurrent'\n    AND label_values ? '__results_PipelineRuns_Success_pending_avg'\n    AND label_values ? '__results_PipelineRuns_Success_running_avg'\n  GROUP BY day, concurrency\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'pending @ ' || concurrency AS metric,\n  pending AS value\nFROM daily_agg\n\n\nUNION ALL\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'running @ ' || concurrency AS metric,\n  running AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
+          "refId": "A"
+        }
+      ],
+      "title": "Succeeded PR  Metrics",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 0
+          },
+          "min": 0,
+          "unit": "short"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 16
+      },
+      "id": 5,
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "time_series",
+          "rawSql": "SELECT\n    EXTRACT(EPOCH FROM start) AS \"time\",\n    (label_values->>'__results_TaskRuns_count_succeeded')::DOUBLE PRECISION AS \"value\",\n    '__results_TaskRuns_count_succeeded concurrency 12' as \"metric\"\nFROM\n    data\nWHERE\n    horreum_testid = 391\n    AND (label_values->>'__parameters_test_concurrent')::DOUBLE PRECISION = 12\nORDER BY\n    start;\n",
+          "refId": "A"
+        },
+        {
+          "format": "time_series",
+          "rawSql": "SELECT\n    EXTRACT(EPOCH FROM start) AS \"time\",\n    (label_values->>'__results_TaskRuns_count_succeeded')::DOUBLE PRECISION AS \"value\",\n    '__results_TaskRuns_count_succeeded concurrency 14' as \"metric\"\nFROM\n    data\nWHERE\n    horreum_testid = 391\n    AND (label_values->>'__parameters_test_concurrent')::DOUBLE PRECISION = 14\nORDER BY\n    start;\n",
+          "refId": "C"
+        },
+        {
+          "format": "time_series",
+          "rawSql": "SELECT\n    EXTRACT(EPOCH FROM start) AS \"time\",\n    (label_values->>'__results_TaskRuns_count_succeeded')::DOUBLE PRECISION AS \"value\",\n    '__results_TaskRuns_count_succeeded concurrency 16' as \"metric\"\nFROM\n    data\nWHERE\n    horreum_testid = 391\n    AND (label_values->>'__parameters_test_concurrent')::DOUBLE PRECISION = 16\nORDER BY\n    start;\n",
+          "refId": "E"
+        },
+        {
+          "format": "time_series",
+          "rawSql": "SELECT\n    EXTRACT(EPOCH FROM start) AS \"time\",\n    (label_values->>'__results_TaskRuns_count_succeeded')::DOUBLE PRECISION AS \"value\",\n    '__results_TaskRuns_count_succeeded concurrency 18' as \"metric\"\nFROM\n    data\nWHERE\n    horreum_testid = 391\n    AND (label_values->>'__parameters_test_concurrent')::DOUBLE PRECISION = 18\nORDER BY\n    start;\n",
+          "refId": "G"
+        },
+        {
+          "format": "time_series",
+          "rawSql": "SELECT\n    EXTRACT(EPOCH FROM start) AS \"time\",\n    (label_values->>'__results_TaskRuns_count_succeeded')::DOUBLE PRECISION AS \"value\",\n    '__results_TaskRuns_count_succeeded concurrency 20' as \"metric\"\nFROM\n    data\nWHERE\n    horreum_testid = 391\n    AND (label_values->>'__parameters_test_concurrent')::DOUBLE PRECISION = 20\nORDER BY\n    start;\n",
+          "refId": "I"
+        }
+      ],
+      "title": "TaskRun Succeeded",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 0
+          },
+          "min": 0,
+          "unit": "short"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 16
+      },
+      "id": 6,
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "time_series",
+          "rawSql": "SELECT\n    EXTRACT(EPOCH FROM start) AS \"time\",\n    (label_values->>'__results_TaskRuns_count_failed')::DOUBLE PRECISION AS \"value\",\n    '__results_TaskRuns_count_failed concurrency 12' as \"metric\"\nFROM\n    data\nWHERE\n    horreum_testid = 391\n    AND (label_values->>'__parameters_test_concurrent')::DOUBLE PRECISION = 12\nORDER BY\n    start;\n",
+          "refId": "A"
+        },
+        {
+          "format": "time_series",
+          "rawSql": "SELECT\n    EXTRACT(EPOCH FROM start) AS \"time\",\n    (label_values->>'__results_TaskRuns_count_failed')::DOUBLE PRECISION AS \"value\",\n    '__results_TaskRuns_count_failed concurrency 14' as \"metric\"\nFROM\n    data\nWHERE\n    horreum_testid = 391\n    AND (label_values->>'__parameters_test_concurrent')::DOUBLE PRECISION = 14\nORDER BY\n    start;\n",
+          "refId": "C"
+        },
+        {
+          "format": "time_series",
+          "rawSql": "SELECT\n    EXTRACT(EPOCH FROM start) AS \"time\",\n    (label_values->>'__results_TaskRuns_count_failed')::DOUBLE PRECISION AS \"value\",\n    '__results_TaskRuns_count_failed concurrency 16' as \"metric\"\nFROM\n    data\nWHERE\n    horreum_testid = 391\n    AND (label_values->>'__parameters_test_concurrent')::DOUBLE PRECISION = 16\nORDER BY\n    start;\n",
+          "refId": "E"
+        },
+        {
+          "format": "time_series",
+          "rawSql": "SELECT\n    EXTRACT(EPOCH FROM start) AS \"time\",\n    (label_values->>'__results_TaskRuns_count_failed')::DOUBLE PRECISION AS \"value\",\n    '__results_TaskRuns_count_failed concurrency 18' as \"metric\"\nFROM\n    data\nWHERE\n    horreum_testid = 391\n    AND (label_values->>'__parameters_test_concurrent')::DOUBLE PRECISION = 18\nORDER BY\n    start;\n",
+          "refId": "G"
+        },
+        {
+          "format": "time_series",
+          "rawSql": "SELECT\n    EXTRACT(EPOCH FROM start) AS \"time\",\n    (label_values->>'__results_TaskRuns_count_failed')::DOUBLE PRECISION AS \"value\",\n    '__results_TaskRuns_count_failed concurrency 20' as \"metric\"\nFROM\n    data\nWHERE\n    horreum_testid = 391\n    AND (label_values->>'__parameters_test_concurrent')::DOUBLE PRECISION = 20\nORDER BY\n    start;\n",
+          "refId": "I"
+        }
+      ],
+      "title": "TaskRun Failed",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 0
+          },
+          "min": 0,
+          "unit": "s"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 24
+      },
+      "id": 7,
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "time_series",
+          "rawSql": "SELECT\n    EXTRACT(EPOCH FROM start) AS \"time\",\n    (label_values->>'__results_TaskRuns_duration_avg')::DOUBLE PRECISION AS \"value\",\n    '__results_TaskRuns_duration_avg concurrency 12' as \"metric\"\nFROM\n    data\nWHERE\n    horreum_testid = 391\n    AND (label_values->>'__parameters_test_concurrent')::DOUBLE PRECISION = 12\nORDER BY\n    start;\n",
+          "refId": "A"
+        },
+        {
+          "format": "time_series",
+          "rawSql": "SELECT\n    EXTRACT(EPOCH FROM start) AS \"time\",\n    (label_values->>'__results_TaskRuns_duration_avg')::DOUBLE PRECISION AS \"value\",\n    '__results_TaskRuns_duration_avg concurrency 14' as \"metric\"\nFROM\n    data\nWHERE\n    horreum_testid = 391\n    AND (label_values->>'__parameters_test_concurrent')::DOUBLE PRECISION = 14\nORDER BY\n    start;\n",
+          "refId": "C"
+        },
+        {
+          "format": "time_series",
+          "rawSql": "SELECT\n    EXTRACT(EPOCH FROM start) AS \"time\",\n    (label_values->>'__results_TaskRuns_duration_avg')::DOUBLE PRECISION AS \"value\",\n    '__results_TaskRuns_duration_avg concurrency 16' as \"metric\"\nFROM\n    data\nWHERE\n    horreum_testid = 391\n    AND (label_values->>'__parameters_test_concurrent')::DOUBLE PRECISION = 16\nORDER BY\n    start;\n",
+          "refId": "E"
+        },
+        {
+          "format": "time_series",
+          "rawSql": "SELECT\n    EXTRACT(EPOCH FROM start) AS \"time\",\n    (label_values->>'__results_TaskRuns_duration_avg')::DOUBLE PRECISION AS \"value\",\n    '__results_TaskRuns_duration_avg concurrency 18' as \"metric\"\nFROM\n    data\nWHERE\n    horreum_testid = 391\n    AND (label_values->>'__parameters_test_concurrent')::DOUBLE PRECISION = 18\nORDER BY\n    start;\n",
+          "refId": "G"
+        },
+        {
+          "format": "time_series",
+          "rawSql": "SELECT\n    EXTRACT(EPOCH FROM start) AS \"time\",\n    (label_values->>'__results_TaskRuns_duration_avg')::DOUBLE PRECISION AS \"value\",\n    '__results_TaskRuns_duration_avg concurrency 20' as \"metric\"\nFROM\n    data\nWHERE\n    horreum_testid = 391\n    AND (label_values->>'__parameters_test_concurrent')::DOUBLE PRECISION = 20\nORDER BY\n    start;\n",
+          "refId": "I"
+        }
+      ],
+      "title": "TR Mean Success duration",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 0
+          },
+          "min": 0,
+          "unit": "s"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 24
+      },
+      "id": 8,
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "time_series",
+          "rawSql": "SELECT\n    EXTRACT(EPOCH FROM start) AS \"time\",\n    (label_values->>'__results_TaskRuns_duration_avg')::DOUBLE PRECISION AS \"value\",\n    '__results_TaskRuns_duration_avg concurrency 12' as \"metric\"\nFROM\n    data\nWHERE\n    horreum_testid = 391\n    AND (label_values->>'__parameters_test_concurrent')::DOUBLE PRECISION = 12\nORDER BY\n    start;\n",
+          "refId": "A"
+        },
+        {
+          "format": "time_series",
+          "rawSql": "SELECT\n    EXTRACT(EPOCH FROM start) AS \"time\",\n    (label_values->>'__results_TaskRuns_duration_avg')::DOUBLE PRECISION AS \"value\",\n    '__results_TaskRuns_duration_avg concurrency 14' as \"metric\"\nFROM\n    data\nWHERE\n    horreum_testid = 391\n    AND (label_values->>'__parameters_test_concurrent')::DOUBLE PRECISION = 14\nORDER BY\n    start;\n",
+          "refId": "C"
+        },
+        {
+          "format": "time_series",
+          "rawSql": "SELECT\n    EXTRACT(EPOCH FROM start) AS \"time\",\n    (label_values->>'__results_TaskRuns_duration_avg')::DOUBLE PRECISION AS \"value\",\n    '__results_TaskRuns_duration_avg concurrency 16' as \"metric\"\nFROM\n    data\nWHERE\n    horreum_testid = 391\n    AND (label_values->>'__parameters_test_concurrent')::DOUBLE PRECISION = 16\nORDER BY\n    start;\n",
+          "refId": "E"
+        },
+        {
+          "format": "time_series",
+          "rawSql": "SELECT\n    EXTRACT(EPOCH FROM start) AS \"time\",\n    (label_values->>'__results_TaskRuns_duration_avg')::DOUBLE PRECISION AS \"value\",\n    '__results_TaskRuns_duration_avg concurrency 18' as \"metric\"\nFROM\n    data\nWHERE\n    horreum_testid = 391\n    AND (label_values->>'__parameters_test_concurrent')::DOUBLE PRECISION = 18\nORDER BY\n    start;\n",
+          "refId": "G"
+        },
+        {
+          "format": "time_series",
+          "rawSql": "SELECT\n    EXTRACT(EPOCH FROM start) AS \"time\",\n    (label_values->>'__results_TaskRuns_duration_avg')::DOUBLE PRECISION AS \"value\",\n    '__results_TaskRuns_duration_avg concurrency 20' as \"metric\"\nFROM\n    data\nWHERE\n    horreum_testid = 391\n    AND (label_values->>'__parameters_test_concurrent')::DOUBLE PRECISION = 20\nORDER BY\n    start;\n",
+          "refId": "I"
+        }
+      ],
+      "title": "Succeeded TR  Metrics",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 0
+          },
+          "min": 0,
+          "unit": "s"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 32
+      },
+      "id": 9,
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "time_series",
+          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_concurrent')::INTEGER AS concurrency,\n    AVG((label_values->>'__results_TaskRunsToPods_creationTimestampDiff_mean')::DOUBLE PRECISION) AS PodCreationTimeStamp\n  FROM data\n  WHERE horreum_testid = 391\n    AND $__timeFilter(start)\n    AND label_values ? '__parameters_test_concurrent'\n    AND label_values ? '__results_TaskRunsToPods_creationTimestampDiff_mean'\n  GROUP BY day, concurrency\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'PodCreationTimeStamp @ ' || concurrency AS metric,\n  PodCreationTimeStamp AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
+          "refId": "A"
+        }
+      ],
+      "title": "TaskRun to Pod Creation Duration",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 0
+          },
+          "min": 0,
+          "unit": "percent"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 32
+      },
+      "id": 10,
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "time_series",
+          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_concurrent')::INTEGER AS concurrency,\n    AVG((label_values->>'__measurements_tektonPipelinesController_cpu_mean')::DOUBLE PRECISION) AS pipeline_controller_cpu,\n    AVG((label_values->>'__measurements_tektonOperatorProxyWebhook_cpu_mean')::DOUBLE PRECISION) AS pipeline_proxy_webhook_cpu,\n    AVG((label_values->>'__measurements_tektonPipelinesWebhook_cpu_mean')::DOUBLE PRECISION) AS pipeline_webhook_cpu\n  FROM data\n  WHERE horreum_testid = 391\n    AND $__timeFilter(start)\n    AND label_values ? '__parameters_test_concurrent'\n    AND label_values ? '__measurements_tektonPipelinesController_cpu_mean'\n    AND label_values ? '__measurements_tektonOperatorProxyWebhook_cpu_mean'\n    AND label_values ? '__measurements_tektonPipelinesWebhook_cpu_mean'\n  GROUP BY day, concurrency\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'pipeline_controller_cpu @ ' || concurrency AS metric,\n  pipeline_controller_cpu AS value\nFROM daily_agg\n\n\nUNION ALL\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'pipeline_proxy_webhook_cpu @ ' || concurrency AS metric,\n  pipeline_proxy_webhook_cpu AS value\nFROM daily_agg\n\n\nUNION ALL\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'pipeline_webhook_cpu @ ' || concurrency AS metric,\n  pipeline_webhook_cpu AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
+          "refId": "A"
+        }
+      ],
+      "title": "Controllers CPU usage (Mean)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 0
+          },
+          "min": 0,
+          "unit": "bytes"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 40
+      },
+      "id": 11,
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "time_series",
+          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_concurrent')::INTEGER AS concurrency,\n    AVG((label_values->>'__measurements_tektonPipelinesController_memory_mean')::DOUBLE PRECISION) / 1048576 AS pipeline_controller_mem,\n    AVG((label_values->>'__measurements_tektonOperatorProxyWebhook_memory_mean')::DOUBLE PRECISION) / 1048576 AS pipeline_proxy_webhook_mem,\n    AVG((label_values->>'__measurements_tektonPipelinesWebhook_memory_mean')::DOUBLE PRECISION) / 1048576 AS pipeline_webhook_mem\n  FROM data\n  WHERE horreum_testid = 391\n    AND $__timeFilter(start)\n    AND label_values ? '__parameters_test_concurrent'\n    AND label_values ? '__measurements_tektonPipelinesController_memory_mean'\n    AND label_values ? '__measurements_tektonOperatorProxyWebhook_memory_mean'\n    AND label_values ? '__measurements_tektonPipelinesWebhook_memory_mean'\n  GROUP BY day, concurrency\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'pipeline_controller_mem @ ' || concurrency AS metric,\n  pipeline_controller_mem AS value\nFROM daily_agg\n\n\nUNION ALL\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'pipeline_proxy_webhook_mem @ ' || concurrency AS metric,\n  pipeline_proxy_webhook_mem AS value\nFROM daily_agg\n\n\nUNION ALL\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'pipeline_webhook_mem @ ' || concurrency AS metric,\n  pipeline_webhook_mem AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
+          "refId": "A"
+        }
+      ],
+      "title": "Controllers Memory usage (Mean)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 0
+          },
+          "min": 0,
+          "unit": "short"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 40
+      },
+      "id": 12,
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "time_series",
+          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_concurrent')::INTEGER AS concurrency,\n    AVG((label_values->>'__measurements_tektonTektonPipelinesControllerWorkqueueDepth_mean')::DOUBLE PRECISION) AS WorkqueueDepth_mean\n  FROM data\n  WHERE horreum_testid = 391\n    AND $__timeFilter(start)\n    AND label_values ? '__parameters_test_concurrent'\n    AND label_values ? '__measurements_tektonTektonPipelinesControllerWorkqueueDepth_mean'\n  GROUP BY day, concurrency\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'WorkqueueDepth_mean @ ' || concurrency AS metric,\n  WorkqueueDepth_mean AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
+          "refId": "A"
+        }
+      ],
+      "title": "Pipelines Controller Workqueue Depth",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 0
+          },
+          "min": 0,
+          "unit": "s"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 48
+      },
+      "id": 13,
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "time_series",
+          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_concurrent')::INTEGER AS concurrency,\n    AVG((label_values->>'__measurements_tektonPipelinesControllerClientLatencyAverage_mean')::DOUBLE PRECISION) AS ClientLatencyAverage\n  FROM data\n  WHERE horreum_testid = 391\n    AND $__timeFilter(start)\n    AND label_values ? '__parameters_test_concurrent'\n    AND label_values ? '__measurements_tektonPipelinesControllerClientLatencyAverage_mean'\n  GROUP BY day, concurrency\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'ClientLatencyAverage @ ' || concurrency AS metric,\n  ClientLatencyAverage AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
+          "refId": "A"
+        }
+      ],
+      "title": "Pipelines Controller Client Latency",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 0
+          },
+          "min": 0,
+          "unit": "percent"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 48
+      },
+      "id": 14,
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "time_series",
+          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_concurrent')::INTEGER AS concurrency,\n    AVG((label_values->>'__measurements_clusterCpuUsageSecondsTotalRate_mean')::DOUBLE PRECISION) AS ClusterCpuUsage\n  FROM data\n  WHERE horreum_testid = 391\n    AND $__timeFilter(start)\n    AND label_values ? '__parameters_test_concurrent'\n    AND label_values ? '__measurements_clusterCpuUsageSecondsTotalRate_mean'\n  GROUP BY day, concurrency\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'ClusterCpuUsage @ ' || concurrency AS metric,\n  ClusterCpuUsage AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
+          "refId": "A"
+        }
+      ],
+      "title": "Cluster CPU Usage",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 0
+          },
+          "min": 0,
+          "unit": "bytes"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 56
+      },
+      "id": 15,
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "time_series",
+          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_concurrent')::INTEGER AS concurrency,\n    AVG((label_values->>'__measurements_clusterMemoryUsageRssTotal_mean')::DOUBLE PRECISION) / 1073741824 AS ClusterMemUsage\n  FROM data\n  WHERE horreum_testid = 391\n    AND $__timeFilter(start)\n    AND label_values ? '__parameters_test_concurrent'\n    AND label_values ? '__measurements_clusterMemoryUsageRssTotal_mean'\n  GROUP BY day, concurrency\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'ClusterMemUsage @ ' || concurrency AS metric,\n  ClusterMemUsage AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
+          "refId": "A"
+        }
+      ],
+      "title": "Cluster Memory Usage",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 0
+          },
+          "min": 0,
+          "unit": "percent"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 56
+      },
+      "id": 16,
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "time_series",
+          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_concurrent')::INTEGER AS concurrency,\n    AVG((label_values->>'__measurements_apiserver_cpu_mean')::DOUBLE PRECISION) / 1073741824 AS api_server_cpu,\n    AVG((label_values->>'__measurements_kubeApiserver_cpu_mean')::DOUBLE PRECISION) / 1073741824 AS kube_api_server_cpu\n  FROM data\n  WHERE horreum_testid = 391\n    AND $__timeFilter(start)\n    AND label_values ? '__parameters_test_concurrent'\n    AND label_values ? '__measurements_apiserver_cpu_mean'\n    AND label_values ? '__measurements_kubeApiserver_cpu_mean'\n  GROUP BY day, concurrency\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'api_server_cpu @ ' || concurrency AS metric,\n  api_server_cpu AS value\nFROM daily_agg\n\n\nUNION ALL\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'kube_api_server_cpu @ ' || concurrency AS metric,\n  kube_api_server_cpu AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
+          "refId": "A"
+        }
+      ],
+      "title": "OpenShift and Kube apiserver CPU Usage (Mean)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 0
+          },
+          "min": 0,
+          "unit": "bytes"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 64
+      },
+      "id": 17,
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "time_series",
+          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_concurrent')::INTEGER AS concurrency,\n    AVG((label_values->>'__measurements_apiserver_memory_mean')::DOUBLE PRECISION) / 1073741824 AS api_server_mem,\n    AVG((label_values->>'__measurements_kubeApiserver_memory_mean')::DOUBLE PRECISION) / 1073741824 AS kube_api_server_mem\n  FROM data\n  WHERE horreum_testid = 391\n    AND $__timeFilter(start)\n    AND label_values ? '__parameters_test_concurrent'\n    AND label_values ? '__measurements_apiserver_memory_mean'\n    AND label_values ? '__measurements_kubeApiserver_memory_mean'\n  GROUP BY day, concurrency\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'api_server_mem @ ' || concurrency AS metric,\n  api_server_mem AS value\nFROM daily_agg\n\n\nUNION ALL\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'kube_api_server_mem @ ' || concurrency AS metric,\n  kube_api_server_mem AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
+          "refId": "A"
+        }
+      ],
+      "title": "OpenShift and Kube apiserver Memory Usage (Mean)",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "5m",
+  "schemaVersion": 39,
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "selected": false,
+          "text": "grafana-postgresql-datasource",
+          "value": "grafana-postgresql-datasource"
+        },
+        "description": "PostgreSQL datasource for pipeline metrics",
+        "label": "Datasource",
+        "name": "datasource",
+        "query": "grafana-postgresql-datasource",
+        "regex": ".*grafana-postgresql-datasource.*",
+        "type": "datasource"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-14d",
+    "to": "now"
+  },
+  "timezone": "utc",
+  "title": "Pipelines Performance Dashboard",
+  "uid": "Pipelines_Performance"
+}
