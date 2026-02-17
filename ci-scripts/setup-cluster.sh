@@ -497,10 +497,18 @@ metadata:
   name: cluster-logging
   namespace: openshift-operators-redhat
 EOF
-        oc get packagemanifest loki-operator -o json | jq -e '.status.channels[] | select(.name == "alpha")' >/dev/null || {
-          echo "ERROR: 'alpha' channel not found for loki-operator. Aborting."
+        # Prefer defaultChannel, then stable, then alpha, then first available (alpha may be removed in newer OCP)
+        LOKI_CHANNEL=$(oc get packagemanifest loki-operator -o json 2>/dev/null | jq -r '
+          .status.defaultChannel //
+          (.status.channels[] | select(.name == "stable") | .name) //
+          (.status.channels[] | select(.name == "alpha") | .name) //
+          (.status.channels[0].name) //
+          empty')
+        if [[ -z "$LOKI_CHANNEL" ]]; then
+          echo "ERROR: Could not determine channel for loki-operator. Available channels: $(oc get packagemanifest loki-operator -o json 2>/dev/null | jq -r '.status.channels[].name' | tr '\n' ' ' || echo 'none')"
           exit 1
-        }
+        fi
+        info "Using loki-operator channel: $LOKI_CHANNEL"
 
         # Create Subscription for installing Loki Operator
         oc apply -f - <<EOF
@@ -510,7 +518,7 @@ metadata:
   name: loki-operator
   namespace: openshift-operators-redhat
 spec:
-  channel: alpha
+  channel: $LOKI_CHANNEL
   name: loki-operator
   source: community-operators
   sourceNamespace: openshift-marketplace
