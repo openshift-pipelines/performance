@@ -740,8 +740,21 @@ if [ "$RUN_LOCUST" == "true" ]; then
         info "Helm release \"${LOCUST_OPERATOR}\" already exists"
     fi
 
-    # Wait for all pods in the namespace to be ready
-    wait_for_entity_by_selector 180 "${LOCUST_NAMESPACE}" pod app.kubernetes.io/name=locust-k8s-operator
+    # Wait for the operator deployment to be rolled out (label-agnostic; CI can be slow to pull images).
+    # Helm may take a moment to create the deployment; wait for it then for rollout.
+    info "Waiting for locust-operator deployment to appear..."
+    for _ in $(seq 1 30); do
+        LOCUST_DEPLOY=$(kubectl get deploy -n "${LOCUST_NAMESPACE}" -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
+        [[ -n "${LOCUST_DEPLOY}" ]] && break
+        sleep 2
+    done
+    if [[ -n "${LOCUST_DEPLOY}" ]]; then
+        info "Waiting for deployment/${LOCUST_DEPLOY} rollout (timeout 300s)"
+        kubectl rollout status "deployment/${LOCUST_DEPLOY}" -n "${LOCUST_NAMESPACE}" --timeout=300s
+    else
+        # Fallback: wait for pod by label (chart may use app.kubernetes.io/name=locust-k8s-operator or similar)
+        wait_for_entity_by_selector 300 "${LOCUST_NAMESPACE}" pod "app.kubernetes.io/name=locust-k8s-operator"
+    fi
 
     info "Enabling user workload monitoring"
     config_dir=$(mktemp -d)
