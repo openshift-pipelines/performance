@@ -22,42 +22,72 @@ change_detection_groups:
     window: 5
     min_previous: 5
     model: "relativeDifference"
-    
+
   "etcdMvccDb":
     description: "Pipeline execution and timing metrics"
     threshold: 0.10              # 8% threshold for pipeline metrics
     window: 5
     min_previous: 5
-    
+
   "memory":
     description: "TaskRun execution and resource metrics"
     threshold: 0.10              # 10% threshold for task metrics
     window: 5
     min_previous: 5
-    
-  "PipelineRuns_TaskRuns_count":
-    description: "Tekton controller and component metrics"
-    threshold: 0.10              # 12% threshold for controller metrics
-    window: 5
-    min_previous: 5
-    
+
+  "PipelineRuns_Succeeded_count":
+    description: "Number of successful PipelineRuns"
+    model: "fixedThreshold"
+    fixed_threshold:
+      min_enabled: true
+      min_value: 1000          # Alert if count < 1000
+      min_inclusive: false
+      max_enabled: true
+      max_value: 1000          # Alert if count > 1000
+      max_inclusive: false
+
+  "TaskRuns_Succeeded_count":
+    description: "Number of successful TaskRuns"
+    model: "fixedThreshold"
+    fixed_threshold:
+      min_enabled: true
+      min_value: 4000          # Alert if count < 4000
+      min_inclusive: false
+      max_enabled: true
+      max_value: 4000          # Alert if count > 4000
+      max_inclusive: false
+
+  "PipelineRuns_TaskRuns_Failed_count":
+    description: "Number of failing PipelineRuns and TaskRuns"
+    model: "fixedThreshold"
+    fixed_threshold:
+      max_enabled: true
+      max_value: 0
+      max_inclusive: false
+      min_enabled: false
+
   "PipelineRuns_TaskRuns_duration":
     description: "Cluster and system-level performance metrics"
-    threshold: 0.10              # 15% threshold for system metrics
-    window: 5
+    threshold: 0.20              # 20% threshold for system metrics
+    window: 10
     min_previous: 5
-    
+    model: "relativeDifference"
+
   "restarts":
-    description: "CPU, memory, and resource consumption metrics"
-    threshold: 0.10              # 15% threshold for resource usage
-    window: 5
-    min_previous: 5
-    
+    description: "Pod and container restart counts"
+    model: "fixedThreshold"
+    fixed_threshold:
+      max_enabled: true
+      max_value: 0               # Alert if ANY restart occurs
+      max_inclusive: false
+      min_enabled: false
+
   "TaskRunsToPods_creation":
     description: "etcd database and storage metrics"
-    threshold: 0.10              # 20% threshold for etcd metrics
-    window: 5
+    threshold: 0.20              # 20% threshold for etcd metrics
+    window: 10
     min_previous: 5
+    model: "relativeDifference"
 
 # Test definition
 test:
@@ -96,7 +126,7 @@ fields:
     filtering: true
     metrics: false
     change_detection_group: null  # No change detection for ID fields
-    
+
   - name: "parameters_test_total"
     jsonpath: "$.parameters.test.total"
     description: "test total "
@@ -104,214 +134,228 @@ fields:
     metrics: false
     change_detection_group: null
 
+  - name: "deployment_version"
+    jsonpath: "$.deployment.version"
+    description: "deployment version"
+    filtering: true
+    metrics: false
+    change_detection_group: null
+
   # cpu Metrics
   - name: "measurements_apiserver_cpu_max"
     jsonpath: "$.measurements.apiserver.cpu.max"
-    description: "Mean CPU usage for API server"
+    description: "Maximum CPU usage for API server"
     filtering: false
     metrics: true
-    change_detection_group: "cpu"
-    
+    change_detection_group: null #"cpu"
+
   - name: "measurements_apiserver_cpu_mean"
     jsonpath: "$.measurements.apiserver.cpu.mean"
     description: "Mean CPU usage for API server"
     filtering: false
     metrics: true
-    change_detection_group: "cpu"
+    change_detection_group: null #"cpu"
 
   - name: "measurements_kubeApiserver_cpu_max"
     jsonpath: "$.measurements.\"kube-apiserver\".cpu.max"
-    description: "Mean CPU usage for kube-apiserver"
-    filtering: false 
+    description: "Maximum CPU usage for kube-apiserver"
+    filtering: false
     metrics: true
-    change_detection_group: "cpu"  
-    
+    change_detection_group: null #"cpu"
+
   - name: "measurements_kubeApiserver_cpu_mean"
     jsonpath: "$.measurements.\"kube-apiserver\".cpu.mean"
     description: "Mean CPU usage for kube-apiserver"
-    filtering: false 
+    filtering: false
     metrics: true
-    change_detection_group: "cpu"    
-  
+    change_detection_group: null #"cpu"
+
   - name: "measurements_tektonOperatorProxyWebhook_cpu_mean"
     jsonpath: "$.measurements.\"tekton-operator-proxy-webhook\".cpu.mean"
     description: "Mean CPU usage for tekton-operator-proxy-webhook"
     filtering: false
     metrics: true
-    change_detection_group: "cpu"
+    change_detection_group: null #"cpu"
 
   - name: "measurements_tektonOperatorProxyWebhook_cpu_max"
     jsonpath: "$.measurements.\"tekton-operator-proxy-webhook\".cpu.max"
     description: "Maximum CPU usage for tekton-operator-proxy-webhook"
-    filtering: false 
+    filtering: false
     metrics: true
-    change_detection_group: "Resource Usage"
-    
+    change_detection_group: null #"cpu"
+
   - name: "measurements_tektonPipelinesController_cpu_mean"
     jsonpath: "$.measurements.\"tekton-pipelines-controller\".cpu.mean"
     description: "Mean CPU usage for tekton-pipelines-controller"
     filtering: false
     metrics: true
-    change_detection_group: "cpu"
+    change_detection_group: null #"cpu"
 
   - name: "measurements_tektonPipelinesController_cpu_max"
     jsonpath: "$.measurements.\"tekton-pipelines-controller\".cpu.max"
     description: "Maximum CPU usage for tekton-pipelines-controller"
-    filtering: false 
+    filtering: false
     metrics: true
-    change_detection_group: "cpu"
-    
+    change_detection_group: null #"cpu"
+
   - name: "measurements_tektonPipelinesWebhook_cpu_mean"
     jsonpath: "$.measurements.\"tekton-pipelines-webhook\".cpu.mean"
     description: "Mean CPU usage for tekton-pipelines-webhook"
     filtering: false
     metrics: true
-    change_detection_group: "cpu"
+    change_detection_group: null #"cpu"
 
   - name: "measurements_tektonPipelinesWebhook_cpu_max"
     jsonpath: "$.measurements.\"tekton-pipelines-webhook\".cpu.max"
     description: "Maximum CPU usage for tekton-pipelines-webhook"
     filtering: false
     metrics: true
-    change_detection_group: "cpu"
-        
-   # etcdMvccDb Metrics       
+    change_detection_group: null #"cpu"
+
+  # etcdMvccDb Metrics
   - name: "measurements_etcdMvccDbTotalSizeInBytesAverage_mean"
     jsonpath: "$.measurements.etcd_mvcc_db_total_size_in_bytes_average.mean"
     description: "Mean etcd database total size"
     filtering: false
-    metrics: true 
-    change_detection_group: "etcdMvccDb"
-    
+    metrics: true
+    change_detection_group: null #"etcdMvccDb"
+
   - name: "measurements_etcdMvccDbTotalSizeInBytesAverage_max"
     jsonpath: "$.measurements.etcd_mvcc_db_total_size_in_bytes_average.max"
-    description: "Mean etcd database total size"
+    description: "Maximum etcd database total size"
     filtering: false
-    metrics: true 
-    change_detection_group: "etcdMvccDb"        
-    
+    metrics: true
+    change_detection_group: null #"etcdMvccDb"
+
   - name: "measurements_etcdMvccDbTotalSizeInUseInBytesAverage_mean"
     jsonpath: "$.measurements.etcd_mvcc_db_total_size_in_use_in_bytes_average.mean"
     description: "Mean etcd database size in use"
     filtering: false
     metrics: true
-    change_detection_group: "etcdMvccDb"
-    
+    change_detection_group: null #"etcdMvccDb"
+
   - name: "measurements_etcdMvccDbTotalSizeInUseInBytesAverage_max"
     jsonpath: "$.measurements.etcd_mvcc_db_total_size_in_use_in_bytes_average.max"
-    description: "Mean etcd database size in use"
+    description: "Maximum etcd database size in use"
     filtering: false
     metrics: true
-    change_detection_group: "etcdMvccDb"
-    
-   # memory Metrics
+    change_detection_group: null #"etcdMvccDb"
+
+  # memory Metrics
   - name: "measurements_apiserver_memory_mean"
     jsonpath: "$.measurements.apiserver.memory.mean"
     description: "Mean memory usage for API server"
     filtering: false
     metrics: true
-    change_detection_group: "memory"
-    
+    change_detection_group: null #"memory"
+
   - name: "measurements_apiserver_memory_max"
     jsonpath: "$.measurements.apiserver.memory.max"
     description: "Max memory usage for API server"
     filtering: false
     metrics: true
-    change_detection_group: "memory"                      
-        
+    change_detection_group: null #"memory"
+
   - name: "measurements_kubeApiserver_memory_mean"
     jsonpath: "$.measurements.\"kube-apiserver\".memory.mean"
     description: "Mean memory usage for kube-apiserver"
     filtering: false
     metrics: true
-    change_detection_group: "memory"
-    
+    change_detection_group: null #"memory"
+
   - name: "measurements_kubeApiserver_memory_max"
     jsonpath: "$.measurements.\"kube-apiserver\".memory.max"
     description: "Max memory usage for kube-apiserver"
     filtering: false
     metrics: true
-    change_detection_group: "memory" 
+    change_detection_group: null #"memory"
 
   - name: "measurements_tektonPipelinesWebhook_memory_mean"
     jsonpath: "$.measurements.\"tekton-pipelines-webhook\".memory.mean"
     description: "Mean memory usage for tekton-pipelines-webhook"
     filtering: false
     metrics: true
-    change_detection_group: "memory"
+    change_detection_group: null #"memory"
 
   - name: "measurements_tektonPipelinesWebhook_memory_max"
     jsonpath: "$.measurements.\"tekton-pipelines-webhook\".memory.max"
     description: "Maximum memory usage for tekton-pipelines-webhook"
     filtering: false
     metrics: true
-    change_detection_group: "memory"
+    change_detection_group: null #"memory"
 
   - name: "measurements_tektonPipelinesController_memory_mean"
     jsonpath: "$.measurements.\"tekton-pipelines-controller\".memory.mean"
     description: "Mean memory usage for tekton-pipelines-controller"
     filtering: false
     metrics: true
-    change_detection_group: "memory"
+    change_detection_group: null #"memory"
 
   - name: "measurements_tektonPipelinesController_memory_max"
     jsonpath: "$.measurements.\"tekton-pipelines-controller\".memory.max"
     description: "Maximum memory usage for tekton-pipelines-controller"
     filtering: false
     metrics: true
-    change_detection_group: "memory"
-    
+    change_detection_group: null #"memory"
+
   - name: "measurements_tektonOperatorProxyWebhook_memory_mean"
     jsonpath: "$.measurements.\"tekton-operator-proxy-webhook\".memory.mean"
     description: "Mean memory usage for tekton-operator-proxy-webhook"
     filtering: false
     metrics: true
-    change_detection_group: "memory"
+    change_detection_group: null #"memory"
 
   - name: "measurements_tektonOperatorProxyWebhook_memory_max"
     jsonpath: "$.measurements.\"tekton-operator-proxy-webhook\".memory.max"
     description: "Maximum memory usage for tekton-operator-proxy-webhook"
     filtering: false
     metrics: true
-    change_detection_group: "memory"
+    change_detection_group: null #"memory"
 
-  # PipelineRuns_TaskRuns_count
+  # PipelineRuns and TaskRuns counts
   - name: "results_PipelineRuns_count_succeeded"
     jsonpath: "$.results.PipelineRuns.count.succeeded"
     description: "Number of successful PipelineRuns"
     filtering: false
     metrics: true
-    change_detection_group: "PipelineRuns_TaskRuns_counte"
-    
+    change_detection_group: "PipelineRuns_Succeeded_count"
+
   - name: "results_PipelineRuns_count_failed"
     jsonpath: "$.results.PipelineRuns.count.failed"
     description: "Number of failed PipelineRuns"
     filtering: false
     metrics: true
-    change_detection_group: "PipelineRuns_TaskRuns_count"
-    
+    change_detection_group: "PipelineRuns_TaskRuns_Failed_count"
+
   - name: "results_TaskRuns_count_succeeded"
     jsonpath: "$.results.TaskRuns.count.succeeded"
     description: "Number of successful TaskRuns"
     filtering: false
-    metrics: true 
-    change_detection_group: "PipelineRuns_TaskRuns_counte"
-    
+    metrics: true
+    change_detection_group: "TaskRuns_Succeeded_count"
+
   - name: "results_TaskRuns_count_failed"
     jsonpath: "$.results.TaskRuns.count.failed"
     description: "Number of failed TaskRuns"
     filtering: false
     metrics: true
-    change_detection_group: "PipelineRuns_TaskRuns_count"
+    change_detection_group: "PipelineRuns_TaskRuns_Failed_count"
 
-  # PipelineRuns_TaskRuns_duration    
+  # PipelineRuns_TaskRuns_duration
   - name: "results_PipelineRuns_duration_avg"
+    jsonpath: "$.results.PipelineRuns.duration.avg"
+    description: "Average duration for PipelineRuns"
+    filtering: false
+    metrics: true
+    change_detection_group: "PipelineRuns_TaskRuns_duration"
+
+  - name: "results_TaskRuns_duration_avg"
     jsonpath: "$.results.TaskRuns.duration.avg"
     description: "Average duration for TaskRuns"
     filtering: false
     metrics: true
-    change_detection_group: "PipelineRuns_TaskRuns_duration" 
-    
+    change_detection_group: "PipelineRuns_TaskRuns_duration"
+
   - name: "results_TaskRuns_Success_pending_avg"
     jsonpath: "$.results.TaskRuns.Success.pending.avg"
     description: "Average pending time for successful TaskRuns"
@@ -346,7 +390,7 @@ fields:
     filtering: false
     metrics: true
     change_detection_group: "PipelineRuns_TaskRuns_duration"
- 
+
   - name: "results_PipelineRuns_Success_running_avg"
     jsonpath: "$.results.PipelineRuns.Success.running.avg"
     description: "Average duration for successful PipelineRuns"
@@ -354,7 +398,7 @@ fields:
     metrics: true
     change_detection_group: "PipelineRuns_TaskRuns_duration"
 
-  # TaskRunsToPods_creation    
+  # TaskRunsToPods_creation
   - name: "results_TaskRunsToPods_creationTimestampDiff_mean"
     jsonpath: "$.results.TaskRuns_to_Pods.creationTimestamp_diff.mean"
     description: "Mean time difference between TaskRun and Pod creation"
@@ -364,56 +408,53 @@ fields:
 
   - name: "results_TaskRunsToPods_creationTimestampDiff_max"
     jsonpath: "$.results.TaskRuns_to_Pods.creationTimestamp_diff.max"
-    description: "Mean time difference between TaskRun and Pod creation"
+    description: "Maximum time difference between TaskRun and Pod creation"
     filtering: false
     metrics: true
-    change_detection_group: "TaskRunsToPods_creation" 
-                              
-                              
-  # restarts    
+    change_detection_group: "TaskRunsToPods_creation"
+
+  # restarts
   - name: "measurements_apiserver_restarts_range"
-    jsonpath: "$.results.TaskRuns_to_Pods.creationTimestamp_diff.mean"
+    jsonpath: "$.measurements.apiserver.restarts.range"
     description: "apiserver restart count"
     filtering: false
     metrics: true
     change_detection_group: "restarts"
-    
+
   - name: "measurements_etcd_restarts_range"
     jsonpath: "$.measurements.etcd.restarts.range"
     description: "etcd restart count"
     filtering: false
     metrics: true
     change_detection_group: "restarts"
-    
+
   - name: "measurements_kubeApiserver_restarts_range"
     jsonpath: "$.measurements.\"kube-apiserver\".restarts.range"
     description: "kubeApiserver restart count"
     filtering: false
     metrics: true
     change_detection_group: "restarts"
-                                          
+
   - name: "measurements_pipelinesAsCodeController_restarts_range"
     jsonpath: "$.measurements.\"pipelines-as-code-controller\".restarts.range"
     description: "pipelinesAsCodeController restart count"
     filtering: false
     metrics: true
     change_detection_group: "restarts"
-    
+
   - name: "measurements_pipelinesAsCodeWatcher_restarts_range"
     jsonpath: "$.measurements.\"pipelines-as-code-watcher\".restarts.range"
     description: "pipelinesAsCodeWatcher restart count"
     filtering: false
     metrics: true
     change_detection_group: "restarts"
-    
-        
+
   - name: "measurements_tektonEventsController_restarts_range"
     jsonpath: "$.measurements.\"tekton-events-controller\".restarts.range"
     description: "tektonEventsController restart count"
     filtering: false
     metrics: true
     change_detection_group: "restarts"
-    
 
   - name: "measurements_tektonOperatorProxyWebhook_restarts_range"
     jsonpath: "$.measurements.\"tekton-operator-proxy-webhook\".restarts.range"
@@ -421,37 +462,34 @@ fields:
     filtering: false
     metrics: true
     change_detection_group: "restarts"
-    
-    
+
   - name: "measurements_tektonPipelinesController_restarts_range"
-    jsonpath: "$.measurements.\"tekton-pipelines-controller\".restarts.rangen"
+    jsonpath: "$.measurements.\"tekton-pipelines-controller\".restarts.range"
     description: "tektonPipelinesController restart count"
     filtering: false
     metrics: true
-    change_detection_group: "restarts"        
-      
+    change_detection_group: "restarts"
+
   - name: "measurements_tektonPipelinesRemoteResolvers_restarts_range"
     jsonpath: "$.measurements.\"tekton-pipelines-remote-resolvers\".restarts.range"
     description: "tektonPipelinesRemoteResolvers restart count"
     filtering: false
     metrics: true
     change_detection_group: "restarts"
-      
-                                          
+
   - name: "measurements_tektonPipelinesWebhook_restarts_range"
     jsonpath: "$.measurements.\"tekton-pipelines-webhook\".restarts.range"
     description: "tektonPipelinesWebhook restart count"
     filtering: false
     metrics: true
-    change_detection_group: "restarts" 
- 
+    change_detection_group: "restarts"
 
   - name: "measurements_tektonTriggersController_restarts_range"
     jsonpath: "$.measurements.\"tekton-triggers-controller\".restarts.range"
     description: "tektonTriggersController restart count"
     filtering: false
     metrics: true
-    change_detection_group: "restarts" 
+    change_detection_group: "restarts"
 
   - name: "measurements_tektonTriggersCoreInterceptors_restarts_range"
     jsonpath: "$.measurements.\"tekton-triggers-core-interceptors\".restarts.range"
@@ -460,18 +498,16 @@ fields:
     metrics: true
     change_detection_group: "restarts"
 
-
   - name: "measurements_tektonTriggersWebhook_restarts_range"
     jsonpath: "$.measurements.\"tekton-triggers-webhook\".restarts.range"
     description: "tektonTriggersWebhook restart count"
     filtering: false
     metrics: true
     change_detection_group: "restarts"
-    
-    
+
   - name: "measurements_tknCliServe_restarts_range"
     jsonpath: "$.measurements.\"tkn-cli-serve\".restarts.range"
     description: "tkn-cli-serve restart count"
     filtering: false
     metrics: true
-    change_detection_group: "restarts"    
+    change_detection_group: "restarts"
