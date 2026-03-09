@@ -190,3 +190,38 @@ capture_nightly_build_info() {
 
     info "Nightly build info collected: $catalog_image ($image_digest)"
 }
+
+capture_ha_config() {
+    local output_file=$1
+
+    info "Collecting HA configuration information"
+
+    # HA configuration from environment variables
+    local ha_pipelines="${DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS:-0}"
+    local controller_type="${DEPLOYMENT_PIPELINES_CONTROLLER_TYPE:-deployments}"
+    local ha_enabled="false"
+
+    if [ "$ha_pipelines" -gt 0 ]; then
+        ha_enabled="true"
+    fi
+
+    # JSON struct
+    local ha_config_entry
+    ha_config_entry=$(jq -n \
+        --arg ha_pipelines "$ha_pipelines" \
+        --arg controller_type "$controller_type" \
+        --argjson ha_enabled "$ha_enabled" \
+        '{
+            ha_enabled: $ha_enabled,
+            ha_replicas: ($ha_pipelines | tonumber),
+            controller_type: $controller_type
+        }')
+
+    # Merge into output file under deployment.ha_config (create if not exists)
+    (jq --argjson ha_config "$ha_config_entry" \
+        '.deployment.ha_config = $ha_config' "$output_file" 2>/dev/null \
+     || echo "{}" | jq --argjson ha_config "$ha_config_entry" '.deployment.ha_config = $ha_config') \
+     > "${output_file}.tmp" && mv "${output_file}.tmp" "$output_file"
+
+    info "HA configuration collected: ha_enabled=$ha_enabled, replicas=$ha_pipelines, controller_type=$controller_type"
+}

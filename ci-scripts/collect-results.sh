@@ -120,6 +120,13 @@ else
     warning "Status data file $monitoring_collection_data not found, skipping nightly build info collection"
 fi
 
+info "Collecting HA configuration..."
+if [ -f "$monitoring_collection_data" ]; then
+    capture_ha_config "$monitoring_collection_data"
+else
+    warning "Status data file $monitoring_collection_data not found, skipping HA configuration collection"
+fi
+
 if [ "$INSTALL_RESULTS" == "true" ]; then
     info "Collecting Results-API DB Dump"
     
