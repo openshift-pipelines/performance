@@ -190,3 +190,20 @@ capture_nightly_build_info() {
 
     info "Nightly build info collected: $catalog_image ($image_digest)"
 }
+
+capture_ha_config() {
+    local output_file=$1
+
+    info "Collecting HA configuration information"
+
+    (cat "$output_file" 2>/dev/null || echo "{}") | jq \
+        --arg ha_pipelines "${DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS:-0}" \
+        --arg controller_type "${DEPLOYMENT_PIPELINES_CONTROLLER_TYPE:-deployments}" \
+        '.deployment.ha_config = {
+            ha_enabled: (($ha_pipelines | tonumber) > 0),
+            ha_replicas: ($ha_pipelines | tonumber),
+            controller_type: $controller_type
+        }' > "${output_file}.tmp" && mv "${output_file}.tmp" "$output_file"
+
+    info "HA configuration collected"
+}

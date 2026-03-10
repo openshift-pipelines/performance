@@ -4,6 +4,17 @@ CACHE_DIR="prow-to-es-cache-dir"
 DRY_RUN=false
 DEBUG=true
 
+PROW_JOBS=(
+    "max-concurrency-downstream-nightly-daily"
+    "max-concurrency-downstream-nightly-daily-ha-10"
+    "max-concurrency-downstream-nightly-daily-ha-10-state"
+    "max-concurrency-downstream-pipelines1-19-daily"
+    "max-concurrency-downstream-pipelines1-19-daily-ha-10"
+    "max-concurrency-downstream-pipelines1-19-daily-ha-10-state"
+    "max-concurrency-downstream-pipelines1-20-daily"
+    "max-concurrency-downstream-pipelines1-20-daily-ha-10"
+    "max-concurrency-downstream-pipelines1-20-daily-ha-10-state"
+)
 
 [ -e script-mate/ ] || git clone --depth=1 https://github.com/redhat-performance/script-mate.git
 source script-mate/src/opl_shovel.sh
@@ -14,7 +25,7 @@ mkdir -p "$CACHE_DIR"
 errors_count=0
 job_path="openshift-pipelines-max-concurrency/artifacts/"
 subjob_file="benchmark-tekton.json"
-for prow_run in "max-concurrency-downstream-nightly-daily" "max-concurrency-downstream-pipelines-1-17-daily" "max-concurrency-downstream-pipelines1-18-daily" "max-concurrency-downstream-pipelines1-19-daily"; do
+for prow_run in "${PROW_JOBS[@]}"; do
     prow_job="periodic-ci-openshift-pipelines-performance-main-$prow_run"
     for i in $( prow_list "$prow_job" ); do
         for subjob in $( prow_subjob_list "$prow_job" "$i" "$prow_run" "$job_path" ); do
