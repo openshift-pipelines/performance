@@ -205,5 +205,5 @@ capture_ha_config() {
             controller_type: $controller_type
         }' > "${output_file}.tmp" && mv "${output_file}.tmp" "$output_file"
 
-    info "HA configuration collected: ha_enabled=$ha_enabled, replicas=$ha_pipelines, controller_type=$controller_type"
+    info "HA configuration collected"
 }
