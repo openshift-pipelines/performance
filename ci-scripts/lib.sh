@@ -199,7 +199,6 @@ capture_ha_qbt_config() {
     (cat "$output_file" 2>/dev/null || echo "{}") | jq \
         --arg ha_pipelines "${DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS:-0}" \
         --arg controller_type "${DEPLOYMENT_PIPELINES_CONTROLLER_TYPE:-deployments}" \
-        --arg qbt_enabled "${DEPLOYMENT_PIPELINES_QBT_ENABLED:-false}" \
         --arg qps "${DEPLOYMENT_PIPELINES_KUBE_API_QPS:-}" \
         --arg burst "${DEPLOYMENT_PIPELINES_KUBE_API_BURST:-}" \
         --arg threads "${DEPLOYMENT_PIPELINES_THREADS_PER_CONTROLLER:-}" \
@@ -210,7 +209,7 @@ capture_ha_qbt_config() {
             controller_type: $controller_type
         } |
         .deployment.qbt_config = {
-            qbt_enabled: ($qbt_enabled == "true"),
+            qbt_enabled: ($qps != "" or $burst != "" or $threads != ""),
             kube_api_qps: (if $qps != "" then ($qps | tonumber) else null end),
             kube_api_burst: (if $burst != "" then ($burst | tonumber) else null end),
             threads_per_controller: (if $threads != "" then ($threads | tonumber) else null end)
@@ -222,22 +221,21 @@ capture_ha_qbt_config() {
 
 capture_scenario_name() {
     local output_file=$1
-    local ha_replicas="${DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS:-0}"
-    local controller_type="${DEPLOYMENT_PIPELINES_CONTROLLER_TYPE:-deployments}"
-    local qbt_enabled="${DEPLOYMENT_PIPELINES_QBT_ENABLED:-false}"
 
     info "Generating scenario descriptive name"
 
     local scenario_name=$(jq -n \
-        --argjson ha_replicas "$ha_replicas" \
-        --arg controller_type "$controller_type" \
-        --arg qbt_enabled "$qbt_enabled" \
-        '
+        --arg ha_replicas "${DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS:-0}" \
+        --arg controller_type "${DEPLOYMENT_PIPELINES_CONTROLLER_TYPE:-deployments}" \
+        --arg qps "${DEPLOYMENT_PIPELINES_KUBE_API_QPS:-}" \
+        --arg burst "${DEPLOYMENT_PIPELINES_KUBE_API_BURST:-}" \
+        --arg threads "${DEPLOYMENT_PIPELINES_THREADS_PER_CONTROLLER:-}" \
+        -r '
         "Pipelines controller with rising concurrency" as $base |
         [] |
-        if $ha_replicas > 0 then . + ["HA=\($ha_replicas)"] else . end |
+        if ($ha_replicas | tonumber) > 0 then . + ["HA=\($ha_replicas)"] else . end |
         if $controller_type == "statefulsets" then . + ["statefulsets"] else . end |
-        if $qbt_enabled == "true" then . + ["QBT"] else . end |
+        if ($qps != "" or $burst != "" or $threads != "") then . + ["QBT"] else . end |
         if length > 0 then "\($base) with \(join(" ")) setup" else $base end
         ')
 
