@@ -40,22 +40,22 @@ change_detection_groups:
     model: "fixedThreshold"
     fixed_threshold:
       min_enabled: true
-      min_value: 1000          # Alert if count < 1000
-      min_inclusive: false
+      min_value: 1000
+      min_inclusive: true
       max_enabled: true
-      max_value: 1000          # Alert if count > 1000
-      max_inclusive: false
+      max_value: 1000
+      max_inclusive: true
 
   "TaskRuns_Succeeded_count":
     description: "Number of successful TaskRuns"
     model: "fixedThreshold"
     fixed_threshold:
       min_enabled: true
-      min_value: 4000          # Alert if count < 4000
-      min_inclusive: false
+      min_value: 4000
+      min_inclusive: true
       max_enabled: true
-      max_value: 4000          # Alert if count > 4000
-      max_inclusive: false
+      max_value: 4000
+      max_inclusive: true
 
   "PipelineRuns_TaskRuns_Failed_count":
     description: "Number of failing PipelineRuns and TaskRuns"
@@ -63,7 +63,7 @@ change_detection_groups:
     fixed_threshold:
       max_enabled: true
       max_value: 0
-      max_inclusive: false
+      max_inclusive: true
       min_enabled: false
 
   "PipelineRuns_TaskRuns_duration":
@@ -79,7 +79,7 @@ change_detection_groups:
     fixed_threshold:
       max_enabled: true
       max_value: 0               # Alert if ANY restart occurs
-      max_inclusive: false
+      max_inclusive: true
       min_enabled: false
 
   "TaskRunsToPods_creation":
@@ -99,7 +99,7 @@ test:
   datastoreId: 1  # Assuming default datastore
   timelineLabels: ["started"]
   timelineFunction: "value => new Date(value).getTime()"
-  fingerprintLabels: ["metadata_env_BUILD_ID"]
+  fingerprintLabels: ["deployment_haConfig_haEnabled", "deployment_version", "parameters_test_concurrent", "parameters_test_total", "deployment_haConfig_controllerType"]
   fingerprintFilter: "value => value !== null"
   notificationsEnabled: true
 
@@ -137,6 +137,62 @@ fields:
   - name: "deployment_version"
     jsonpath: "$.deployment.version"
     description: "deployment version"
+    filtering: true
+    metrics: false
+    change_detection_group: null
+
+  - name: "deployment_haConfig_haEnabled"
+    jsonpath: "$.deployment.ha_config.ha_enabled"
+    description: "HA mode enabled flag"
+    filtering: true
+    metrics: false
+    change_detection_group: null
+
+  - name: "deployment_haConfig_haReplicas"
+    jsonpath: "$.deployment.ha_config.ha_replicas"
+    description: "Number of HA replicas for pipelines controller"
+    filtering: true
+    metrics: false
+    change_detection_group: null
+
+  - name: "deployment_haConfig_controllerType"
+    jsonpath: "$.deployment.ha_config.controller_type"
+    description: "Controller type (deployments or statefulsets)"
+    filtering: true
+    metrics: false
+    change_detection_group: null
+
+  - name: "deployment_ocpVersion"
+    jsonpath: "$.deployment.ocp_version"
+    description: "OpenShift cluster version"
+    filtering: true
+    metrics: false
+    change_detection_group: null
+
+  - name: "deployment_qbtConfig_qbtEnabled"
+    jsonpath: "$.deployment.qbt_config.qbt_enabled"
+    description: "QBT enabled flag"
+    filtering: true
+    metrics: false
+    change_detection_group: null
+
+  - name: "deployment_qbtConfig_kubeApiQps"
+    jsonpath: "$.deployment.qbt_config.kube_api_qps"
+    description: "Kube API queries per second limit"
+    filtering: true
+    metrics: false
+    change_detection_group: null
+
+  - name: "deployment_qbtConfig_kubeApiBurst"
+    jsonpath: "$.deployment.qbt_config.kube_api_burst"
+    description: "Kube API burst limit"
+    filtering: true
+    metrics: false
+    change_detection_group: null
+
+  - name: "deployment_qbtConfig_threadsPerController"
+    jsonpath: "$.deployment.qbt_config.threads_per_controller"
+    description: "Number of threads per controller"
     filtering: true
     metrics: false
     change_detection_group: null
