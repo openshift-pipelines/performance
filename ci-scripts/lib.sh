@@ -191,19 +191,59 @@ capture_nightly_build_info() {
     info "Nightly build info collected: $catalog_image ($image_digest)"
 }
 
-capture_ha_config() {
+capture_ha_qbt_config() {
     local output_file=$1
 
-    info "Collecting HA configuration information"
+    info "Collecting HA and QBT configuration information"
 
     (cat "$output_file" 2>/dev/null || echo "{}") | jq \
         --arg ha_pipelines "${DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS:-0}" \
         --arg controller_type "${DEPLOYMENT_PIPELINES_CONTROLLER_TYPE:-deployments}" \
+        --arg qps "${DEPLOYMENT_PIPELINES_KUBE_API_QPS:-}" \
+        --arg burst "${DEPLOYMENT_PIPELINES_KUBE_API_BURST:-}" \
+        --arg threads "${DEPLOYMENT_PIPELINES_THREADS_PER_CONTROLLER:-}" \
+        --arg ocp_version "${OCP_VERSION:-$(oc get clusterversion version -o jsonpath='{.status.desired.version}' 2>/dev/null | cut -d. -f1,2)}" \
         '.deployment.ha_config = {
             ha_enabled: (($ha_pipelines | tonumber) > 0),
             ha_replicas: ($ha_pipelines | tonumber),
             controller_type: $controller_type
-        }' > "${output_file}.tmp" && mv "${output_file}.tmp" "$output_file"
+        } |
+        .deployment.qbt_config = {
+            qbt_enabled: ($qps != "" or $burst != "" or $threads != ""),
+            kube_api_qps: (if $qps != "" then ($qps | tonumber) else null end),
+            kube_api_burst: (if $burst != "" then ($burst | tonumber) else null end),
+            threads_per_controller: (if $threads != "" then ($threads | tonumber) else null end)
+        } |
+        .deployment.ocp_version = (if $ocp_version != "" then $ocp_version else null end)' > "${output_file}.tmp" && mv "${output_file}.tmp" "$output_file"
 
-    info "HA configuration collected"
+    info "HA and QBT configuration collected"
+}
+
+capture_scenario_name() {
+    local output_file=$1
+
+    info "Generating scenario descriptive name"
+
+    local scenario_name=$(jq -n \
+        --arg ha_replicas "${DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS:-0}" \
+        --arg controller_type "${DEPLOYMENT_PIPELINES_CONTROLLER_TYPE:-deployments}" \
+        --arg qps "${DEPLOYMENT_PIPELINES_KUBE_API_QPS:-}" \
+        --arg burst "${DEPLOYMENT_PIPELINES_KUBE_API_BURST:-}" \
+        --arg threads "${DEPLOYMENT_PIPELINES_THREADS_PER_CONTROLLER:-}" \
+        -r '
+        "Pipelines controller with rising concurrency" as $base |
+        [] |
+        if ($ha_replicas | tonumber) > 0 then . + ["HA=\($ha_replicas)"] else . end |
+        if $controller_type == "statefulsets" then . + ["statefulsets"] else . end |
+        if ($qps != "" or $burst != "" or $threads != "") then . + ["QBT"] else . end |
+        if length > 0 then "\($base) with \(join(" ")) setup" else $base end
+        ')
+
+    # Add scenario name to JSON
+    (cat "$output_file" 2>/dev/null || echo "{}") | jq \
+        --arg scenario_name "$scenario_name" \
+        '.metadata.scenario_name = $scenario_name' \
+        > "${output_file}.tmp" && mv "${output_file}.tmp" "$output_file"
+
+    info "Scenario name: $scenario_name"
 }
