@@ -45,7 +45,7 @@ python3 -m venv venv
 set +u
 source venv/bin/activate
 set -u
-python3 -m pip install --quiet -U pip
+python3 -m pip install --quiet -U pip setuptools
 python3 -m pip install --quiet -e "git+https://github.com/redhat-performance/opl.git#egg=opl-rhcloud-perf-team-core&subdirectory=core"
 set +u
 deactivate
