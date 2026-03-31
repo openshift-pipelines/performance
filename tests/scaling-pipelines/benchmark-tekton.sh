@@ -96,6 +96,7 @@ echo "$(date -Ins --utc) dumping basic results to data files"
 output="benchmark-tekton.json"
 cat <<EOF >$output
 {
+    "name": "OpenShift Pipelines scalingPipelines test",
     "results": {
         "started": "$started",
         "ended": "$ended"
