@@ -116,7 +116,7 @@ Test code is in `tests/scalingPipelines/` directory. See readme in that director
 
 ### Pusher
 
-Every hour we run a CI puller script (see `ci-scripts/prow-to-storage.sh`) via [Jenkins job](https://master-jenkins-csb-perf.apps.ocp-c1.prod.psi.redhat.com/view/SeedJobs/job/PipelinesCI_puller/). There is a [Jenkinsfile](https://gitlab.cee.redhat.com/redhat-performance/ci-configs/-/blob/master/jenkins/PipelinesCI_puller.groovy) and [JobDSL](https://gitlab.cee.redhat.com/redhat-performance/ci-configs/-/blob/master/src/jobs/PipelinesCI_pullerJob.groovy?ref_type=heads) file for this job.
+Every hour we run a CI puller script (see `ci-scripts/prow-to-storage.sh`) via [Jenkins job](https://jenkins-csb-perf-master.dno.corp.redhat.com/job/PipelinesCI_puller/). There is a [Jenkinsfile](https://gitlab.cee.redhat.com/redhat-performance/ci-configs/-/blob/master/jenkins/PipelinesCI_puller.groovy) and [JobDSL](https://gitlab.cee.redhat.com/redhat-performance/ci-configs/-/blob/master/src/jobs/PipelinesCI_pullerJob.groovy?ref_type=heads) file for this job.
 
 Script `ci-scripts/prow-to-storage.sh` lists N recent Prow builds of the job and if not pushed already, pushes their results JSON file to Horreum and OpenSearch. After uploading to Horreum, script checks if change detection detected some change, and if so, adds a "result" key to the JSON with "FAIL" value, otherwise "PASS". Upload to OpenSearch happens with this value in place.
 
