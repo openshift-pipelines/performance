@@ -22,6 +22,7 @@ if [ ! -f $output ]; then
 
 cat <<EOF >$output
 {
+    "name": "OpenShift Pipelines scalingPipelines test",
     "results": {
         "started": "$started",
         "ended": "$ended"
