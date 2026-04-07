@@ -35,6 +35,12 @@ Setup the OpenShift cluster (assuming `oc login ...` happened already):
     # export AWS_REGION="eu-west-1"
     # export AWS_ENDPOINT="https://s3.eu-west-1.amazonaws.com"
 
+    # Results Watcher Performance Tuning (optional, used when INSTALL_RESULTS="true")
+    # export DEPLOYMENT_RESULTS_WATCHER_KUBE_API_QPS="50.0"           # API QPS limit for Results Watcher
+    # export DEPLOYMENT_RESULTS_WATCHER_KUBE_API_BURST="100"          # API burst limit for Results Watcher
+    # export DEPLOYMENT_RESULTS_WATCHER_THREADINESS="16"              # Number of worker threads for Results Watcher
+    # export DEPLOYMENT_RESULTS_WATCHER_DISABLE_STORING_INCOMPLETE_RUNS="true"  # Disable storing incomplete runs (improves performance)
+
 
     # export DEPLOYMENT_VERSION="1.14"
     # export DEPLOYMENT_VERSION="1.13"

@@ -52,6 +52,12 @@ chains_kube_api_qps="${DEPLOYMENT_CHAINS_KUBE_API_QPS:-}"
 chains_kube_api_burst="${DEPLOYMENT_CHAINS_KUBE_API_BURST:-}"
 chains_threads_per_controller="${DEPLOYMENT_CHAINS_THREADS_PER_CONTROLLER:-}"
 
+# Results Watcher performance tuning parameters
+results_watcher_kube_api_qps="${DEPLOYMENT_RESULTS_WATCHER_KUBE_API_QPS:-}"
+results_watcher_kube_api_burst="${DEPLOYMENT_RESULTS_WATCHER_KUBE_API_BURST:-}"
+results_watcher_threadiness="${DEPLOYMENT_RESULTS_WATCHER_THREADINESS:-}"
+results_watcher_disable_storing_incomplete_runs="${DEPLOYMENT_RESULTS_WATCHER_DISABLE_STORING_INCOMPLETE_RUNS:-}"
+
 OCP_VERSION="${OCP_VERSION:-$(oc get clusterversion version -o jsonpath='{.status.desired.version}'|cut -d. -f1,2)}"
 
 # Configure deployment version based on build type
@@ -647,9 +653,46 @@ EOF
           # https://docs.redhat.com/en/documentation/red_hat_openshift_pipelines/1.18/html/release_notes/op-release-notes#tekton-results-new-features-1-18_op-release-notes
           info "Enabling Tekton-Result in Tekton Operator"
           kubectl patch TektonConfig/config --type merge --patch '{"spec":{"result":{"disabled":false,"auth_disable":true,"loki_stack_name":"logging-loki","loki_stack_namespace":"openshift-logging"}}}'
+
+          info "Configure Results Watcher performance options"
+          results_watcher_perf_options=""
+          if [ -n "$results_watcher_kube_api_qps" ]; then
+              results_watcher_perf_options+="\"--qps=$results_watcher_kube_api_qps\","
+          fi
+          if [ -n "$results_watcher_kube_api_burst" ]; then
+              results_watcher_perf_options+="\"--burst=$results_watcher_kube_api_burst\","
+          fi
+          if [ -n "$results_watcher_threadiness" ]; then
+              results_watcher_perf_options+="\"--threadiness=$results_watcher_threadiness\","
+          fi
+          if [ -n "$results_watcher_disable_storing_incomplete_runs" ]; then
+              results_watcher_perf_options+="\"--disable_storing_incomplete_runs=$results_watcher_disable_storing_incomplete_runs\","
+          fi
+          if [[ -n "$results_watcher_perf_options" ]]; then
+              results_watcher_perf_options="${results_watcher_perf_options%,}"
+              kubectl patch TektonConfig/config --type merge --patch '{"spec":{"result":{"options":{"deployments":{"tekton-results-watcher":{"spec":{"template":{"spec":{"containers":[{"name":"watcher","args":['$results_watcher_perf_options']}]}}}}}}}}}'
+          fi
       else
           info "Installing Tekton-Result Operator"
-          cat <<EOF | oc apply -n $TEKTON_RESULTS_NS -f -
+
+          # Build results watcher args if specified
+          results_watcher_args=""
+          if [ -n "$results_watcher_kube_api_qps" ]; then
+              results_watcher_args+="                - \"--qps=$results_watcher_kube_api_qps\"\n"
+          fi
+          if [ -n "$results_watcher_kube_api_burst" ]; then
+              results_watcher_args+="                - \"--burst=$results_watcher_kube_api_burst\"\n"
+          fi
+          if [ -n "$results_watcher_threadiness" ]; then
+              results_watcher_args+="                - \"--threadiness=$results_watcher_threadiness\"\n"
+          fi
+          if [ -n "$results_watcher_disable_storing_incomplete_runs" ]; then
+              results_watcher_args+="                - \"--disable_storing_incomplete_runs=$results_watcher_disable_storing_incomplete_runs\"\n"
+          fi
+
+          # Create TektonResult CR with optional watcher args
+          if [[ -n "$results_watcher_args" ]]; then
+              cat <<EOF | oc apply -n $TEKTON_RESULTS_NS -f -
 apiVersion: operator.tekton.dev/v1alpha1
 kind: TektonResult
 metadata:
@@ -659,7 +702,30 @@ spec:
   targetNamespace: openshift-pipelines
   loki_stack_name: logging-loki
   loki_stack_namespace: openshift-logging
+  options:
+    deployments:
+      tekton-results-watcher:
+        spec:
+          template:
+            spec:
+              containers:
+              - name: watcher
+                args:
+$(echo -e "$results_watcher_args")
 EOF
+          else
+              cat <<EOF | oc apply -n $TEKTON_RESULTS_NS -f -
+apiVersion: operator.tekton.dev/v1alpha1
+kind: TektonResult
+metadata:
+    name: result
+spec
+  auth_disable: true
+  targetNamespace: openshift-pipelines
+  loki_stack_name: logging-loki
+  loki_stack_namespace: openshift-logging
+EOF
+          fi
       fi
 
         fi
