@@ -504,17 +504,19 @@ metadata:
   namespace: openshift-operators-redhat
 EOF
         # Prefer defaultChannel, then stable, then alpha, then first available (alpha may be removed in newer OCP)
-        LOKI_CHANNEL=$(oc get packagemanifest loki-operator -o json 2>/dev/null | jq -r '
+        LOKI_MANIFEST=$(oc get packagemanifest loki-operator -o json 2>/dev/null)
+        LOKI_CHANNEL=$(echo "$LOKI_MANIFEST" | jq -r '
           .status.defaultChannel //
           (.status.channels[] | select(.name == "stable") | .name) //
           (.status.channels[] | select(.name == "alpha") | .name) //
           (.status.channels[0].name) //
           empty')
+        LOKI_SOURCE=$(echo "$LOKI_MANIFEST" | jq -r '.status.catalogSource')
         if [[ -z "$LOKI_CHANNEL" ]]; then
-          echo "ERROR: Could not determine channel for loki-operator. Available channels: $(oc get packagemanifest loki-operator -o json 2>/dev/null | jq -r '.status.channels[].name' | tr '\n' ' ' || echo 'none')"
+          echo "ERROR: Could not determine channel for loki-operator. Available channels: $(echo "$LOKI_MANIFEST" | jq -r '.status.channels[].name' | tr '\n' ' ' || echo 'none')"
           exit 1
         fi
-        info "Using loki-operator channel: $LOKI_CHANNEL"
+        info "Using loki-operator channel: $LOKI_CHANNEL from source: $LOKI_SOURCE"
 
         # Create Subscription for installing Loki Operator
         oc apply -f - <<EOF
@@ -526,7 +528,7 @@ metadata:
 spec:
   channel: $LOKI_CHANNEL
   name: loki-operator
-  source: community-operators
+  source: $LOKI_SOURCE
   sourceNamespace: openshift-marketplace
 
 EOF
@@ -553,6 +555,21 @@ spec:
   - openshift-logging
 EOF
 
+        # Prefer defaultChannel, then stable, then alpha, then first available
+        LOGGING_MANIFEST=$(oc get packagemanifest cluster-logging -o json 2>/dev/null)
+        LOGGING_CHANNEL=$(echo "$LOGGING_MANIFEST" | jq -r '
+          .status.defaultChannel //
+          (.status.channels[] | select(.name == "stable") | .name) //
+          (.status.channels[] | select(.name == "alpha") | .name) //
+          (.status.channels[0].name) //
+          empty')
+        LOGGING_SOURCE=$(echo "$LOGGING_MANIFEST" | jq -r '.status.catalogSource')
+        if [[ -z "$LOGGING_CHANNEL" ]]; then
+          echo "ERROR: Could not determine channel for cluster-logging. Available channels: $(echo "$LOGGING_MANIFEST" | jq -r '.status.channels[].name' | tr '\n' ' ' || echo 'none')"
+          exit 1
+        fi
+        info "Using cluster-logging channel: $LOGGING_CHANNEL from source: $LOGGING_SOURCE"
+
         # Create Subscription for installing openshift-logging
         cat <<EOF | oc apply -f -
 apiVersion: operators.coreos.com/v1alpha1
@@ -561,9 +578,9 @@ metadata:
   name: cluster-logging
   namespace: openshift-logging
 spec:
-  channel: stable-6.3
+  channel: $LOGGING_CHANNEL
   name: cluster-logging
-  source: redhat-operators
+  source: $LOGGING_SOURCE
   sourceNamespace: openshift-marketplace
 EOF
 
