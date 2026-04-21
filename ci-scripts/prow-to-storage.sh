@@ -4,17 +4,17 @@ CACHE_DIR="prow-to-es-cache-dir"
 DRY_RUN=false
 DEBUG=true
 
-PROW_JOBS=(
-    "max-concurrency-downstream-nightly-daily"
-    "max-concurrency-downstream-nightly-daily-ha-10"
-    "max-concurrency-downstream-nightly-daily-ha-10-state"
-    "max-concurrency-downstream-pipelines1-19-daily"
-    "max-concurrency-downstream-pipelines1-19-daily-ha-10"
-    "max-concurrency-downstream-pipelines1-19-daily-ha-10-state"
-    "max-concurrency-downstream-pipelines1-20-daily"
-    "max-concurrency-downstream-pipelines1-20-daily-ha-10"
-    "max-concurrency-downstream-pipelines1-20-daily-ha-10-state"
-)
+_PROW_VARIANT_SUFFIXES=("" "-ha-10" "-ha-10-state" "-qbt" "-ha-10-qbt")
+PROW_JOBS=()
+for sfx in "${_PROW_VARIANT_SUFFIXES[@]}"; do
+    PROW_JOBS+=( "max-concurrency-downstream-nightly${sfx}" )
+done
+for pv in 19 20 21; do
+    for sfx in "${_PROW_VARIANT_SUFFIXES[@]}"; do
+        PROW_JOBS+=( "max-concurrency-downstream-pipelines1-${pv}${sfx}" )
+    done
+done
+unset _PROW_VARIANT_SUFFIXES
 
 [ -e script-mate/ ] || git clone --depth=1 https://github.com/redhat-performance/script-mate.git
 source script-mate/src/opl_shovel.sh
@@ -32,8 +32,12 @@ for prow_run in "${PROW_JOBS[@]}"; do
             out="$CACHE_DIR/$i-$subjob.benchmark-tekton.json"
             prow_download "$prow_job" "$i" "$prow_run" "$job_path/$subjob/$subjob_file" "$out" "jobLink"
             check_json "$out" || continue
-            jq '.started = .results.started | .ended = .results.ended' "$out" >"$$.json" && mv -f "$$.json" "$out"   # put started and ended dates to expected places
-            jq '.metadata.env.SUBJOB_BUILD_ID = .metadata.env.BUILD_ID + "'"$subjob"'"' "$out" >"$$.json" && mv -f "$$.json" "$out"   # generate unique subjob ID
+            jq --arg sj "$subjob" \
+                '.started = .results.started
+                | .ended = .results.ended
+                | .metadata.env.SUBJOB_BUILD_ID = .metadata.env.BUILD_ID + $sj' \
+                "$out" >"${out}.tmp" && mv -f "${out}.tmp" "$out" \
+                || { rm -f "${out}.tmp"; false; }
             json_complete "$out" || continue
             enritch_stuff "$out" '."$schema"' "urn:openshift-pipelines-perfscale-scalingPipelines:0.2"
             horreum_upload "$out" "metadata.env.SUBJOB_BUILD_ID" "__metadata_env_SUBJOB_BUILD_ID" "Openshift-pipelines-team" "PUBLIC" || ((errors_count+=1))
