@@ -542,6 +542,7 @@ EOF
         fi
 
         wait_for_entity_by_selector 300 openshift-operators-redhat pod name=loki-operator-controller-manager
+        kubectl -n openshift-operators-redhat wait --for=condition=ready --timeout=300s pod -l name=loki-operator-controller-manager
 
         # Create OperatorGroup for installing openshift-logging
         cat <<EOF | oc apply -f -
@@ -585,6 +586,7 @@ spec:
 EOF
 
         wait_for_entity_by_selector 300 openshift-logging pod name=cluster-logging-operator
+        kubectl -n openshift-logging wait --for=condition=ready --timeout=300s pod -l name=cluster-logging-operator
 
         default_storage_class=$(kubectl get storageclass -o jsonpath='{.items[?(@.metadata.annotations.storageclass\.kubernetes\.io/is-default-class=="true")].metadata.name}')
 
