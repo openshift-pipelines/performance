@@ -95,7 +95,7 @@ test:
   owner: "Openshift-pipelines-team"
   name: "OpenShift Pipelines scalingPipelines test"
   folder: "Openshift-pipelines"
-  description: "Results of this Prow job: https://gcsweb-ci.apps.ci.l2s4.p1.openshiftapps.com/gcs/test-platform-results/logs/periodic-ci-openshift-pipelines-performance-main-max-concurrency-downstream-nightly-daily/"
+  description: "Results of this Prow job: https://gcsweb-ci.apps.ci.l2s4.p1.openshiftapps.com/gcs/test-platform-results/logs/periodic-ci-openshift-pipelines-performance-main-max-concurrency-downstream-nightly/"
   datastoreId: 1  # Assuming default datastore
   timelineLabels: ["started"]
   timelineFunction: "value => new Date(value).getTime()"
@@ -137,6 +137,13 @@ fields:
   - name: "deployment_version"
     jsonpath: "$.deployment.version"
     description: "deployment version"
+    filtering: true
+    metrics: false
+    change_detection_group: null
+
+  - name: "deployment_nightlyBuild_pipelinesControllerGitCommit"
+    jsonpath: "$.deployment.nightly_build.pipelines_controller_git_commit"
+    description: "Upstream tektoncd/pipeline git SHA (controller image upstream-vcs-ref)"
     filtering: true
     metrics: false
     change_detection_group: null

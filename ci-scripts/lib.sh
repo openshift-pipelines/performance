@@ -130,44 +130,70 @@ capture_nightly_build_info() {
 
     # Defaults
     local image_digest="unknown" image_created="unknown"
-    local build_release="unknown" build_version="unknown" os_git_commit="unknown"
+    local build_release="unknown" build_version="unknown"
+    local pipelines_controller_git_commit="unknown"
 
     if [ "$catalog_image" != "unknown" ]; then
         local image_info_json
         image_info_json=$(oc image info "$catalog_image" --filter-by-os=linux/amd64 -o json 2>/dev/null || echo "")
 
         if [ -n "$image_info_json" ]; then
-            read -r image_digest image_created build_release build_version os_git_commit <<<"$(
+            read -r image_digest image_created build_release build_version <<<"$(
               echo "$image_info_json" | jq -r '
                 [
                   .digest // "unknown",
                   .config.created // .config.config.Labels["build-date"] // "unknown",
                   (.config.config.Env[] | select(startswith("BUILD_RELEASE=")) | split("=")[1]) // "unknown",
-                  (.config.config.Env[] | select(startswith("BUILD_VERSION=")) | split("=")[1]) // "unknown",
-                  (.config.config.Env[] | select(startswith("OS_GIT_COMMIT=")) | split("=")[1]) // "unknown"
+                  (.config.config.Env[] | select(startswith("BUILD_VERSION=")) | split("=")[1]) // "unknown"
                 ] | @tsv
               '
             )"
         fi
     fi
 
-    # Deployment context
-    local deployment_type="${DEPLOYMENT_TYPE:-unknown}"
-    local deployment_version="${DEPLOYMENT_VERSION:-unknown}"
-    local is_nightly_build="${NIGHTLY_BUILD:-false}"
+    local controller_image
+    controller_image=$(
+        oc -n openshift-pipelines get deploy tekton-pipelines-controller \
+            -o jsonpath='{.spec.template.spec.containers[?(@.name=="tekton-pipelines-controller")].image}' \
+            2>/dev/null
+    ) || true
+    
+    controller_image="${controller_image#"${controller_image%%[![:space:]]*}"}"
+    controller_image="${controller_image%"${controller_image##*[![:space:]]}"}"
+
+    if [ -n "$controller_image" ] && [ "$controller_image" != "null" ]; then
+        local controller_image_info_json
+        controller_image_info_json=$(
+            oc image info "$controller_image" --filter-by-os=linux/amd64 -o json 2>/dev/null
+        ) || true
+        if [ -n "$controller_image_info_json" ]; then
+            pipelines_controller_git_commit=$(
+                echo "$controller_image_info_json" | jq -r '
+                    (.config.config.Labels // {}) as $L |
+                    $L["upstream-vcs-ref"] // empty
+                ' 2>/dev/null
+            )
+            [ -z "$pipelines_controller_git_commit" ] && pipelines_controller_git_commit="unknown"
+        fi
+    fi
+
+    # Short SHA (7 chars) for upstream Pipelines revision
+    if [ "$pipelines_controller_git_commit" != "unknown" ]; then
+        pipelines_controller_git_commit="${pipelines_controller_git_commit:0:7}"
+    fi
 
     # JSON struct
     local deployment_info_entry
     deployment_info_entry=$(jq -n \
-        --arg deployment_type "$deployment_type" \
-        --arg deployment_version "$deployment_version" \
-        --arg is_nightly_build "$is_nightly_build" \
+        --arg deployment_type "${DEPLOYMENT_TYPE:-unknown}" \
+        --arg deployment_version "${DEPLOYMENT_VERSION:-unknown}" \
+        --arg is_nightly_build "${NIGHTLY_BUILD:-false}" \
         --arg image "$catalog_image" \
         --arg digest "$image_digest" \
         --arg created "$image_created" \
         --arg build_release "$build_release" \
         --arg build_version "$build_version" \
-        --arg os_git_commit "$os_git_commit" \
+        --arg pipelines_controller_git_commit "$pipelines_controller_git_commit" \
         '{
             type: $deployment_type,
             version: $deployment_version,
@@ -178,7 +204,7 @@ capture_nightly_build_info() {
                 created: $created,
                 build_release: $build_release,
                 build_version: $build_version,
-                os_git_commit: $os_git_commit
+                pipelines_controller_git_commit: $pipelines_controller_git_commit
             }
         }')
 
