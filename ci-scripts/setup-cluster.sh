@@ -820,25 +820,46 @@ if [ "$RUN_LOCUST" == "true" ]; then
 
     # Check if the Helm release already exists, and install it if it doesn't
     if ! helm list --namespace "${LOCUST_NAMESPACE}" | grep -q "${LOCUST_OPERATOR}"; then
-        helm install "${LOCUST_OPERATOR}" locust-k8s-operator/locust-k8s-operator --namespace "${LOCUST_NAMESPACE}" -f "$LOCUST_HELM_CONFIG"
+        info "Installing Locust operator via Helm (with --wait, timeout 10m)..."
+        if ! helm install "${LOCUST_OPERATOR}" locust-k8s-operator/locust-k8s-operator --namespace "${LOCUST_NAMESPACE}" -f "$LOCUST_HELM_CONFIG" --wait --timeout 10m; then
+            warning "Helm install failed, collecting diagnostics..."
+            kubectl -n "${LOCUST_NAMESPACE}" get all || true
+            kubectl -n "${LOCUST_NAMESPACE}" get events --sort-by='.lastTimestamp' | tail -30 || true
+            fatal "Locust operator Helm installation failed"
+        fi
+        info "Helm install completed successfully"
     else
         info "Helm release \"${LOCUST_OPERATOR}\" already exists"
     fi
 
-    # Wait for the operator deployment to be rolled out (label-agnostic; CI can be slow to pull images).
-    # Helm may take a moment to create the deployment; wait for it then for rollout.
-    info "Waiting for locust-operator deployment to appear..."
-    for _ in $(seq 1 30); do
+    # Verify deployment exists and show initial status
+    info "Verifying locust-operator deployment..."
+    for i in $(seq 1 30); do
         LOCUST_DEPLOY=$(kubectl get deploy -n "${LOCUST_NAMESPACE}" -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
-        [[ -n "${LOCUST_DEPLOY}" ]] && break
+        if [[ -n "${LOCUST_DEPLOY}" ]]; then
+            info "Found deployment: ${LOCUST_DEPLOY}"
+            kubectl -n "${LOCUST_NAMESPACE}" get deployment "${LOCUST_DEPLOY}" -o wide || true
+            kubectl -n "${LOCUST_NAMESPACE}" get pods -l "app.kubernetes.io/name=locust-k8s-operator" -o wide || true
+            break
+        fi
+        info "Deployment not found yet, waiting... (attempt $i/30)"
         sleep 2
     done
+
     if [[ -n "${LOCUST_DEPLOY}" ]]; then
-        info "Waiting for deployment/${LOCUST_DEPLOY} rollout (timeout 300s)"
-        kubectl rollout status "deployment/${LOCUST_DEPLOY}" -n "${LOCUST_NAMESPACE}" --timeout=300s
+        info "Waiting for deployment/${LOCUST_DEPLOY} rollout (timeout 600s)"
+        if ! kubectl rollout status "deployment/${LOCUST_DEPLOY}" -n "${LOCUST_NAMESPACE}" --timeout=600s; then
+            warning "Locust operator deployment failed to rollout, collecting diagnostics..."
+            kubectl -n "${LOCUST_NAMESPACE}" get pods -o wide || true
+            kubectl -n "${LOCUST_NAMESPACE}" describe deployment "${LOCUST_DEPLOY}" || true
+            kubectl -n "${LOCUST_NAMESPACE}" describe pods -l "app.kubernetes.io/name=locust-k8s-operator" || true
+            kubectl -n "${LOCUST_NAMESPACE}" get events --sort-by='.lastTimestamp' | tail -30 || true
+            fatal "Locust operator deployment failed to become ready"
+        fi
+        info "Locust operator deployment is ready"
     else
-        # Fallback: wait for pod by label (chart may use app.kubernetes.io/name=locust-k8s-operator or similar)
-        wait_for_entity_by_selector 300 "${LOCUST_NAMESPACE}" pod "app.kubernetes.io/name=locust-k8s-operator"
+        warning "Could not find locust-operator deployment, trying fallback wait..."
+        wait_for_entity_by_selector 600 "${LOCUST_NAMESPACE}" pod "app.kubernetes.io/name=locust-k8s-operator"
     fi
 
     info "Enabling user workload monitoring"
