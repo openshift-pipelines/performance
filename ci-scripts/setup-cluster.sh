@@ -811,10 +811,6 @@ if [ "$RUN_LOCUST" == "true" ]; then
     # Create namespace if not exists
     oc get ns "${LOCUST_NAMESPACE}" || oc create ns "${LOCUST_NAMESPACE}"
 
-    # Grant nonroot SCC to default service account for OpenShift compatibility
-    info "Granting nonroot SCC to service account in ${LOCUST_NAMESPACE}"
-    oc adm policy add-scc-to-user nonroot -z default -n "${LOCUST_NAMESPACE}" || true
-
     # Check if the Helm repo already exists, and add it if it doesn't
     if ! helm repo list --namespace "${LOCUST_NAMESPACE}" | grep -q "${LOCUST_OPERATOR_REPO}"; then
         helm repo add "${LOCUST_OPERATOR_REPO}" https://abdelrhmanhamouda.github.io/locust-k8s-operator/ --namespace "${LOCUST_NAMESPACE}"
