@@ -3,10 +3,22 @@ image:
   tag: "latest"
   pullPolicy: Always
 
-# OpenShift compatibility: Override security context to allow SCC assignment
-# OpenShift will assign UID/GID from the namespace's allowed range
-securityContext: {}
-podSecurityContext: {}
+# OpenShift compatibility: Let restricted-v2 SCC assign UID/GID dynamically
+# Do not set runAsUser/fsGroup - OpenShift will inject namespace-allocated IDs
+# Only set runAsNonRoot to satisfy security requirements
+podSecurityContext:
+  runAsNonRoot: true
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  # Explicitly do NOT set runAsUser - let OpenShift SCC assign it
 
 k8s:
   clusterRole:
