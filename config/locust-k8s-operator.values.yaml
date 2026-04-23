@@ -3,6 +3,11 @@ image:
   tag: "latest"
   pullPolicy: Always
 
+# OpenShift compatibility: Override security context to allow SCC assignment
+# OpenShift will assign UID/GID from the namespace's allowed range
+securityContext: {}
+podSecurityContext: {}
+
 k8s:
   clusterRole:
     enabled: true
