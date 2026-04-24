@@ -1,24 +1,28 @@
+# Use official chart image instead of custom backstage-performance build
+# The official image is compatible with OpenShift's dynamic UID/GID assignment
 image:
-  repository: "quay.io/backstage-performance/locust-k8s-operator"
-  tag: "latest"
-  pullPolicy: Always
+  repository: "lotest/locust-k8s-operator"
+  tag: ""  # Use chart default appVersion
+  pullPolicy: IfNotPresent
 
-# OpenShift compatibility: Let restricted-v2 SCC assign UID/GID dynamically
-# Do not set runAsUser/fsGroup - OpenShift will inject namespace-allocated IDs
-# Only set runAsNonRoot to satisfy security requirements
+# OpenShift SCC compatibility: Explicitly override Helm chart v2.1.1 hardcoded defaults
+# Chart has runAsUser/runAsGroup/fsGroup: 65532 which violates OpenShift SCC ranges
+# Setting to null removes these hardcoded values and allows OpenShift to inject dynamic IDs
 podSecurityContext:
   runAsNonRoot: true
+  runAsUser: null       # Override chart default 65532 - let OpenShift SCC assign from namespace range
+  runAsGroup: null      # Override chart default 65532 - let OpenShift SCC assign
+  fsGroup: null         # Override chart default 65532 - let OpenShift SCC assign
   seccompProfile:
     type: RuntimeDefault
 
+# Container security context - use chart's field name 'containerSecurityContext'
 containerSecurityContext:
   allowPrivilegeEscalation: false
   capabilities:
     drop:
       - ALL
-  readOnlyRootFilesystem: true
-  runAsNonRoot: true
-  # Explicitly do NOT set runAsUser - let OpenShift SCC assign it
+  # readOnlyRootFilesystem removed - operator needs write access for temp files
 
 k8s:
   clusterRole:
