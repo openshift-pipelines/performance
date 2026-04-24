@@ -398,7 +398,7 @@ if [ "$INSTALL_RESULTS" == "true" ]; then
         # Setup creds for DB
         kubectl get ns $TEKTON_RESULTS_NS || kubectl create ns $TEKTON_RESULTS_NS
 
-        kubectl get secret tekton-results-postgres -n $TEKTON_RESULTS_NS || kubectl create secret generic tekton-results-postgres -n "$TEKTON_RESULTS_NS" \
+        kubectl get secret tekton-results-postgres -n "$TEKTON_RESULTS_NS" >/dev/null 2>&1 || kubectl create secret generic tekton-results-postgres -n "$TEKTON_RESULTS_NS" \
             --from-literal=POSTGRES_USER=result --from-literal=POSTGRES_PASSWORD=$(openssl rand -base64 20)
 
         if [ "$DEPLOYMENT_VERSION" == "1.15" ]; then
@@ -486,14 +486,14 @@ metadata:
     openshift.io/cluster-monitoring: "true"
 EOF
 
-        oc get secret logging-loki-s3 -n openshift-logging || oc -n openshift-logging create secret generic logging-loki-s3 \
+        oc get secret logging-loki-s3 -n openshift-logging >/dev/null 2>&1 || oc -n openshift-logging create secret generic logging-loki-s3 \
   --from-literal=bucketnames="${AWS_BUCKET_NAME}" \
   --from-literal=endpoint="${AWS_ENDPOINT}" \
   --from-literal=region="${AWS_REGION}" \
   --from-literal=access_key_id="${AWS_ACCESS_ID}" \
   --from-literal=access_key_secret="${AWS_SECRET_KEY}"
 
-        oc get ns openshift-operators-redhat || oc create namespace openshift-operators-redhat
+        oc get ns openshift-operators-redhat >/dev/null 2>&1 || oc create namespace openshift-operators-redhat
 
         # Create OperatorGroup for installing loki-operator
         oc apply -f - <<EOF
@@ -615,7 +615,7 @@ EOF
 
         # Installing OpenShift Logging
         # Create Service Account and give it permission required.
-        oc get sa collector -n openshift-logging || oc create sa collector -n openshift-logging
+        oc get sa collector -n openshift-logging >/dev/null 2>&1 || oc create sa collector -n openshift-logging
         oc adm policy add-cluster-role-to-user logging-collector-logs-writer system:serviceaccount:openshift-logging:collector
         oc adm policy add-cluster-role-to-user collect-application-logs system:serviceaccount:openshift-logging:collector
         oc adm policy add-cluster-role-to-user collect-audit-logs system:serviceaccount:openshift-logging:collector
@@ -755,7 +755,7 @@ EOF
 
         # Setup route to access Results-API endpoint
         # TODO: Should test this with CI setup and also should evaluate how encryption works
-        oc get route -n $TEKTON_RESULTS_NS tekton-results-api-service || oc create route -n $TEKTON_RESULTS_NS passthrough tekton-results-api-service --service=tekton-results-api-service --port=8080
+        oc get route -n "$TEKTON_RESULTS_NS" tekton-results-api-service >/dev/null 2>&1 || oc create route -n "$TEKTON_RESULTS_NS" passthrough tekton-results-api-service --service=tekton-results-api-service --port=8080
 
     elif [ "$DEPLOYMENT_TYPE_RESULTS" == "upstream" ]; then
         # Read More on Installation: https://github.com/tektoncd/results/blob/main/docs/install.md
@@ -797,7 +797,7 @@ EOF
 
         # Setup route to access Results-API endpoint
         # TODO: Should test this with CI setup and also should evaluate how encryption works
-        oc get route -n $TEKTON_RESULTS_NS tekton-results-api-service || oc create route -n $TEKTON_RESULTS_NS passthrough tekton-results-api-service --service=tekton-results-api-service --port=8080
+        oc get route -n $TEKTON_RESULTS_NS tekton-results-api-service 2>/dev/null || oc create route -n $TEKTON_RESULTS_NS passthrough tekton-results-api-service --service=tekton-results-api-service --port=8080
 
     else
         fatal "Unknown deployment type '$DEPLOYMENT_TYPE_RESULTS'"
@@ -809,14 +809,14 @@ fi
 
 if [ "$RUN_LOCUST" == "true" ]; then
     # Create namespace if not exists
-    oc get ns "${LOCUST_NAMESPACE}" || oc create ns "${LOCUST_NAMESPACE}"
+    oc get ns "${LOCUST_NAMESPACE}" >/dev/null 2>&1 || oc create ns "${LOCUST_NAMESPACE}"
 
     # Grant nonroot SCC to default service account for OpenShift compatibility
     info "Granting nonroot SCC to service account in ${LOCUST_NAMESPACE}"
     oc adm policy add-scc-to-user nonroot -z default -n "${LOCUST_NAMESPACE}" || true
 
     # Check if the Helm repo already exists, and add it if it doesn't
-    if ! helm repo list --namespace "${LOCUST_NAMESPACE}" | grep -q "${LOCUST_OPERATOR_REPO}"; then
+    if ! helm repo list 2>/dev/null | grep -q "${LOCUST_OPERATOR_REPO}"; then
         helm repo add "${LOCUST_OPERATOR_REPO}" https://abdelrhmanhamouda.github.io/locust-k8s-operator/ --namespace "${LOCUST_NAMESPACE}"
     else
         info "Helm repo \"${LOCUST_OPERATOR_REPO}\" already exists"
