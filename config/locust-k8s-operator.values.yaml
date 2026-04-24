@@ -11,7 +11,7 @@ podSecurityContext:
   seccompProfile:
     type: RuntimeDefault
 
-securityContext:
+containerSecurityContext:
   allowPrivilegeEscalation: false
   capabilities:
     drop:
