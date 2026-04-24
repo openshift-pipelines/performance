@@ -233,7 +233,7 @@ EOF
             wait_for_entity_by_selector 300 openshift-pipelines pod app=tekton-chains-controller "$DEPLOYMENT_CHAINS_CONTROLLER_HA_REPLICAS"
             kubectl -n openshift-pipelines wait --for=condition=ready --timeout=300s pod -l app=tekton-chains-controller
             # Delete leases
-            kubectl get leases -n openshift-pipelines -o name | grep tektoncd.chains | xargs -r kubectl delete -n openshift-pipelines
+            kubectl get leases -n openshift-pipelines -o name | awk '/tektoncd.chains/' | xargs -r kubectl delete -n openshift-pipelines
             # Wait for pods to come up
             sleep 60
             wait_for_entity_by_selector 300 openshift-pipelines pod app=tekton-chains-controller "$DEPLOYMENT_CHAINS_CONTROLLER_HA_REPLICAS"
