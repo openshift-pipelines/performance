@@ -538,7 +538,7 @@ EOF
 
         if [[ -n "$INSTALL_PLAN" ]]; then
           echo "Approving InstallPlan: $INSTALL_PLAN"
-          oc patch installplan "$INSTALL_PLAN" -n openshift-operators-redhat --type='merge' -p '{"spec":{"approved":true}}'
+          echo "$INSTALL_PLAN" | xargs -r -I {} oc patch installplan {} -n openshift-operators-redhat --type='merge' -p '{"spec":{"approved":true}}'
         fi
 
         wait_for_entity_by_selector 300 openshift-operators-redhat pod name=loki-operator-controller-manager
