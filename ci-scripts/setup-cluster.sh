@@ -179,7 +179,7 @@ EOF
           kubectl patch TektonConfig/config --type merge --patch '{"spec":{"pipeline":{"performance":{"statefulset-ordinals":true,"buckets":1,"replicas":1}}}}'
         fi
 
-        kubectl patch TektonConfig/config --type merge --patch '{"spec":{"pipeline":{"options":{"'$DEPLOYMENT_PIPELINES_CONTROLLER_TYPE'":{"tekton-pipelines-controller":{"spec":{"template":{"spec":{"containers":[{"name":"tekton-pipelines-controller","resources":'"$resources_json"'}]}}}}}}}}}'
+        kubectl patch TektonConfig/config --type merge --patch '{"spec":{"pipeline":{"options":{"'"$DEPLOYMENT_PIPELINES_CONTROLLER_TYPE"'":{"tekton-pipelines-controller":{"spec":{"template":{"spec":{"containers":[{"name":"tekton-pipelines-controller","resources":'"$resources_json"'}]}}}}}}}}}'
 
         # Disable Results as its enabled by default in 1.18+ release
         if [ "$DEPLOYMENT_VERSION" == "nightly" ] || [ "$DEPLOYMENT_VERSION" == "custom" ] || version_gte "$DEPLOYMENT_VERSION" "1.18"; then
@@ -202,7 +202,7 @@ EOF
                 kubectl patch TektonConfig/config --type merge --patch '{"spec":{"pipeline":{"performance":{"replicas":'"$DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS"',"buckets":'"$DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS"'}}}}'
             fi
 
-            kubectl patch TektonConfig/config --type merge --patch '{"spec":{"pipeline":{"options":{"'$DEPLOYMENT_PIPELINES_CONTROLLER_TYPE'":{"tekton-pipelines-controller":{"spec":{"replicas":'"$DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS"'}}}}}}}'
+            kubectl patch TektonConfig/config --type merge --patch '{"spec":{"pipeline":{"options":{"'"$DEPLOYMENT_PIPELINES_CONTROLLER_TYPE"'":{"tekton-pipelines-controller":{"spec":{"replicas":'"$DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS"'}}}}}}}'
 
             # Wait for pods to come up
             wait_for_entity_by_selector 300 openshift-pipelines pod app=tekton-pipelines-controller "$DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS"
@@ -210,7 +210,7 @@ EOF
             
             if [ "$DEPLOYMENT_PIPELINES_CONTROLLER_TYPE" == "deployments" ]; then
               # Delete leases
-              kubectl delete -n openshift-pipelines $(kubectl get leases -n openshift-pipelines -o name | grep tekton-pipelines-controller)
+              kubectl get leases -n openshift-pipelines -o name | grep tekton-pipelines-controller | xargs -r kubectl delete -n openshift-pipelines
               # Wait for pods to come up
               wait_for_entity_by_selector 300 openshift-pipelines pod app=tekton-pipelines-controller "$DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS"
               kubectl -n openshift-pipelines wait --for=condition=ready --timeout=300s pod -l app=tekton-pipelines-controller
@@ -227,13 +227,13 @@ EOF
             # Wait for TektonConfig to exist
             wait_for_entity_by_selector 300 "" TektonConfig openshift-pipelines.tekton.dev/sa-created=true
             # Patch TektonConfig with replicas and buckets for ha
-            kubectl patch TektonConfig/config --type merge --patch '{"spec":{"chain":{"options":{"deployments":{"tekton-chains-controller":{"spec":{"replicas":'"$DEPLOYMENT_CHAINS_CONTROLLER_HA_REPLICAS"'}}},"configMaps":{"tekton-chains-config-leader-election":{"data":{"buckets":"'$chains_controller_ha_buckets'"}}}}}}}'
+            kubectl patch TektonConfig/config --type merge --patch '{"spec":{"chain":{"options":{"deployments":{"tekton-chains-controller":{"spec":{"replicas":'"$DEPLOYMENT_CHAINS_CONTROLLER_HA_REPLICAS"'}}},"configMaps":{"tekton-chains-config-leader-election":{"data":{"buckets":"'"$chains_controller_ha_buckets"'"}}}}}}}'
             # Wait for pods to come up
             sleep 60
             wait_for_entity_by_selector 300 openshift-pipelines pod app=tekton-chains-controller "$DEPLOYMENT_CHAINS_CONTROLLER_HA_REPLICAS"
             kubectl -n openshift-pipelines wait --for=condition=ready --timeout=300s pod -l app=tekton-chains-controller
             # Delete leases
-            kubectl delete -n openshift-pipelines $(kubectl get leases -n openshift-pipelines -o name | grep tektoncd.chains)
+            kubectl get leases -n openshift-pipelines -o name | grep tektoncd.chains | xargs -r kubectl delete -n openshift-pipelines
             # Wait for pods to come up
             sleep 60
             wait_for_entity_by_selector 300 openshift-pipelines pod app=tekton-chains-controller "$DEPLOYMENT_CHAINS_CONTROLLER_HA_REPLICAS"
@@ -266,7 +266,7 @@ EOF
 
     if [[ -n "$pipelines_perf_options" ]]; then
         pipelines_perf_options="${pipelines_perf_options%,}"
-        kubectl patch TektonConfig/config --type merge --patch '{"spec":{"pipeline":{"performance":{'$pipelines_perf_options'}}}}'
+        kubectl patch TektonConfig/config --type merge --patch '{"spec":{"pipeline":{"performance":{'"$pipelines_perf_options"'}}}}'
     fi
 
     info "Enable Chains performance options"
@@ -282,7 +282,7 @@ EOF
     fi
     if [[ -n "$chains_perf_options" ]]; then
         chains_perf_options="${chains_perf_options%,}"
-        kubectl patch TektonConfig/config --type merge --patch '{"spec":{"chain":{"options":{"deployments":{"tekton-chains-controller":{"spec":{"template":{"spec":{"containers":[{"name":"tekton-chains-controller","args":['$chains_perf_options']}]}}}}}}}}}'
+        kubectl patch TektonConfig/config --type merge --patch '{"spec":{"chain":{"options":{"deployments":{"tekton-chains-controller":{"spec":{"template":{"spec":{"containers":[{"name":"tekton-chains-controller","args":['"$chains_perf_options"']}]}}}}}}}}}'
     fi
 
     info "Disable Chains"
@@ -399,7 +399,7 @@ if [ "$INSTALL_RESULTS" == "true" ]; then
         kubectl get ns $TEKTON_RESULTS_NS || kubectl create ns $TEKTON_RESULTS_NS
 
         kubectl get secret tekton-results-postgres -n $TEKTON_RESULTS_NS || kubectl create secret generic tekton-results-postgres -n "$TEKTON_RESULTS_NS" \
-            --from-literal=POSTGRES_USER=result --from-literal=POSTGRES_PASSWORD=$(openssl rand -base64 20)
+            --from-literal=POSTGRES_USER=result --from-literal=POSTGRES_PASSWORD="$(openssl rand -base64 20)"
 
         if [ "$DEPLOYMENT_VERSION" == "1.15" ]; then
 
@@ -538,7 +538,7 @@ EOF
 
         if [[ -n "$INSTALL_PLAN" ]]; then
           echo "Approving InstallPlan: $INSTALL_PLAN"
-          oc patch installplan $INSTALL_PLAN -n openshift-operators-redhat --type='merge' -p '{"spec":{"approved":true}}'
+          oc patch installplan "$INSTALL_PLAN" -n openshift-operators-redhat --type='merge' -p '{"spec":{"approved":true}}'
         fi
 
         wait_for_entity_by_selector 300 openshift-operators-redhat pod name=loki-operator-controller-manager
@@ -689,7 +689,7 @@ EOF
           fi
           if [[ -n "$results_watcher_perf_options" ]]; then
               results_watcher_perf_options="${results_watcher_perf_options%,}"
-              kubectl patch TektonConfig/config --type merge --patch '{"spec":{"result":{"options":{"deployments":{"tekton-results-watcher":{"spec":{"template":{"spec":{"containers":[{"name":"watcher","args":['$results_watcher_perf_options']}]}}}}}}}}}'
+              kubectl patch TektonConfig/config --type merge --patch '{"spec":{"result":{"options":{"deployments":{"tekton-results-watcher":{"spec":{"template":{"spec":{"containers":[{"name":"watcher","args":['"$results_watcher_perf_options"']}]}}}}}}}}}'
           fi
       else
           info "Installing Tekton-Result Operator"
@@ -768,7 +768,7 @@ EOF
         kubectl get ns $TEKTON_RESULTS_NS || kubectl create ns $TEKTON_RESULTS_NS
 
         kubectl get secret tekton-results-postgres -n $TEKTON_RESULTS_NS || kubectl create secret generic tekton-results-postgres -n "$TEKTON_RESULTS_NS" \
-            --from-literal=POSTGRES_USER=postgres --from-literal=POSTGRES_PASSWORD=$(openssl rand -base64 20)
+            --from-literal=POSTGRES_USER=postgres --from-literal=POSTGRES_PASSWORD="$(openssl rand -base64 20)"
 
         # Setup SSL certs for Results API
         openssl req -x509 \
@@ -788,7 +788,7 @@ EOF
         if [ "$DEPLOYMENT_RESULTS_UPSTREAM_VERSION" == "latest" ]; then
             kubectl apply -f https://storage.googleapis.com/tekton-releases/results/latest/release.yaml
         else
-            kubectl apply -f https://storage.googleapis.com/tekton-releases/results/previous/${DEPLOYMENT_RESULTS_UPSTREAM_VERSION}/release.yaml
+            kubectl apply -f "https://storage.googleapis.com/tekton-releases/results/previous/${DEPLOYMENT_RESULTS_UPSTREAM_VERSION}/release.yaml"
         fi
 
         # Wait for tekton-results resources to start
@@ -865,10 +865,10 @@ if [ "$RUN_LOCUST" == "true" ]; then
     info "Enabling user workload monitoring"
     config_dir=$(mktemp -d)
     if oc -n openshift-monitoring get cm cluster-monitoring-config; then
-        oc -n openshift-monitoring extract configmap/cluster-monitoring-config --to=$config_dir --keys=config.yaml
-        sed -i '/^enableUserWorkload:/d' $config_dir/config.yaml
-        echo -e "\nenableUserWorkload: true" >> $config_dir/config.yaml
-        oc -n openshift-monitoring set data configmap/cluster-monitoring-config --from-file=$config_dir/config.yaml
+        oc -n openshift-monitoring extract configmap/cluster-monitoring-config --to="$config_dir" --keys=config.yaml
+        sed -i '/^enableUserWorkload:/d' "$config_dir/config.yaml"
+        echo -e "\nenableUserWorkload: true" >> "$config_dir/config.yaml"
+        oc -n openshift-monitoring set data configmap/cluster-monitoring-config --from-file="$config_dir/config.yaml"
     else
         cat <<EOF | kubectl apply -f -
 apiVersion: v1
