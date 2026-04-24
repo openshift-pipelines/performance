@@ -210,7 +210,7 @@ EOF
             
             if [ "$DEPLOYMENT_PIPELINES_CONTROLLER_TYPE" == "deployments" ]; then
               # Delete leases
-              kubectl get leases -n openshift-pipelines -o name | grep tekton-pipelines-controller | xargs -r kubectl delete -n openshift-pipelines
+              kubectl get leases -n openshift-pipelines -o name | awk '/tekton-pipelines-controller/' | xargs -r kubectl delete -n openshift-pipelines
               # Wait for pods to come up
               wait_for_entity_by_selector 300 openshift-pipelines pod app=tekton-pipelines-controller "$DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS"
               kubectl -n openshift-pipelines wait --for=condition=ready --timeout=300s pod -l app=tekton-pipelines-controller
