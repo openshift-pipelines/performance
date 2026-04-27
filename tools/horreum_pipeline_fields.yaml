@@ -99,7 +99,13 @@ test:
   datastoreId: 1  # Assuming default datastore
   timelineLabels: ["started"]
   timelineFunction: "value => new Date(value).getTime()"
-  fingerprintLabels: ["deployment_haConfig_haEnabled", "deployment_version", "parameters_test_concurrent", "parameters_test_total", "deployment_haConfig_controllerType"]
+  fingerprintLabels:
+    - deployment_haConfig_haEnabled
+    - deployment_version
+    - parameters_test_concurrent
+    - parameters_test_total
+    - deployment_haConfig_controllerType
+    - deployment_qbtConfig_qbtEnabled
   fingerprintFilter: "value => value !== null"
   notificationsEnabled: true
 
