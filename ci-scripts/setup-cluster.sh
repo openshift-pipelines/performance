@@ -30,7 +30,7 @@ RUN_LOCUST="${RUN_LOCUST:-false}"
 LOCUST_NAMESPACE=locust-operator
 LOCUST_OPERATOR_REPO=locust-k8s-operator
 LOCUST_OPERATOR=locust-operator
-LOCUST_HELM_CONFIG=./config/locust-k8s-operator.values.yaml
+LOCUST_HELM_CONFIG="$(dirname "${BASH_SOURCE[0]}")/../config/locust-k8s-operator.values.yaml"
 
 DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS="${DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS:-}"
 if [ -n "$DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS" ]; then
@@ -817,6 +817,12 @@ if [ "$RUN_LOCUST" == "true" ]; then
     else
         info "Helm repo \"${LOCUST_OPERATOR_REPO}\" already exists"
     fi
+
+    # Verify values file exists before attempting installation
+    if [ ! -f "$LOCUST_HELM_CONFIG" ]; then
+        fatal "Locust Helm values file not found: $LOCUST_HELM_CONFIG"
+    fi
+    info "Using Locust Helm values file: $LOCUST_HELM_CONFIG"
 
     # Check if the Helm release already exists, and install it if it doesn't
     if ! helm list --namespace "${LOCUST_NAMESPACE}" | grep -q "${LOCUST_OPERATOR}"; then
