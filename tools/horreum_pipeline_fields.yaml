@@ -125,24 +125,61 @@ schema:
 
 # Field definitions
 fields:
-  # Test parameters
-  - name: "parameters_test_concurrent"
-    jsonpath: "$.parameters.test.concurrent"
-    description: "test concurrency"
-    filtering: true
-    metrics: false
-    change_detection_group: null  # No change detection for ID fields
+  # Metadata & identifiers
+  - name: "started"
+    jsonpath: "$.started"
+    description: "Run start timestamp"
+    filtering: false
+    metrics: true
+    change_detection_group: null
 
-  - name: "parameters_test_total"
-    jsonpath: "$.parameters.test.total"
-    description: "test total "
+  - name: "metadata_env_BUILD_ID"
+    jsonpath: "$.metadata.env.BUILD_ID"
+    description: "Prow build ID"
     filtering: true
     metrics: false
     change_detection_group: null
 
+  - name: "metadata_env_SUBJOB_BUILD_ID"
+    jsonpath: "$.metadata.env.SUBJOB_BUILD_ID"
+    description: "Sub-job build ID (unique per concurrency level)"
+    filtering: true
+    metrics: false
+    change_detection_group: null
+
+  - name: "metadata_env_TEST_SCENARIO"
+    jsonpath: "$.metadata.env.TEST_SCENARIO"
+    description: "Test scenario name (e.g. math)"
+    filtering: true
+    metrics: false
+    change_detection_group: null
+
+  # Test parameters
+  - name: "parameters_test_concurrent"
+    jsonpath: "$.parameters.test.concurrent"
+    description: "Test concurrency level"
+    filtering: true
+    metrics: false
+    change_detection_group: null
+
+  - name: "parameters_test_total"
+    jsonpath: "$.parameters.test.total"
+    description: "Total PipelineRuns per concurrency level"
+    filtering: true
+    metrics: false
+    change_detection_group: null
+
+  # Deployment configuration
   - name: "deployment_version"
     jsonpath: "$.deployment.version"
-    description: "deployment version"
+    description: "Deployment version"
+    filtering: true
+    metrics: false
+    change_detection_group: null
+
+  - name: "deployment_nightly"
+    jsonpath: "$.deployment.is_nightly_build"
+    description: "Whether this is a nightly build"
     filtering: true
     metrics: false
     change_detection_group: null
@@ -281,6 +318,48 @@ fields:
     metrics: true
     change_detection_group: null #"cpu"
 
+  - name: "measurements_clusterCpuUsageSecondsTotalRate_mean"
+    jsonpath: "$.measurements.cluster_cpu_usage_seconds_total_rate.mean"
+    description: "Mean total CPU usage rate across all cluster nodes"
+    filtering: false
+    metrics: true
+    change_detection_group: null #"cpu"
+
+  - name: "measurements_clusterCpuUsageSecondsTotalRate_max"
+    jsonpath: "$.measurements.cluster_cpu_usage_seconds_total_rate.max"
+    description: "Maximum total CPU usage rate across all cluster nodes"
+    filtering: false
+    metrics: true
+    change_detection_group: null #"cpu"
+
+  - name: "measurements_workersAvgCpuUsagePercentage_mean"
+    jsonpath: "$.measurements.workers_avg_cpu_usage_percentage.mean"
+    description: "Mean CPU usage percentage across worker nodes"
+    filtering: false
+    metrics: true
+    change_detection_group: null #"cpu"
+
+  - name: "measurements_workersAvgCpuUsagePercentage_max"
+    jsonpath: "$.measurements.workers_avg_cpu_usage_percentage.max"
+    description: "Maximum CPU usage percentage across worker nodes"
+    filtering: false
+    metrics: true
+    change_detection_group: null #"cpu"
+
+  - name: "measurements_apiserverRequestTotalRate_mean"
+    jsonpath: "$.measurements.apiserver_request_total_rate.mean"
+    description: "Mean API server request rate"
+    filtering: false
+    metrics: true
+    change_detection_group: null #"cpu"
+
+  - name: "measurements_tektonTektonPipelinesControllerWorkqueueDepth_mean"
+    jsonpath: "$.measurements.tekton_tekton_pipelines_controller_workqueue_depth.mean"
+    description: "Mean Tekton Pipelines controller workqueue depth"
+    filtering: false
+    metrics: true
+    change_detection_group: null #"cpu"
+
   # etcdMvccDb Metrics
   - name: "measurements_etcdMvccDbTotalSizeInBytesAverage_mean"
     jsonpath: "$.measurements.etcd_mvcc_db_total_size_in_bytes_average.mean"
@@ -306,6 +385,20 @@ fields:
   - name: "measurements_etcdMvccDbTotalSizeInUseInBytesAverage_max"
     jsonpath: "$.measurements.etcd_mvcc_db_total_size_in_use_in_bytes_average.max"
     description: "Maximum etcd database size in use"
+    filtering: false
+    metrics: true
+    change_detection_group: null #"etcdMvccDb"
+
+  - name: "measurements_etcdRequestDurationSecondsAverage_mean"
+    jsonpath: "$.measurements.etcd_request_duration_seconds_average.mean"
+    description: "Mean etcd request duration"
+    filtering: false
+    metrics: true
+    change_detection_group: null #"etcdMvccDb"
+
+  - name: "measurements_etcdRequestDurationSecondsAverage_max"
+    jsonpath: "$.measurements.etcd_request_duration_seconds_average.max"
+    description: "Maximum etcd request duration"
     filtering: false
     metrics: true
     change_detection_group: null #"etcdMvccDb"
@@ -377,6 +470,20 @@ fields:
   - name: "measurements_tektonOperatorProxyWebhook_memory_max"
     jsonpath: "$.measurements.\"tekton-operator-proxy-webhook\".memory.max"
     description: "Maximum memory usage for tekton-operator-proxy-webhook"
+    filtering: false
+    metrics: true
+    change_detection_group: null #"memory"
+
+  - name: "measurements_clusterMemoryUsageRssTotal_mean"
+    jsonpath: "$.measurements.cluster_memory_usage_rss_total.mean"
+    description: "Mean total RSS memory usage across all cluster nodes"
+    filtering: false
+    metrics: true
+    change_detection_group: null #"memory"
+
+  - name: "measurements_clusterMemoryUsageRssTotal_max"
+    jsonpath: "$.measurements.cluster_memory_usage_rss_total.max"
+    description: "Maximum total RSS memory usage across all cluster nodes"
     filtering: false
     metrics: true
     change_detection_group: null #"memory"
@@ -463,6 +570,20 @@ fields:
   - name: "results_PipelineRuns_Success_running_avg"
     jsonpath: "$.results.PipelineRuns.Success.running.avg"
     description: "Average duration for successful PipelineRuns"
+    filtering: false
+    metrics: true
+    change_detection_group: "PipelineRuns_TaskRuns_duration"
+
+  - name: "measurements_tektonPipelinesControllerClientLatencyAverage_mean"
+    jsonpath: "$.measurements.tekton_pipelines_controller_client_latency_average.mean"
+    description: "Mean Tekton Pipelines controller HTTP client latency"
+    filtering: false
+    metrics: true
+    change_detection_group: "PipelineRuns_TaskRuns_duration"
+
+  - name: "measurements_tektonPipelinesControllerClientLatencyAverage_max"
+    jsonpath: "$.measurements.tekton_pipelines_controller_client_latency_average.max"
+    description: "Maximum Tekton Pipelines controller HTTP client latency"
     filtering: false
     metrics: true
     change_detection_group: "PipelineRuns_TaskRuns_duration"
@@ -580,3 +701,10 @@ fields:
     filtering: false
     metrics: true
     change_detection_group: "restarts"
+
+  - name: "measurements_schedulerPendingPodsCount_range"
+    jsonpath: "$.measurements.scheduler_pending_pods_count.range"
+    description: "Range of pending pods in the Kubernetes scheduler"
+    filtering: false
+    metrics: true
+    change_detection_group: null

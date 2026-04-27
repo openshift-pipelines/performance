@@ -51,22 +51,18 @@ local concurrencyVar = {
 
 // ─── SQL predicates (injected into every query) ─────────────────────────────
 
-// Matches legacy __deployment_nightly or __deployment_isNightlyBuild
 local nightlyOnlyPredicate = |||
-        AND (
-          ((label_values ? '__deployment_nightly') AND (label_values->>'__deployment_nightly')::BOOLEAN = true)
-          OR ((label_values ? '__deployment_isNightlyBuild') AND (label_values->>'__deployment_isNightlyBuild')::BOOLEAN = true)
-        )
+        AND (label_values ? '__deployment_nightly')
+        AND (label_values->>'__deployment_nightly')::BOOLEAN = true
 |||;
 
-// Deployment config slice — uses Grafana [[deploy_config]] macro in SQL
 local deployConfigPredicate = |||
         AND (
-          ('[[deploy_config]]' = 'standard' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))
-          OR ('[[deploy_config]]' = 'ha-deployments' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments' AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))
-          OR ('[[deploy_config]]' = 'ha-statefulsets' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values->>'__deployment_haConfig_controllerType') = 'statefulSets' AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))
-          OR ('[[deploy_config]]' = 'qbt' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)
-          OR ('[[deploy_config]]' = 'ha-qbt-deployments' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments' AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)
+          ('$deploy_config' = 'standard' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))
+          OR ('$deploy_config' = 'ha-deployments' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments' AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))
+          OR ('$deploy_config' = 'ha-statefulsets' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values->>'__deployment_haConfig_controllerType') = 'statefulSets' AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))
+          OR ('$deploy_config' = 'qbt' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)
+          OR ('$deploy_config' = 'ha-qbt-deployments' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments' AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)
         )
 |||;
 
@@ -145,12 +141,10 @@ local createComplexPanel(title, fieldName, metricLabel, unit='short', gridX=0, g
     createComplexQuery(fieldName, metricLabel, additionalFields),
   ]);
 
-local createRow(title, y, collapsed=false) = {
+local createRow(title, y) = {
   type: 'row',
   title: title,
-  collapsed: collapsed,
   gridPos: { h: 1, w: 24, x: 0, y: y },
-  panels: [],
 };
 
 // ─── Dashboard panels ───────────────────────────────────────────────────────
