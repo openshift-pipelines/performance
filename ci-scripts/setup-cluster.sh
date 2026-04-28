@@ -30,7 +30,9 @@ RUN_LOCUST="${RUN_LOCUST:-false}"
 LOCUST_NAMESPACE=locust-operator
 LOCUST_OPERATOR_REPO=locust-k8s-operator
 LOCUST_OPERATOR=locust-operator
-LOCUST_HELM_CONFIG="$(dirname "${BASH_SOURCE[0]}")/../config/locust-k8s-operator.values.yaml"
+# Use git root to construct absolute path to values file
+# This ensures the file is found regardless of how the script is invoked
+LOCUST_HELM_CONFIG="$(git rev-parse --show-toplevel)/config/locust-k8s-operator.values.yaml"
 
 DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS="${DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS:-}"
 if [ -n "$DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS" ]; then
@@ -826,7 +828,9 @@ if [ "$RUN_LOCUST" == "true" ]; then
 
     # Check if the Helm release already exists, and install it if it doesn't
     if ! helm list --namespace "${LOCUST_NAMESPACE}" | grep -q "${LOCUST_OPERATOR}"; then
-        info "Installing Locust operator via Helm (with --wait, timeout 10m)..."
+        info "Installing Locust operator via Helm (with --wait, timeout 10m) using values: $LOCUST_HELM_CONFIG"
+        # Debug: Show actual image in values file before installation
+        info "Image configured in values file: $(grep -A 1 'repository:' "$LOCUST_HELM_CONFIG" | grep repository | cut -d'"' -f2)"
         if ! helm install "${LOCUST_OPERATOR}" locust-k8s-operator/locust-k8s-operator --namespace "${LOCUST_NAMESPACE}" -f "$LOCUST_HELM_CONFIG" --wait --timeout 10m; then
             warning "Helm install failed, collecting diagnostics..."
             kubectl -n "${LOCUST_NAMESPACE}" get all || true
