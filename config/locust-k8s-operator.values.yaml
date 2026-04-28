@@ -5,6 +5,11 @@ image:
   tag: ""  # Use chart default appVersion
   pullPolicy: IfNotPresent
 
+# Disable webhook - requires cert-manager for TLS certs which isn't installed
+# Webhook is only needed for v1->v2 API compatibility (we only use v2)
+webhook:
+  enabled: false
+
 # OpenShift SCC compatibility: Explicitly override Helm chart v2.1.1 hardcoded defaults
 # Chart has runAsUser/runAsGroup/fsGroup: 65532 which violates OpenShift SCC ranges
 # Setting to null removes these hardcoded values and allows OpenShift to inject dynamic IDs
