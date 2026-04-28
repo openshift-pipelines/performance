@@ -25,14 +25,12 @@ DEPLOYMENT_RESULTS_UPSTREAM_VERSION="${DEPLOYMENT_RESULTS_UPSTREAM_VERSION:-late
 # Loki stack configuration: https://access.redhat.com/solutions/7006859
 LOKI_STACK_SIZE="1x.demo" # Other options: 1x.demo, 1x.small, 1x.extra-small
 
-# Locust setup config
+# Locust setup config - using official Locust operator
 RUN_LOCUST="${RUN_LOCUST:-false}"
 LOCUST_NAMESPACE=locust-operator
-LOCUST_OPERATOR_REPO=locust-k8s-operator
+LOCUST_OPERATOR_REPO=locust-operator
 LOCUST_OPERATOR=locust-operator
-# Use git root to construct absolute path to values file
-# This ensures the file is found regardless of how the script is invoked
-LOCUST_HELM_CONFIG="$(git rev-parse --show-toplevel)/config/locust-k8s-operator.values.yaml"
+LOCUST_OPERATOR_VERSION=0.1.6
 
 DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS="${DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS:-}"
 if [ -n "$DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS" ]; then
@@ -813,31 +811,28 @@ if [ "$RUN_LOCUST" == "true" ]; then
     # Create namespace if not exists
     oc get ns "${LOCUST_NAMESPACE}" || oc create ns "${LOCUST_NAMESPACE}"
 
-    # Check if the Helm repo already exists, and add it if it doesn't
-    if ! helm repo list --namespace "${LOCUST_NAMESPACE}" | grep -q "${LOCUST_OPERATOR_REPO}"; then
-        helm repo add "${LOCUST_OPERATOR_REPO}" https://abdelrhmanhamouda.github.io/locust-k8s-operator/ --namespace "${LOCUST_NAMESPACE}"
+    # Add official Locust operator Helm repo
+    if ! helm repo list | grep -q "^${LOCUST_OPERATOR_REPO}[[:space:]]"; then
+        info "Adding official Locust operator Helm repository"
+        helm repo add "${LOCUST_OPERATOR_REPO}" https://locustio.github.io/k8s-operator
+        helm repo update "${LOCUST_OPERATOR_REPO}"
     else
         info "Helm repo \"${LOCUST_OPERATOR_REPO}\" already exists"
     fi
 
-    # Verify values file exists before attempting installation
-    if [ ! -f "$LOCUST_HELM_CONFIG" ]; then
-        fatal "Locust Helm values file not found: $LOCUST_HELM_CONFIG"
-    fi
-    info "Using Locust Helm values file: $LOCUST_HELM_CONFIG"
-
     # Check if the Helm release already exists, and install it if it doesn't
     if ! helm list --namespace "${LOCUST_NAMESPACE}" | grep -q "${LOCUST_OPERATOR}"; then
-        info "Installing Locust operator via Helm (with --wait, timeout 10m) using values: $LOCUST_HELM_CONFIG"
-        # Debug: Show actual image in values file before installation
-        info "Image configured in values file: $(grep -A 1 'repository:' "$LOCUST_HELM_CONFIG" | grep repository | cut -d'"' -f2)"
-        if ! helm install "${LOCUST_OPERATOR}" locust-k8s-operator/locust-k8s-operator --namespace "${LOCUST_NAMESPACE}" -f "$LOCUST_HELM_CONFIG" --wait --timeout 10m; then
+        info "Installing official Locust operator v${LOCUST_OPERATOR_VERSION} (with --wait, timeout 5m)"
+        if ! helm install "${LOCUST_OPERATOR}" "${LOCUST_OPERATOR_REPO}/${LOCUST_OPERATOR}" \
+            --namespace "${LOCUST_NAMESPACE}" \
+            --version "${LOCUST_OPERATOR_VERSION}" \
+            --wait --timeout 5m; then
             warning "Helm install failed, collecting diagnostics..."
             kubectl -n "${LOCUST_NAMESPACE}" get all || true
             kubectl -n "${LOCUST_NAMESPACE}" get events --sort-by='.lastTimestamp' | tail -30 || true
             fatal "Locust operator Helm installation failed"
         fi
-        info "Helm install completed successfully"
+        info "Locust operator installed successfully"
     else
         info "Helm release \"${LOCUST_OPERATOR}\" already exists"
     fi
@@ -849,7 +844,7 @@ if [ "$RUN_LOCUST" == "true" ]; then
         if [[ -n "${LOCUST_DEPLOY}" ]]; then
             info "Found deployment: ${LOCUST_DEPLOY}"
             kubectl -n "${LOCUST_NAMESPACE}" get deployment "${LOCUST_DEPLOY}" -o wide || true
-            kubectl -n "${LOCUST_NAMESPACE}" get pods -l "app.kubernetes.io/name=locust-k8s-operator" -o wide || true
+            kubectl -n "${LOCUST_NAMESPACE}" get pods -l "app.kubernetes.io/name=locust-operator" -o wide || true
             break
         fi
         info "Deployment not found yet, waiting... (attempt $i/30)"
@@ -857,19 +852,19 @@ if [ "$RUN_LOCUST" == "true" ]; then
     done
 
     if [[ -n "${LOCUST_DEPLOY}" ]]; then
-        info "Waiting for deployment/${LOCUST_DEPLOY} rollout (timeout 600s)"
-        if ! kubectl rollout status "deployment/${LOCUST_DEPLOY}" -n "${LOCUST_NAMESPACE}" --timeout=600s; then
+        info "Waiting for deployment/${LOCUST_DEPLOY} rollout (timeout 300s)"
+        if ! kubectl rollout status "deployment/${LOCUST_DEPLOY}" -n "${LOCUST_NAMESPACE}" --timeout=300s; then
             warning "Locust operator deployment failed to rollout, collecting diagnostics..."
             kubectl -n "${LOCUST_NAMESPACE}" get pods -o wide || true
             kubectl -n "${LOCUST_NAMESPACE}" describe deployment "${LOCUST_DEPLOY}" || true
-            kubectl -n "${LOCUST_NAMESPACE}" describe pods -l "app.kubernetes.io/name=locust-k8s-operator" || true
+            kubectl -n "${LOCUST_NAMESPACE}" describe pods -l "app.kubernetes.io/name=locust-operator" || true
             kubectl -n "${LOCUST_NAMESPACE}" get events --sort-by='.lastTimestamp' | tail -30 || true
             fatal "Locust operator deployment failed to become ready"
         fi
         info "Locust operator deployment is ready"
     else
         warning "Could not find locust-operator deployment, trying fallback wait..."
-        wait_for_entity_by_selector 600 "${LOCUST_NAMESPACE}" pod "app.kubernetes.io/name=locust-k8s-operator"
+        wait_for_entity_by_selector 300 "${LOCUST_NAMESPACE}" pod "app.kubernetes.io/name=locust-operator"
     fi
 
     info "Enabling user workload monitoring"

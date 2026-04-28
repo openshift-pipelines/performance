@@ -323,18 +323,18 @@ function run_locust() {
         # Cleanup locust jobs if it already exists
         cleanup_locust "$SCENARIO"
 
+        # Create a ConfigMap from the scenario file FIRST (operator will check for it immediately)
+        kubectl create --namespace "${LOCUST_NAMESPACE}" configmap locust."${SCENARIO}" --from-file="scenario/$TEST_SCENARIO/locust/${SCENARIO}".py --dry-run=client -o yaml | kubectl apply --namespace "${LOCUST_NAMESPACE}" -f -
+
         # Apply locust test template with environment variable substitution
         cat $LOCUST_TEMPLATE | envsubst | kubectl apply --namespace "${LOCUST_NAMESPACE}" -f -
-
-        # Create a ConfigMap from the scenario file
-        kubectl create --namespace "${LOCUST_NAMESPACE}" configmap locust."${SCENARIO}" --from-file="scenario/$TEST_SCENARIO/locust/${SCENARIO}".py --dry-run=client -o yaml | kubectl apply --namespace "${LOCUST_NAMESPACE}" -f -
 
         # Record test start time
         date --utc -Ins > "${TMP_DIR}/benchmark-before"
 
         # Timeout logic to wait for Locust master pod to start
         timeout=$(date -d "680 seconds" "+%s")
-        while [ -z "$(kubectl get --namespace "${LOCUST_NAMESPACE}" pod -l performance-test-pod-name=${SCENARIO}-test-master -o name)" ]; do
+        while [ -z "$(kubectl get --namespace "${LOCUST_NAMESPACE}" pod -l "locust.io/test-run=${SCENARIO}-test,locust.io/component=master" -o name)" ]; do
             if [ "$(date "+%s")" -gt "${timeout}" ]; then
                 echo "ERROR: Timeout waiting for locust master pod to start"
                 exit 1
@@ -345,11 +345,11 @@ function run_locust() {
         done
 
         # Wait for the Locust master pod to be ready
-        kubectl wait --namespace "${LOCUST_NAMESPACE}" --for=condition=Ready=true $(kubectl get --namespace "${LOCUST_NAMESPACE}" pod -l performance-test-pod-name=${SCENARIO}-test-master -o name)
+        kubectl wait --namespace "${LOCUST_NAMESPACE}" --for=condition=Ready=true --timeout=5m $(kubectl get --namespace "${LOCUST_NAMESPACE}" pod -l "locust.io/test-run=${SCENARIO}-test,locust.io/component=master" -o name)
 
         # Get Locust master logs
         echo "Getting locust master log:"
-        kubectl logs --namespace "${LOCUST_NAMESPACE}" -f -l performance-test-pod-name=${SCENARIO}-test-master 2>&1 | tee -a $LOCUST_LOG
+        kubectl logs --namespace "${LOCUST_NAMESPACE}" -f -l "locust.io/test-run=${SCENARIO}-test,locust.io/component=master" 2>&1 | tee -a $LOCUST_LOG
 
         # Cleanup locust job after test end
         cleanup_locust "$SCENARIO"
@@ -365,7 +365,7 @@ function run_locust() {
 function cleanup_locust(){
     export SCENARIO="$1"
     local LOCUST_NAMESPACE=locust-operator
-    info "Cleaning LocustTest ${SCENARIO}.test"
-    kubectl delete --ignore-not-found=true --namespace "${LOCUST_NAMESPACE}" LocustTest "${SCENARIO}.test"
+    info "Cleaning LocustTest ${SCENARIO}-test"
+    kubectl delete --ignore-not-found=true --namespace "${LOCUST_NAMESPACE}" LocustTest "${SCENARIO}-test"
     kubectl delete --ignore-not-found=true --namespace "${LOCUST_NAMESPACE}" configmap locust."${SCENARIO}"
 }
