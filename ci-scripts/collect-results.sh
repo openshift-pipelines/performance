@@ -74,7 +74,7 @@ if [ -f "$monitoring_collection_data" ]; then
         -d >"$monitoring_collection_log" 2>&1
     
     # Check whether there are cluster_read_config.yaml in test scenario
-    if [ -f tests/scaling-pipelines/scenario/$TEST_SCENARIO/cluster_read_config.yaml ]; then
+    if [ -f "tests/scaling-pipelines/scenario/$TEST_SCENARIO/cluster_read_config.yaml" ]; then
         status_data.py \
             --status-data-file "$monitoring_collection_data" \
             --additional "tests/scaling-pipelines/scenario/$TEST_SCENARIO/cluster_read_config.yaml" \
@@ -144,7 +144,7 @@ if [ "$INSTALL_RESULTS" == "true" ]; then
     # Dump Postgres Database
     oc -n openshift-pipelines exec -i tekton-results-postgres-0 -- bash -c "PGPASSWORD=$pg_pwd pg_dump --format=c tekton-results -U $pg_user --file=/tmp/pg_data.dump"
 
-    kubectl -n openshift-pipelines cp --retries 10 tekton-results-postgres-0:/tmp/pg_data.dump $results_api_db_sql
+    kubectl -n openshift-pipelines cp --retries 10 tekton-results-postgres-0:/tmp/pg_data.dump "$results_api_db_sql"
     
     # Capture DB Table counts
     info "Collecting Results-API DB Table Counts"

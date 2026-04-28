@@ -1,3 +1,5 @@
+#!/bin/bash
+
 function _log() {
     echo "$( date -Ins --utc ) $1 $2" >&1
 }
@@ -250,7 +252,8 @@ capture_scenario_name() {
 
     info "Generating scenario descriptive name"
 
-    local scenario_name=$(jq -n \
+    local scenario_name
+    scenario_name=$(jq -n \
         --arg ha_replicas "${DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS:-0}" \
         --arg controller_type "${DEPLOYMENT_PIPELINES_CONTROLLER_TYPE:-deployments}" \
         --arg qps "${DEPLOYMENT_PIPELINES_KUBE_API_QPS:-}" \

@@ -4,6 +4,8 @@ venv/
 
 OLD/
 
+ci-scripts/prow-to-es-cache-dir/
+
 artifacts/
 
 tests/scaling-pipelines/push-fake-image/

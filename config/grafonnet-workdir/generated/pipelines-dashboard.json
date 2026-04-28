@@ -1,18 +1,33 @@
 {
-  "description": "Dashboard visualizes OpenShift Pipelines performance metrics including PipelineRuns, TaskRuns, controller performance, and cluster resource usage",
+  "description": "OpenShift Pipelines nightly build performance. Use the Deployment Configuration variable to switch between Standard, HA, QBT, and HA+QBT setups.",
   "editable": true,
   "graphTooltip": 1,
   "panels": [
+    {
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "title": "Pipeline Results",
+      "type": "row"
+    },
     {
       "datasource": {
         "type": "grafana-postgresql-datasource",
         "uid": "${datasource}"
       },
+      "description": "Total number of PipelineRuns that completed successfully, averaged per day per concurrency level.",
       "fieldConfig": {
         "defaults": {
           "custom": {
             "drawStyle": "line",
-            "fillOpacity": 0
+            "fillOpacity": 0,
+            "pointSize": 7,
+            "showPoints": "always",
+            "spanNulls": false
           },
           "min": 0,
           "unit": "short"
@@ -22,35 +37,15 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 0
+        "y": 1
       },
-      "id": 1,
+      "id": 2,
       "pluginVersion": "v11.4.0",
       "targets": [
         {
           "format": "time_series",
-          "rawSql": "SELECT\n    EXTRACT(EPOCH FROM start) AS \"time\",\n    (label_values->>'__results_PipelineRuns_count_succeeded')::DOUBLE PRECISION AS \"value\",\n    '__results_PipelineRuns_count_succeeded concurrency 12' as \"metric\"\nFROM\n    data\nWHERE\n    horreum_testid = 391\n    AND (label_values->>'__parameters_test_concurrent')::DOUBLE PRECISION = 12\nORDER BY\n    start;\n",
+          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_concurrent')::INTEGER AS concurrency,\n    AVG((label_values->>'__results_PipelineRuns_count_succeeded')::DOUBLE PRECISION) AS pr_succeeded\n  FROM data\n  WHERE horreum_testid = 391\n    AND $__timeFilter(start)\n    AND (label_values->>'__parameters_test_concurrent')::INTEGER IN ($concurrency)\n\n    AND (\n  ('$deploy_config' = 'standard' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'ha-deployments' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments' AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'ha-statefulsets' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values->>'__deployment_haConfig_controllerType') = 'statefulSets' AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'qbt' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n  OR ('$deploy_config' = 'ha-qbt-deployments' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments' AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n)\n\n    AND (label_values ? '__deployment_nightly')\nAND (label_values->>'__deployment_nightly')::BOOLEAN = true\n\n    AND label_values ? '__results_PipelineRuns_count_succeeded'\n  GROUP BY day, concurrency\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'pr_succeeded @ ' || concurrency AS metric,\n  pr_succeeded AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
           "refId": "A"
-        },
-        {
-          "format": "time_series",
-          "rawSql": "SELECT\n    EXTRACT(EPOCH FROM start) AS \"time\",\n    (label_values->>'__results_PipelineRuns_count_succeeded')::DOUBLE PRECISION AS \"value\",\n    '__results_PipelineRuns_count_succeeded concurrency 14' as \"metric\"\nFROM\n    data\nWHERE\n    horreum_testid = 391\n    AND (label_values->>'__parameters_test_concurrent')::DOUBLE PRECISION = 14\nORDER BY\n    start;\n",
-          "refId": "C"
-        },
-        {
-          "format": "time_series",
-          "rawSql": "SELECT\n    EXTRACT(EPOCH FROM start) AS \"time\",\n    (label_values->>'__results_PipelineRuns_count_succeeded')::DOUBLE PRECISION AS \"value\",\n    '__results_PipelineRuns_count_succeeded concurrency 16' as \"metric\"\nFROM\n    data\nWHERE\n    horreum_testid = 391\n    AND (label_values->>'__parameters_test_concurrent')::DOUBLE PRECISION = 16\nORDER BY\n    start;\n",
-          "refId": "E"
-        },
-        {
-          "format": "time_series",
-          "rawSql": "SELECT\n    EXTRACT(EPOCH FROM start) AS \"time\",\n    (label_values->>'__results_PipelineRuns_count_succeeded')::DOUBLE PRECISION AS \"value\",\n    '__results_PipelineRuns_count_succeeded concurrency 18' as \"metric\"\nFROM\n    data\nWHERE\n    horreum_testid = 391\n    AND (label_values->>'__parameters_test_concurrent')::DOUBLE PRECISION = 18\nORDER BY\n    start;\n",
-          "refId": "G"
-        },
-        {
-          "format": "time_series",
-          "rawSql": "SELECT\n    EXTRACT(EPOCH FROM start) AS \"time\",\n    (label_values->>'__results_PipelineRuns_count_succeeded')::DOUBLE PRECISION AS \"value\",\n    '__results_PipelineRuns_count_succeeded concurrency 20' as \"metric\"\nFROM\n    data\nWHERE\n    horreum_testid = 391\n    AND (label_values->>'__parameters_test_concurrent')::DOUBLE PRECISION = 20\nORDER BY\n    start;\n",
-          "refId": "I"
         }
       ],
       "title": "PipelineRun Succeeded",
@@ -61,11 +56,15 @@
         "type": "grafana-postgresql-datasource",
         "uid": "${datasource}"
       },
+      "description": "Total number of PipelineRuns that failed, averaged per day per concurrency level. A value of 0 means all runs succeeded.",
       "fieldConfig": {
         "defaults": {
           "custom": {
             "drawStyle": "line",
-            "fillOpacity": 0
+            "fillOpacity": 0,
+            "pointSize": 7,
+            "showPoints": "always",
+            "spanNulls": false
           },
           "min": 0,
           "unit": "short"
@@ -75,35 +74,15 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 0
+        "y": 1
       },
-      "id": 2,
+      "id": 3,
       "pluginVersion": "v11.4.0",
       "targets": [
         {
           "format": "time_series",
-          "rawSql": "SELECT\n    EXTRACT(EPOCH FROM start) AS \"time\",\n    (label_values->>' __results_PipelineRuns_count_failed')::DOUBLE PRECISION AS \"value\",\n    '__results_PipelineRuns_count_failed concurrency 12' as \"metric\"\nFROM\n    data\nWHERE\n    horreum_testid = 391\n    AND (label_values->>'__parameters_test_concurrent')::DOUBLE PRECISION = 12\nORDER BY\n    start;\n",
+          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_concurrent')::INTEGER AS concurrency,\n    AVG((label_values->>'__results_PipelineRuns_count_failed')::DOUBLE PRECISION) AS pr_failed\n  FROM data\n  WHERE horreum_testid = 391\n    AND $__timeFilter(start)\n    AND (label_values->>'__parameters_test_concurrent')::INTEGER IN ($concurrency)\n\n    AND (\n  ('$deploy_config' = 'standard' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'ha-deployments' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments' AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'ha-statefulsets' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values->>'__deployment_haConfig_controllerType') = 'statefulSets' AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'qbt' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n  OR ('$deploy_config' = 'ha-qbt-deployments' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments' AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n)\n\n    AND (label_values ? '__deployment_nightly')\nAND (label_values->>'__deployment_nightly')::BOOLEAN = true\n\n    AND label_values ? '__results_PipelineRuns_count_failed'\n  GROUP BY day, concurrency\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'pr_failed @ ' || concurrency AS metric,\n  pr_failed AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
           "refId": "A"
-        },
-        {
-          "format": "time_series",
-          "rawSql": "SELECT\n    EXTRACT(EPOCH FROM start) AS \"time\",\n    (label_values->>' __results_PipelineRuns_count_failed')::DOUBLE PRECISION AS \"value\",\n    '__results_PipelineRuns_count_failed concurrency 14' as \"metric\"\nFROM\n    data\nWHERE\n    horreum_testid = 391\n    AND (label_values->>'__parameters_test_concurrent')::DOUBLE PRECISION = 14\nORDER BY\n    start;\n",
-          "refId": "C"
-        },
-        {
-          "format": "time_series",
-          "rawSql": "SELECT\n    EXTRACT(EPOCH FROM start) AS \"time\",\n    (label_values->>' __results_PipelineRuns_count_failed')::DOUBLE PRECISION AS \"value\",\n    '__results_PipelineRuns_count_failed concurrency 16' as \"metric\"\nFROM\n    data\nWHERE\n    horreum_testid = 391\n    AND (label_values->>'__parameters_test_concurrent')::DOUBLE PRECISION = 16\nORDER BY\n    start;\n",
-          "refId": "E"
-        },
-        {
-          "format": "time_series",
-          "rawSql": "SELECT\n    EXTRACT(EPOCH FROM start) AS \"time\",\n    (label_values->>' __results_PipelineRuns_count_failed')::DOUBLE PRECISION AS \"value\",\n    '__results_PipelineRuns_count_failed concurrency 18' as \"metric\"\nFROM\n    data\nWHERE\n    horreum_testid = 391\n    AND (label_values->>'__parameters_test_concurrent')::DOUBLE PRECISION = 18\nORDER BY\n    start;\n",
-          "refId": "G"
-        },
-        {
-          "format": "time_series",
-          "rawSql": "SELECT\n    EXTRACT(EPOCH FROM start) AS \"time\",\n    (label_values->>' __results_PipelineRuns_count_failed')::DOUBLE PRECISION AS \"value\",\n    '__results_PipelineRuns_count_failed concurrency 20' as \"metric\"\nFROM\n    data\nWHERE\n    horreum_testid = 391\n    AND (label_values->>'__parameters_test_concurrent')::DOUBLE PRECISION = 20\nORDER BY\n    start;\n",
-          "refId": "I"
         }
       ],
       "title": "PipelineRun Failed",
@@ -114,11 +93,15 @@
         "type": "grafana-postgresql-datasource",
         "uid": "${datasource}"
       },
+      "description": "Average wall-clock duration of all PipelineRuns (creationTimestamp to completionTime), per day per concurrency level.",
       "fieldConfig": {
         "defaults": {
           "custom": {
             "drawStyle": "line",
-            "fillOpacity": 0
+            "fillOpacity": 0,
+            "pointSize": 7,
+            "showPoints": "always",
+            "spanNulls": false
           },
           "min": 0,
           "unit": "s"
@@ -128,38 +111,18 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 8
+        "y": 9
       },
-      "id": 3,
+      "id": 4,
       "pluginVersion": "v11.4.0",
       "targets": [
         {
           "format": "time_series",
-          "rawSql": "SELECT\n    EXTRACT(EPOCH FROM start) AS \"time\",\n    (label_values->>'__results_PipelineRuns_duration_avg')::DOUBLE PRECISION AS \"value\",\n    '__results_PipelineRuns_duration_avg concurrency 12' as \"metric\"\nFROM\n    data\nWHERE\n    horreum_testid = 391\n    AND (label_values->>'__parameters_test_concurrent')::DOUBLE PRECISION = 12\nORDER BY\n    start;\n",
+          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_concurrent')::INTEGER AS concurrency,\n    AVG((label_values->>'__results_PipelineRuns_duration_avg')::DOUBLE PRECISION) AS pr_duration\n  FROM data\n  WHERE horreum_testid = 391\n    AND $__timeFilter(start)\n    AND (label_values->>'__parameters_test_concurrent')::INTEGER IN ($concurrency)\n\n    AND (\n  ('$deploy_config' = 'standard' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'ha-deployments' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments' AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'ha-statefulsets' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values->>'__deployment_haConfig_controllerType') = 'statefulSets' AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'qbt' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n  OR ('$deploy_config' = 'ha-qbt-deployments' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments' AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n)\n\n    AND (label_values ? '__deployment_nightly')\nAND (label_values->>'__deployment_nightly')::BOOLEAN = true\n\n    AND label_values ? '__results_PipelineRuns_duration_avg'\n  GROUP BY day, concurrency\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'pr_duration @ ' || concurrency AS metric,\n  pr_duration AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
           "refId": "A"
-        },
-        {
-          "format": "time_series",
-          "rawSql": "SELECT\n    EXTRACT(EPOCH FROM start) AS \"time\",\n    (label_values->>'__results_PipelineRuns_duration_avg')::DOUBLE PRECISION AS \"value\",\n    '__results_PipelineRuns_duration_avg concurrency 14' as \"metric\"\nFROM\n    data\nWHERE\n    horreum_testid = 391\n    AND (label_values->>'__parameters_test_concurrent')::DOUBLE PRECISION = 14\nORDER BY\n    start;\n",
-          "refId": "C"
-        },
-        {
-          "format": "time_series",
-          "rawSql": "SELECT\n    EXTRACT(EPOCH FROM start) AS \"time\",\n    (label_values->>'__results_PipelineRuns_duration_avg')::DOUBLE PRECISION AS \"value\",\n    '__results_PipelineRuns_duration_avg concurrency 16' as \"metric\"\nFROM\n    data\nWHERE\n    horreum_testid = 391\n    AND (label_values->>'__parameters_test_concurrent')::DOUBLE PRECISION = 16\nORDER BY\n    start;\n",
-          "refId": "E"
-        },
-        {
-          "format": "time_series",
-          "rawSql": "SELECT\n    EXTRACT(EPOCH FROM start) AS \"time\",\n    (label_values->>'__results_PipelineRuns_duration_avg')::DOUBLE PRECISION AS \"value\",\n    '__results_PipelineRuns_duration_avg concurrency 18' as \"metric\"\nFROM\n    data\nWHERE\n    horreum_testid = 391\n    AND (label_values->>'__parameters_test_concurrent')::DOUBLE PRECISION = 18\nORDER BY\n    start;\n",
-          "refId": "G"
-        },
-        {
-          "format": "time_series",
-          "rawSql": "SELECT\n    EXTRACT(EPOCH FROM start) AS \"time\",\n    (label_values->>'__results_PipelineRuns_duration_avg')::DOUBLE PRECISION AS \"value\",\n    '__results_PipelineRuns_duration_avg concurrency 20' as \"metric\"\nFROM\n    data\nWHERE\n    horreum_testid = 391\n    AND (label_values->>'__parameters_test_concurrent')::DOUBLE PRECISION = 20\nORDER BY\n    start;\n",
-          "refId": "I"
         }
       ],
-      "title": "PR Mean duration",
+      "title": "PR Mean Duration",
       "type": "timeseries"
     },
     {
@@ -167,11 +130,15 @@
         "type": "grafana-postgresql-datasource",
         "uid": "${datasource}"
       },
+      "description": "Breakdown of successful PipelineRun duration into two phases:\n- **pending**: time from creation to start (waiting for scheduling)\n- **running**: time from start to completion (actual execution)\n\nHigh pending time indicates scheduling pressure; high running time indicates slow task execution.",
       "fieldConfig": {
         "defaults": {
           "custom": {
             "drawStyle": "line",
-            "fillOpacity": 0
+            "fillOpacity": 0,
+            "pointSize": 7,
+            "showPoints": "always",
+            "spanNulls": false
           },
           "min": 0,
           "unit": "s"
@@ -181,30 +148,45 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 8
+        "y": 9
       },
-      "id": 4,
+      "id": 5,
       "pluginVersion": "v11.4.0",
       "targets": [
         {
           "format": "time_series",
-          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_concurrent')::INTEGER AS concurrency,\n    AVG((label_values->>'__results_PipelineRuns_Success_pending_avg')::DOUBLE PRECISION) AS pending,\n    AVG((label_values->>'__results_PipelineRuns_Success_running_avg')::DOUBLE PRECISION) AS running\n  FROM data\n  WHERE horreum_testid = 391\n    AND $__timeFilter(start)\n    AND label_values ? '__parameters_test_concurrent'\n    AND label_values ? '__results_PipelineRuns_Success_pending_avg'\n    AND label_values ? '__results_PipelineRuns_Success_running_avg'\n  GROUP BY day, concurrency\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'pending @ ' || concurrency AS metric,\n  pending AS value\nFROM daily_agg\n\n\nUNION ALL\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'running @ ' || concurrency AS metric,\n  running AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
+          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_concurrent')::INTEGER AS concurrency,\n    AVG((label_values->>'__results_PipelineRuns_Success_pending_avg')::DOUBLE PRECISION) AS pending,\n    AVG((label_values->>'__results_PipelineRuns_Success_running_avg')::DOUBLE PRECISION) AS running\n  FROM data\n  WHERE horreum_testid = 391\n    AND $__timeFilter(start)\n    AND (label_values->>'__parameters_test_concurrent')::INTEGER IN ($concurrency)\n\n    AND (\n  ('$deploy_config' = 'standard' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'ha-deployments' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments' AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'ha-statefulsets' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values->>'__deployment_haConfig_controllerType') = 'statefulSets' AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'qbt' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n  OR ('$deploy_config' = 'ha-qbt-deployments' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments' AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n)\n\n    AND (label_values ? '__deployment_nightly')\nAND (label_values->>'__deployment_nightly')::BOOLEAN = true\n\n    AND label_values ? '__results_PipelineRuns_Success_pending_avg'\n    AND label_values ? '__results_PipelineRuns_Success_running_avg'\n  GROUP BY day, concurrency\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'pending @ ' || concurrency AS metric,\n  pending AS value\nFROM daily_agg\n\n\nUNION ALL\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'running @ ' || concurrency AS metric,\n  running AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
           "refId": "A"
         }
       ],
-      "title": "Succeeded PR  Metrics",
+      "title": "Succeeded PR Metrics (pending / running)",
       "type": "timeseries"
+    },
+    {
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 17
+      },
+      "id": 6,
+      "title": "TaskRun Results",
+      "type": "row"
     },
     {
       "datasource": {
         "type": "grafana-postgresql-datasource",
         "uid": "${datasource}"
       },
+      "description": "Total number of TaskRuns that completed successfully, averaged per day per concurrency level. Each PipelineRun creates multiple TaskRuns.",
       "fieldConfig": {
         "defaults": {
           "custom": {
             "drawStyle": "line",
-            "fillOpacity": 0
+            "fillOpacity": 0,
+            "pointSize": 7,
+            "showPoints": "always",
+            "spanNulls": false
           },
           "min": 0,
           "unit": "short"
@@ -214,35 +196,15 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 16
+        "y": 18
       },
-      "id": 5,
+      "id": 7,
       "pluginVersion": "v11.4.0",
       "targets": [
         {
           "format": "time_series",
-          "rawSql": "SELECT\n    EXTRACT(EPOCH FROM start) AS \"time\",\n    (label_values->>'__results_TaskRuns_count_succeeded')::DOUBLE PRECISION AS \"value\",\n    '__results_TaskRuns_count_succeeded concurrency 12' as \"metric\"\nFROM\n    data\nWHERE\n    horreum_testid = 391\n    AND (label_values->>'__parameters_test_concurrent')::DOUBLE PRECISION = 12\nORDER BY\n    start;\n",
+          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_concurrent')::INTEGER AS concurrency,\n    AVG((label_values->>'__results_TaskRuns_count_succeeded')::DOUBLE PRECISION) AS tr_succeeded\n  FROM data\n  WHERE horreum_testid = 391\n    AND $__timeFilter(start)\n    AND (label_values->>'__parameters_test_concurrent')::INTEGER IN ($concurrency)\n\n    AND (\n  ('$deploy_config' = 'standard' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'ha-deployments' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments' AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'ha-statefulsets' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values->>'__deployment_haConfig_controllerType') = 'statefulSets' AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'qbt' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n  OR ('$deploy_config' = 'ha-qbt-deployments' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments' AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n)\n\n    AND (label_values ? '__deployment_nightly')\nAND (label_values->>'__deployment_nightly')::BOOLEAN = true\n\n    AND label_values ? '__results_TaskRuns_count_succeeded'\n  GROUP BY day, concurrency\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'tr_succeeded @ ' || concurrency AS metric,\n  tr_succeeded AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
           "refId": "A"
-        },
-        {
-          "format": "time_series",
-          "rawSql": "SELECT\n    EXTRACT(EPOCH FROM start) AS \"time\",\n    (label_values->>'__results_TaskRuns_count_succeeded')::DOUBLE PRECISION AS \"value\",\n    '__results_TaskRuns_count_succeeded concurrency 14' as \"metric\"\nFROM\n    data\nWHERE\n    horreum_testid = 391\n    AND (label_values->>'__parameters_test_concurrent')::DOUBLE PRECISION = 14\nORDER BY\n    start;\n",
-          "refId": "C"
-        },
-        {
-          "format": "time_series",
-          "rawSql": "SELECT\n    EXTRACT(EPOCH FROM start) AS \"time\",\n    (label_values->>'__results_TaskRuns_count_succeeded')::DOUBLE PRECISION AS \"value\",\n    '__results_TaskRuns_count_succeeded concurrency 16' as \"metric\"\nFROM\n    data\nWHERE\n    horreum_testid = 391\n    AND (label_values->>'__parameters_test_concurrent')::DOUBLE PRECISION = 16\nORDER BY\n    start;\n",
-          "refId": "E"
-        },
-        {
-          "format": "time_series",
-          "rawSql": "SELECT\n    EXTRACT(EPOCH FROM start) AS \"time\",\n    (label_values->>'__results_TaskRuns_count_succeeded')::DOUBLE PRECISION AS \"value\",\n    '__results_TaskRuns_count_succeeded concurrency 18' as \"metric\"\nFROM\n    data\nWHERE\n    horreum_testid = 391\n    AND (label_values->>'__parameters_test_concurrent')::DOUBLE PRECISION = 18\nORDER BY\n    start;\n",
-          "refId": "G"
-        },
-        {
-          "format": "time_series",
-          "rawSql": "SELECT\n    EXTRACT(EPOCH FROM start) AS \"time\",\n    (label_values->>'__results_TaskRuns_count_succeeded')::DOUBLE PRECISION AS \"value\",\n    '__results_TaskRuns_count_succeeded concurrency 20' as \"metric\"\nFROM\n    data\nWHERE\n    horreum_testid = 391\n    AND (label_values->>'__parameters_test_concurrent')::DOUBLE PRECISION = 20\nORDER BY\n    start;\n",
-          "refId": "I"
         }
       ],
       "title": "TaskRun Succeeded",
@@ -253,11 +215,15 @@
         "type": "grafana-postgresql-datasource",
         "uid": "${datasource}"
       },
+      "description": "Total number of TaskRuns that failed, averaged per day per concurrency level.",
       "fieldConfig": {
         "defaults": {
           "custom": {
             "drawStyle": "line",
-            "fillOpacity": 0
+            "fillOpacity": 0,
+            "pointSize": 7,
+            "showPoints": "always",
+            "spanNulls": false
           },
           "min": 0,
           "unit": "short"
@@ -267,35 +233,15 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 16
+        "y": 18
       },
-      "id": 6,
+      "id": 8,
       "pluginVersion": "v11.4.0",
       "targets": [
         {
           "format": "time_series",
-          "rawSql": "SELECT\n    EXTRACT(EPOCH FROM start) AS \"time\",\n    (label_values->>'__results_TaskRuns_count_failed')::DOUBLE PRECISION AS \"value\",\n    '__results_TaskRuns_count_failed concurrency 12' as \"metric\"\nFROM\n    data\nWHERE\n    horreum_testid = 391\n    AND (label_values->>'__parameters_test_concurrent')::DOUBLE PRECISION = 12\nORDER BY\n    start;\n",
+          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_concurrent')::INTEGER AS concurrency,\n    AVG((label_values->>'__results_TaskRuns_count_failed')::DOUBLE PRECISION) AS tr_failed\n  FROM data\n  WHERE horreum_testid = 391\n    AND $__timeFilter(start)\n    AND (label_values->>'__parameters_test_concurrent')::INTEGER IN ($concurrency)\n\n    AND (\n  ('$deploy_config' = 'standard' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'ha-deployments' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments' AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'ha-statefulsets' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values->>'__deployment_haConfig_controllerType') = 'statefulSets' AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'qbt' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n  OR ('$deploy_config' = 'ha-qbt-deployments' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments' AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n)\n\n    AND (label_values ? '__deployment_nightly')\nAND (label_values->>'__deployment_nightly')::BOOLEAN = true\n\n    AND label_values ? '__results_TaskRuns_count_failed'\n  GROUP BY day, concurrency\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'tr_failed @ ' || concurrency AS metric,\n  tr_failed AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
           "refId": "A"
-        },
-        {
-          "format": "time_series",
-          "rawSql": "SELECT\n    EXTRACT(EPOCH FROM start) AS \"time\",\n    (label_values->>'__results_TaskRuns_count_failed')::DOUBLE PRECISION AS \"value\",\n    '__results_TaskRuns_count_failed concurrency 14' as \"metric\"\nFROM\n    data\nWHERE\n    horreum_testid = 391\n    AND (label_values->>'__parameters_test_concurrent')::DOUBLE PRECISION = 14\nORDER BY\n    start;\n",
-          "refId": "C"
-        },
-        {
-          "format": "time_series",
-          "rawSql": "SELECT\n    EXTRACT(EPOCH FROM start) AS \"time\",\n    (label_values->>'__results_TaskRuns_count_failed')::DOUBLE PRECISION AS \"value\",\n    '__results_TaskRuns_count_failed concurrency 16' as \"metric\"\nFROM\n    data\nWHERE\n    horreum_testid = 391\n    AND (label_values->>'__parameters_test_concurrent')::DOUBLE PRECISION = 16\nORDER BY\n    start;\n",
-          "refId": "E"
-        },
-        {
-          "format": "time_series",
-          "rawSql": "SELECT\n    EXTRACT(EPOCH FROM start) AS \"time\",\n    (label_values->>'__results_TaskRuns_count_failed')::DOUBLE PRECISION AS \"value\",\n    '__results_TaskRuns_count_failed concurrency 18' as \"metric\"\nFROM\n    data\nWHERE\n    horreum_testid = 391\n    AND (label_values->>'__parameters_test_concurrent')::DOUBLE PRECISION = 18\nORDER BY\n    start;\n",
-          "refId": "G"
-        },
-        {
-          "format": "time_series",
-          "rawSql": "SELECT\n    EXTRACT(EPOCH FROM start) AS \"time\",\n    (label_values->>'__results_TaskRuns_count_failed')::DOUBLE PRECISION AS \"value\",\n    '__results_TaskRuns_count_failed concurrency 20' as \"metric\"\nFROM\n    data\nWHERE\n    horreum_testid = 391\n    AND (label_values->>'__parameters_test_concurrent')::DOUBLE PRECISION = 20\nORDER BY\n    start;\n",
-          "refId": "I"
         }
       ],
       "title": "TaskRun Failed",
@@ -306,11 +252,15 @@
         "type": "grafana-postgresql-datasource",
         "uid": "${datasource}"
       },
+      "description": "Average wall-clock duration of successful TaskRuns (creationTimestamp to completionTime), per day per concurrency level.",
       "fieldConfig": {
         "defaults": {
           "custom": {
             "drawStyle": "line",
-            "fillOpacity": 0
+            "fillOpacity": 0,
+            "pointSize": 7,
+            "showPoints": "always",
+            "spanNulls": false
           },
           "min": 0,
           "unit": "s"
@@ -320,38 +270,18 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 24
+        "y": 26
       },
-      "id": 7,
+      "id": 9,
       "pluginVersion": "v11.4.0",
       "targets": [
         {
           "format": "time_series",
-          "rawSql": "SELECT\n    EXTRACT(EPOCH FROM start) AS \"time\",\n    (label_values->>'__results_TaskRuns_duration_avg')::DOUBLE PRECISION AS \"value\",\n    '__results_TaskRuns_duration_avg concurrency 12' as \"metric\"\nFROM\n    data\nWHERE\n    horreum_testid = 391\n    AND (label_values->>'__parameters_test_concurrent')::DOUBLE PRECISION = 12\nORDER BY\n    start;\n",
+          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_concurrent')::INTEGER AS concurrency,\n    AVG((label_values->>'__results_TaskRuns_duration_avg')::DOUBLE PRECISION) AS tr_duration\n  FROM data\n  WHERE horreum_testid = 391\n    AND $__timeFilter(start)\n    AND (label_values->>'__parameters_test_concurrent')::INTEGER IN ($concurrency)\n\n    AND (\n  ('$deploy_config' = 'standard' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'ha-deployments' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments' AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'ha-statefulsets' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values->>'__deployment_haConfig_controllerType') = 'statefulSets' AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'qbt' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n  OR ('$deploy_config' = 'ha-qbt-deployments' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments' AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n)\n\n    AND (label_values ? '__deployment_nightly')\nAND (label_values->>'__deployment_nightly')::BOOLEAN = true\n\n    AND label_values ? '__results_TaskRuns_duration_avg'\n  GROUP BY day, concurrency\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'tr_duration @ ' || concurrency AS metric,\n  tr_duration AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
           "refId": "A"
-        },
-        {
-          "format": "time_series",
-          "rawSql": "SELECT\n    EXTRACT(EPOCH FROM start) AS \"time\",\n    (label_values->>'__results_TaskRuns_duration_avg')::DOUBLE PRECISION AS \"value\",\n    '__results_TaskRuns_duration_avg concurrency 14' as \"metric\"\nFROM\n    data\nWHERE\n    horreum_testid = 391\n    AND (label_values->>'__parameters_test_concurrent')::DOUBLE PRECISION = 14\nORDER BY\n    start;\n",
-          "refId": "C"
-        },
-        {
-          "format": "time_series",
-          "rawSql": "SELECT\n    EXTRACT(EPOCH FROM start) AS \"time\",\n    (label_values->>'__results_TaskRuns_duration_avg')::DOUBLE PRECISION AS \"value\",\n    '__results_TaskRuns_duration_avg concurrency 16' as \"metric\"\nFROM\n    data\nWHERE\n    horreum_testid = 391\n    AND (label_values->>'__parameters_test_concurrent')::DOUBLE PRECISION = 16\nORDER BY\n    start;\n",
-          "refId": "E"
-        },
-        {
-          "format": "time_series",
-          "rawSql": "SELECT\n    EXTRACT(EPOCH FROM start) AS \"time\",\n    (label_values->>'__results_TaskRuns_duration_avg')::DOUBLE PRECISION AS \"value\",\n    '__results_TaskRuns_duration_avg concurrency 18' as \"metric\"\nFROM\n    data\nWHERE\n    horreum_testid = 391\n    AND (label_values->>'__parameters_test_concurrent')::DOUBLE PRECISION = 18\nORDER BY\n    start;\n",
-          "refId": "G"
-        },
-        {
-          "format": "time_series",
-          "rawSql": "SELECT\n    EXTRACT(EPOCH FROM start) AS \"time\",\n    (label_values->>'__results_TaskRuns_duration_avg')::DOUBLE PRECISION AS \"value\",\n    '__results_TaskRuns_duration_avg concurrency 20' as \"metric\"\nFROM\n    data\nWHERE\n    horreum_testid = 391\n    AND (label_values->>'__parameters_test_concurrent')::DOUBLE PRECISION = 20\nORDER BY\n    start;\n",
-          "refId": "I"
         }
       ],
-      "title": "TR Mean Success duration",
+      "title": "TR Mean Success Duration",
       "type": "timeseries"
     },
     {
@@ -359,11 +289,15 @@
         "type": "grafana-postgresql-datasource",
         "uid": "${datasource}"
       },
+      "description": "Breakdown of successful TaskRun duration into two phases:\n- **pending**: time from creation to start (waiting for Pod scheduling)\n- **running**: time from start to completion (actual container execution)\n\nHigh pending time indicates Pod scheduling delays or resource pressure.",
       "fieldConfig": {
         "defaults": {
           "custom": {
             "drawStyle": "line",
-            "fillOpacity": 0
+            "fillOpacity": 0,
+            "pointSize": 7,
+            "showPoints": "always",
+            "spanNulls": false
           },
           "min": 0,
           "unit": "s"
@@ -373,50 +307,45 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 24
+        "y": 26
       },
-      "id": 8,
+      "id": 10,
       "pluginVersion": "v11.4.0",
       "targets": [
         {
           "format": "time_series",
-          "rawSql": "SELECT\n    EXTRACT(EPOCH FROM start) AS \"time\",\n    (label_values->>'__results_TaskRuns_duration_avg')::DOUBLE PRECISION AS \"value\",\n    '__results_TaskRuns_duration_avg concurrency 12' as \"metric\"\nFROM\n    data\nWHERE\n    horreum_testid = 391\n    AND (label_values->>'__parameters_test_concurrent')::DOUBLE PRECISION = 12\nORDER BY\n    start;\n",
+          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_concurrent')::INTEGER AS concurrency,\n    AVG((label_values->>'__results_TaskRuns_Success_pending_avg')::DOUBLE PRECISION) AS pending,\n    AVG((label_values->>'__results_TaskRuns_Success_running_avg')::DOUBLE PRECISION) AS running\n  FROM data\n  WHERE horreum_testid = 391\n    AND $__timeFilter(start)\n    AND (label_values->>'__parameters_test_concurrent')::INTEGER IN ($concurrency)\n\n    AND (\n  ('$deploy_config' = 'standard' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'ha-deployments' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments' AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'ha-statefulsets' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values->>'__deployment_haConfig_controllerType') = 'statefulSets' AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'qbt' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n  OR ('$deploy_config' = 'ha-qbt-deployments' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments' AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n)\n\n    AND (label_values ? '__deployment_nightly')\nAND (label_values->>'__deployment_nightly')::BOOLEAN = true\n\n    AND label_values ? '__results_TaskRuns_Success_pending_avg'\n    AND label_values ? '__results_TaskRuns_Success_running_avg'\n  GROUP BY day, concurrency\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'pending @ ' || concurrency AS metric,\n  pending AS value\nFROM daily_agg\n\n\nUNION ALL\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'running @ ' || concurrency AS metric,\n  running AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
           "refId": "A"
-        },
-        {
-          "format": "time_series",
-          "rawSql": "SELECT\n    EXTRACT(EPOCH FROM start) AS \"time\",\n    (label_values->>'__results_TaskRuns_duration_avg')::DOUBLE PRECISION AS \"value\",\n    '__results_TaskRuns_duration_avg concurrency 14' as \"metric\"\nFROM\n    data\nWHERE\n    horreum_testid = 391\n    AND (label_values->>'__parameters_test_concurrent')::DOUBLE PRECISION = 14\nORDER BY\n    start;\n",
-          "refId": "C"
-        },
-        {
-          "format": "time_series",
-          "rawSql": "SELECT\n    EXTRACT(EPOCH FROM start) AS \"time\",\n    (label_values->>'__results_TaskRuns_duration_avg')::DOUBLE PRECISION AS \"value\",\n    '__results_TaskRuns_duration_avg concurrency 16' as \"metric\"\nFROM\n    data\nWHERE\n    horreum_testid = 391\n    AND (label_values->>'__parameters_test_concurrent')::DOUBLE PRECISION = 16\nORDER BY\n    start;\n",
-          "refId": "E"
-        },
-        {
-          "format": "time_series",
-          "rawSql": "SELECT\n    EXTRACT(EPOCH FROM start) AS \"time\",\n    (label_values->>'__results_TaskRuns_duration_avg')::DOUBLE PRECISION AS \"value\",\n    '__results_TaskRuns_duration_avg concurrency 18' as \"metric\"\nFROM\n    data\nWHERE\n    horreum_testid = 391\n    AND (label_values->>'__parameters_test_concurrent')::DOUBLE PRECISION = 18\nORDER BY\n    start;\n",
-          "refId": "G"
-        },
-        {
-          "format": "time_series",
-          "rawSql": "SELECT\n    EXTRACT(EPOCH FROM start) AS \"time\",\n    (label_values->>'__results_TaskRuns_duration_avg')::DOUBLE PRECISION AS \"value\",\n    '__results_TaskRuns_duration_avg concurrency 20' as \"metric\"\nFROM\n    data\nWHERE\n    horreum_testid = 391\n    AND (label_values->>'__parameters_test_concurrent')::DOUBLE PRECISION = 20\nORDER BY\n    start;\n",
-          "refId": "I"
         }
       ],
-      "title": "Succeeded TR  Metrics",
+      "title": "Succeeded TR Metrics (pending / running)",
       "type": "timeseries"
+    },
+    {
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 34
+      },
+      "id": 11,
+      "title": "Controller Metrics",
+      "type": "row"
     },
     {
       "datasource": {
         "type": "grafana-postgresql-datasource",
         "uid": "${datasource}"
       },
+      "description": "Mean time between TaskRun creation and its corresponding Pod creation. Measures how long the Tekton controller takes to reconcile a TaskRun and create the Pod. High values indicate controller backlog.",
       "fieldConfig": {
         "defaults": {
           "custom": {
             "drawStyle": "line",
-            "fillOpacity": 0
+            "fillOpacity": 0,
+            "pointSize": 7,
+            "showPoints": "always",
+            "spanNulls": false
           },
           "min": 0,
           "unit": "s"
@@ -426,14 +355,14 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 32
+        "y": 35
       },
-      "id": 9,
+      "id": 12,
       "pluginVersion": "v11.4.0",
       "targets": [
         {
           "format": "time_series",
-          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_concurrent')::INTEGER AS concurrency,\n    AVG((label_values->>'__results_TaskRunsToPods_creationTimestampDiff_mean')::DOUBLE PRECISION) AS PodCreationTimeStamp\n  FROM data\n  WHERE horreum_testid = 391\n    AND $__timeFilter(start)\n    AND label_values ? '__parameters_test_concurrent'\n    AND label_values ? '__results_TaskRunsToPods_creationTimestampDiff_mean'\n  GROUP BY day, concurrency\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'PodCreationTimeStamp @ ' || concurrency AS metric,\n  PodCreationTimeStamp AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
+          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_concurrent')::INTEGER AS concurrency,\n    AVG((label_values->>'__results_TaskRunsToPods_creationTimestampDiff_mean')::DOUBLE PRECISION) AS pod_creation_lag\n  FROM data\n  WHERE horreum_testid = 391\n    AND $__timeFilter(start)\n    AND (label_values->>'__parameters_test_concurrent')::INTEGER IN ($concurrency)\n\n    AND (\n  ('$deploy_config' = 'standard' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'ha-deployments' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments' AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'ha-statefulsets' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values->>'__deployment_haConfig_controllerType') = 'statefulSets' AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'qbt' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n  OR ('$deploy_config' = 'ha-qbt-deployments' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments' AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n)\n\n    AND (label_values ? '__deployment_nightly')\nAND (label_values->>'__deployment_nightly')::BOOLEAN = true\n\n    AND label_values ? '__results_TaskRunsToPods_creationTimestampDiff_mean'\n  GROUP BY day, concurrency\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'pod_creation_lag @ ' || concurrency AS metric,\n  pod_creation_lag AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
           "refId": "A"
         }
       ],
@@ -445,77 +374,15 @@
         "type": "grafana-postgresql-datasource",
         "uid": "${datasource}"
       },
+      "description": "Mean CPU usage of Tekton Pipelines components during the test run, in CPU cores (e.g. 0.06 = 60 millicores).\n- **controller_cpu**: main reconciliation controller\n- **webhook_cpu**: admission webhook\n- **proxy_webhook_cpu**: operator proxy webhook",
       "fieldConfig": {
         "defaults": {
           "custom": {
             "drawStyle": "line",
-            "fillOpacity": 0
-          },
-          "min": 0,
-          "unit": "percent"
-        }
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 32
-      },
-      "id": 10,
-      "pluginVersion": "v11.4.0",
-      "targets": [
-        {
-          "format": "time_series",
-          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_concurrent')::INTEGER AS concurrency,\n    AVG((label_values->>'__measurements_tektonPipelinesController_cpu_mean')::DOUBLE PRECISION) AS pipeline_controller_cpu,\n    AVG((label_values->>'__measurements_tektonOperatorProxyWebhook_cpu_mean')::DOUBLE PRECISION) AS pipeline_proxy_webhook_cpu,\n    AVG((label_values->>'__measurements_tektonPipelinesWebhook_cpu_mean')::DOUBLE PRECISION) AS pipeline_webhook_cpu\n  FROM data\n  WHERE horreum_testid = 391\n    AND $__timeFilter(start)\n    AND label_values ? '__parameters_test_concurrent'\n    AND label_values ? '__measurements_tektonPipelinesController_cpu_mean'\n    AND label_values ? '__measurements_tektonOperatorProxyWebhook_cpu_mean'\n    AND label_values ? '__measurements_tektonPipelinesWebhook_cpu_mean'\n  GROUP BY day, concurrency\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'pipeline_controller_cpu @ ' || concurrency AS metric,\n  pipeline_controller_cpu AS value\nFROM daily_agg\n\n\nUNION ALL\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'pipeline_proxy_webhook_cpu @ ' || concurrency AS metric,\n  pipeline_proxy_webhook_cpu AS value\nFROM daily_agg\n\n\nUNION ALL\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'pipeline_webhook_cpu @ ' || concurrency AS metric,\n  pipeline_webhook_cpu AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
-          "refId": "A"
-        }
-      ],
-      "title": "Controllers CPU usage (Mean)",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "grafana-postgresql-datasource",
-        "uid": "${datasource}"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "custom": {
-            "drawStyle": "line",
-            "fillOpacity": 0
-          },
-          "min": 0,
-          "unit": "bytes"
-        }
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 40
-      },
-      "id": 11,
-      "pluginVersion": "v11.4.0",
-      "targets": [
-        {
-          "format": "time_series",
-          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_concurrent')::INTEGER AS concurrency,\n    AVG((label_values->>'__measurements_tektonPipelinesController_memory_mean')::DOUBLE PRECISION) / 1048576 AS pipeline_controller_mem,\n    AVG((label_values->>'__measurements_tektonOperatorProxyWebhook_memory_mean')::DOUBLE PRECISION) / 1048576 AS pipeline_proxy_webhook_mem,\n    AVG((label_values->>'__measurements_tektonPipelinesWebhook_memory_mean')::DOUBLE PRECISION) / 1048576 AS pipeline_webhook_mem\n  FROM data\n  WHERE horreum_testid = 391\n    AND $__timeFilter(start)\n    AND label_values ? '__parameters_test_concurrent'\n    AND label_values ? '__measurements_tektonPipelinesController_memory_mean'\n    AND label_values ? '__measurements_tektonOperatorProxyWebhook_memory_mean'\n    AND label_values ? '__measurements_tektonPipelinesWebhook_memory_mean'\n  GROUP BY day, concurrency\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'pipeline_controller_mem @ ' || concurrency AS metric,\n  pipeline_controller_mem AS value\nFROM daily_agg\n\n\nUNION ALL\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'pipeline_proxy_webhook_mem @ ' || concurrency AS metric,\n  pipeline_proxy_webhook_mem AS value\nFROM daily_agg\n\n\nUNION ALL\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'pipeline_webhook_mem @ ' || concurrency AS metric,\n  pipeline_webhook_mem AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
-          "refId": "A"
-        }
-      ],
-      "title": "Controllers Memory usage (Mean)",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "grafana-postgresql-datasource",
-        "uid": "${datasource}"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "custom": {
-            "drawStyle": "line",
-            "fillOpacity": 0
+            "fillOpacity": 0,
+            "pointSize": 7,
+            "showPoints": "always",
+            "spanNulls": false
           },
           "min": 0,
           "unit": "short"
@@ -525,14 +392,88 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 40
+        "y": 35
       },
-      "id": 12,
+      "id": 13,
       "pluginVersion": "v11.4.0",
       "targets": [
         {
           "format": "time_series",
-          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_concurrent')::INTEGER AS concurrency,\n    AVG((label_values->>'__measurements_tektonTektonPipelinesControllerWorkqueueDepth_mean')::DOUBLE PRECISION) AS WorkqueueDepth_mean\n  FROM data\n  WHERE horreum_testid = 391\n    AND $__timeFilter(start)\n    AND label_values ? '__parameters_test_concurrent'\n    AND label_values ? '__measurements_tektonTektonPipelinesControllerWorkqueueDepth_mean'\n  GROUP BY day, concurrency\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'WorkqueueDepth_mean @ ' || concurrency AS metric,\n  WorkqueueDepth_mean AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
+          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_concurrent')::INTEGER AS concurrency,\n    AVG((label_values->>'__measurements_tektonPipelinesController_cpu_mean')::DOUBLE PRECISION) AS controller_cpu,\n    AVG((label_values->>'__measurements_tektonOperatorProxyWebhook_cpu_mean')::DOUBLE PRECISION) AS proxy_webhook_cpu,\n    AVG((label_values->>'__measurements_tektonPipelinesWebhook_cpu_mean')::DOUBLE PRECISION) AS webhook_cpu\n  FROM data\n  WHERE horreum_testid = 391\n    AND $__timeFilter(start)\n    AND (label_values->>'__parameters_test_concurrent')::INTEGER IN ($concurrency)\n\n    AND (\n  ('$deploy_config' = 'standard' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'ha-deployments' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments' AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'ha-statefulsets' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values->>'__deployment_haConfig_controllerType') = 'statefulSets' AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'qbt' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n  OR ('$deploy_config' = 'ha-qbt-deployments' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments' AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n)\n\n    AND (label_values ? '__deployment_nightly')\nAND (label_values->>'__deployment_nightly')::BOOLEAN = true\n\n    AND label_values ? '__measurements_tektonPipelinesController_cpu_mean'\n    AND label_values ? '__measurements_tektonOperatorProxyWebhook_cpu_mean'\n    AND label_values ? '__measurements_tektonPipelinesWebhook_cpu_mean'\n  GROUP BY day, concurrency\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'controller_cpu @ ' || concurrency AS metric,\n  controller_cpu AS value\nFROM daily_agg\n\n\nUNION ALL\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'proxy_webhook_cpu @ ' || concurrency AS metric,\n  proxy_webhook_cpu AS value\nFROM daily_agg\n\n\nUNION ALL\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'webhook_cpu @ ' || concurrency AS metric,\n  webhook_cpu AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
+          "refId": "A"
+        }
+      ],
+      "title": "Controllers CPU Usage (Mean)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "Mean memory (RSS) usage of Tekton Pipelines components during the test run.\n- **controller_mem**: main reconciliation controller\n- **webhook_mem**: admission webhook\n- **proxy_webhook_mem**: operator proxy webhook",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "pointSize": 7,
+            "showPoints": "always",
+            "spanNulls": false
+          },
+          "min": 0,
+          "unit": "bytes"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 43
+      },
+      "id": 14,
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "time_series",
+          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_concurrent')::INTEGER AS concurrency,\n    AVG((label_values->>'__measurements_tektonPipelinesController_memory_mean')::DOUBLE PRECISION) AS controller_mem,\n    AVG((label_values->>'__measurements_tektonOperatorProxyWebhook_memory_mean')::DOUBLE PRECISION) AS proxy_webhook_mem,\n    AVG((label_values->>'__measurements_tektonPipelinesWebhook_memory_mean')::DOUBLE PRECISION) AS webhook_mem\n  FROM data\n  WHERE horreum_testid = 391\n    AND $__timeFilter(start)\n    AND (label_values->>'__parameters_test_concurrent')::INTEGER IN ($concurrency)\n\n    AND (\n  ('$deploy_config' = 'standard' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'ha-deployments' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments' AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'ha-statefulsets' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values->>'__deployment_haConfig_controllerType') = 'statefulSets' AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'qbt' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n  OR ('$deploy_config' = 'ha-qbt-deployments' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments' AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n)\n\n    AND (label_values ? '__deployment_nightly')\nAND (label_values->>'__deployment_nightly')::BOOLEAN = true\n\n    AND label_values ? '__measurements_tektonPipelinesController_memory_mean'\n    AND label_values ? '__measurements_tektonOperatorProxyWebhook_memory_mean'\n    AND label_values ? '__measurements_tektonPipelinesWebhook_memory_mean'\n  GROUP BY day, concurrency\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'controller_mem @ ' || concurrency AS metric,\n  controller_mem AS value\nFROM daily_agg\n\n\nUNION ALL\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'proxy_webhook_mem @ ' || concurrency AS metric,\n  proxy_webhook_mem AS value\nFROM daily_agg\n\n\nUNION ALL\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'webhook_mem @ ' || concurrency AS metric,\n  webhook_mem AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
+          "refId": "A"
+        }
+      ],
+      "title": "Controllers Memory Usage (Mean)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "Mean depth of the Tekton Pipelines controller workqueue during the test. A growing workqueue indicates the controller cannot reconcile objects fast enough. Consistently high values suggest the controller is a bottleneck.\n\nNote: Nightly builds using Tekton >= v1.10 report this as kn_workqueue_depth (OpenTelemetry).",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "pointSize": 7,
+            "showPoints": "always",
+            "spanNulls": false
+          },
+          "min": 0,
+          "unit": "short"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 43
+      },
+      "id": 15,
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "time_series",
+          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_concurrent')::INTEGER AS concurrency,\n    AVG((label_values->>'__measurements_tektonTektonPipelinesControllerWorkqueueDepth_mean')::DOUBLE PRECISION) AS workqueue_depth\n  FROM data\n  WHERE horreum_testid = 391\n    AND $__timeFilter(start)\n    AND (label_values->>'__parameters_test_concurrent')::INTEGER IN ($concurrency)\n\n    AND (\n  ('$deploy_config' = 'standard' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'ha-deployments' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments' AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'ha-statefulsets' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values->>'__deployment_haConfig_controllerType') = 'statefulSets' AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'qbt' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n  OR ('$deploy_config' = 'ha-qbt-deployments' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments' AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n)\n\n    AND (label_values ? '__deployment_nightly')\nAND (label_values->>'__deployment_nightly')::BOOLEAN = true\n\n    AND label_values ? '__measurements_tektonTektonPipelinesControllerWorkqueueDepth_mean'\n  GROUP BY day, concurrency\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'workqueue_depth @ ' || concurrency AS metric,\n  workqueue_depth AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
           "refId": "A"
         }
       ],
@@ -544,11 +485,15 @@
         "type": "grafana-postgresql-datasource",
         "uid": "${datasource}"
       },
+      "description": "Mean HTTP client latency (p50) of the Tekton Pipelines controller when communicating with the Kubernetes API server. High latency indicates API server pressure or network issues.\n\nNote: Nightly builds using Tekton >= v1.10 report this as http_client_request_duration_seconds (OpenTelemetry).",
       "fieldConfig": {
         "defaults": {
           "custom": {
             "drawStyle": "line",
-            "fillOpacity": 0
+            "fillOpacity": 0,
+            "pointSize": 7,
+            "showPoints": "always",
+            "spanNulls": false
           },
           "min": 0,
           "unit": "s"
@@ -558,14 +503,14 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 48
+        "y": 51
       },
-      "id": 13,
+      "id": 16,
       "pluginVersion": "v11.4.0",
       "targets": [
         {
           "format": "time_series",
-          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_concurrent')::INTEGER AS concurrency,\n    AVG((label_values->>'__measurements_tektonPipelinesControllerClientLatencyAverage_mean')::DOUBLE PRECISION) AS ClientLatencyAverage\n  FROM data\n  WHERE horreum_testid = 391\n    AND $__timeFilter(start)\n    AND label_values ? '__parameters_test_concurrent'\n    AND label_values ? '__measurements_tektonPipelinesControllerClientLatencyAverage_mean'\n  GROUP BY day, concurrency\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'ClientLatencyAverage @ ' || concurrency AS metric,\n  ClientLatencyAverage AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
+          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_concurrent')::INTEGER AS concurrency,\n    AVG((label_values->>'__measurements_tektonPipelinesControllerClientLatencyAverage_mean')::DOUBLE PRECISION) AS client_latency\n  FROM data\n  WHERE horreum_testid = 391\n    AND $__timeFilter(start)\n    AND (label_values->>'__parameters_test_concurrent')::INTEGER IN ($concurrency)\n\n    AND (\n  ('$deploy_config' = 'standard' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'ha-deployments' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments' AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'ha-statefulsets' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values->>'__deployment_haConfig_controllerType') = 'statefulSets' AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'qbt' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n  OR ('$deploy_config' = 'ha-qbt-deployments' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments' AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n)\n\n    AND (label_values ? '__deployment_nightly')\nAND (label_values->>'__deployment_nightly')::BOOLEAN = true\n\n    AND label_values ? '__measurements_tektonPipelinesControllerClientLatencyAverage_mean'\n  GROUP BY day, concurrency\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'client_latency @ ' || concurrency AS metric,\n  client_latency AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
           "refId": "A"
         }
       ],
@@ -573,32 +518,47 @@
       "type": "timeseries"
     },
     {
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 59
+      },
+      "id": 17,
+      "title": "Cluster & API Server Metrics",
+      "type": "row"
+    },
+    {
       "datasource": {
         "type": "grafana-postgresql-datasource",
         "uid": "${datasource}"
       },
+      "description": "Mean total CPU usage rate across all cluster nodes during the test run, in CPU cores (e.g. 6.5 = 6.5 cores used across the cluster).",
       "fieldConfig": {
         "defaults": {
           "custom": {
             "drawStyle": "line",
-            "fillOpacity": 0
+            "fillOpacity": 0,
+            "pointSize": 7,
+            "showPoints": "always",
+            "spanNulls": false
           },
           "min": 0,
-          "unit": "percent"
+          "unit": "short"
         }
       },
       "gridPos": {
         "h": 8,
         "w": 12,
-        "x": 12,
-        "y": 48
+        "x": 0,
+        "y": 60
       },
-      "id": 14,
+      "id": 18,
       "pluginVersion": "v11.4.0",
       "targets": [
         {
           "format": "time_series",
-          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_concurrent')::INTEGER AS concurrency,\n    AVG((label_values->>'__measurements_clusterCpuUsageSecondsTotalRate_mean')::DOUBLE PRECISION) AS ClusterCpuUsage\n  FROM data\n  WHERE horreum_testid = 391\n    AND $__timeFilter(start)\n    AND label_values ? '__parameters_test_concurrent'\n    AND label_values ? '__measurements_clusterCpuUsageSecondsTotalRate_mean'\n  GROUP BY day, concurrency\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'ClusterCpuUsage @ ' || concurrency AS metric,\n  ClusterCpuUsage AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
+          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_concurrent')::INTEGER AS concurrency,\n    AVG((label_values->>'__measurements_clusterCpuUsageSecondsTotalRate_mean')::DOUBLE PRECISION) AS cluster_cpu\n  FROM data\n  WHERE horreum_testid = 391\n    AND $__timeFilter(start)\n    AND (label_values->>'__parameters_test_concurrent')::INTEGER IN ($concurrency)\n\n    AND (\n  ('$deploy_config' = 'standard' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'ha-deployments' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments' AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'ha-statefulsets' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values->>'__deployment_haConfig_controllerType') = 'statefulSets' AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'qbt' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n  OR ('$deploy_config' = 'ha-qbt-deployments' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments' AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n)\n\n    AND (label_values ? '__deployment_nightly')\nAND (label_values->>'__deployment_nightly')::BOOLEAN = true\n\n    AND label_values ? '__measurements_clusterCpuUsageSecondsTotalRate_mean'\n  GROUP BY day, concurrency\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'cluster_cpu @ ' || concurrency AS metric,\n  cluster_cpu AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
           "refId": "A"
         }
       ],
@@ -610,11 +570,15 @@
         "type": "grafana-postgresql-datasource",
         "uid": "${datasource}"
       },
+      "description": "Mean total RSS memory usage across all cluster nodes during the test run.",
       "fieldConfig": {
         "defaults": {
           "custom": {
             "drawStyle": "line",
-            "fillOpacity": 0
+            "fillOpacity": 0,
+            "pointSize": 7,
+            "showPoints": "always",
+            "spanNulls": false
           },
           "min": 0,
           "unit": "bytes"
@@ -623,15 +587,15 @@
       "gridPos": {
         "h": 8,
         "w": 12,
-        "x": 0,
-        "y": 56
+        "x": 12,
+        "y": 60
       },
-      "id": 15,
+      "id": 19,
       "pluginVersion": "v11.4.0",
       "targets": [
         {
           "format": "time_series",
-          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_concurrent')::INTEGER AS concurrency,\n    AVG((label_values->>'__measurements_clusterMemoryUsageRssTotal_mean')::DOUBLE PRECISION) / 1073741824 AS ClusterMemUsage\n  FROM data\n  WHERE horreum_testid = 391\n    AND $__timeFilter(start)\n    AND label_values ? '__parameters_test_concurrent'\n    AND label_values ? '__measurements_clusterMemoryUsageRssTotal_mean'\n  GROUP BY day, concurrency\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'ClusterMemUsage @ ' || concurrency AS metric,\n  ClusterMemUsage AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
+          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_concurrent')::INTEGER AS concurrency,\n    AVG((label_values->>'__measurements_clusterMemoryUsageRssTotal_mean')::DOUBLE PRECISION) AS cluster_mem\n  FROM data\n  WHERE horreum_testid = 391\n    AND $__timeFilter(start)\n    AND (label_values->>'__parameters_test_concurrent')::INTEGER IN ($concurrency)\n\n    AND (\n  ('$deploy_config' = 'standard' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'ha-deployments' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments' AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'ha-statefulsets' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values->>'__deployment_haConfig_controllerType') = 'statefulSets' AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'qbt' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n  OR ('$deploy_config' = 'ha-qbt-deployments' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments' AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n)\n\n    AND (label_values ? '__deployment_nightly')\nAND (label_values->>'__deployment_nightly')::BOOLEAN = true\n\n    AND label_values ? '__measurements_clusterMemoryUsageRssTotal_mean'\n  GROUP BY day, concurrency\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'cluster_mem @ ' || concurrency AS metric,\n  cluster_mem AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
           "refId": "A"
         }
       ],
@@ -643,32 +607,36 @@
         "type": "grafana-postgresql-datasource",
         "uid": "${datasource}"
       },
+      "description": "Mean CPU usage of the OpenShift API server and Kubernetes API server during the test run, in CPU cores. High values may indicate excessive API calls from the Tekton controller or other components.",
       "fieldConfig": {
         "defaults": {
           "custom": {
             "drawStyle": "line",
-            "fillOpacity": 0
+            "fillOpacity": 0,
+            "pointSize": 7,
+            "showPoints": "always",
+            "spanNulls": false
           },
           "min": 0,
-          "unit": "percent"
+          "unit": "short"
         }
       },
       "gridPos": {
         "h": 8,
         "w": 12,
-        "x": 12,
-        "y": 56
+        "x": 0,
+        "y": 68
       },
-      "id": 16,
+      "id": 20,
       "pluginVersion": "v11.4.0",
       "targets": [
         {
           "format": "time_series",
-          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_concurrent')::INTEGER AS concurrency,\n    AVG((label_values->>'__measurements_apiserver_cpu_mean')::DOUBLE PRECISION) / 1073741824 AS api_server_cpu,\n    AVG((label_values->>'__measurements_kubeApiserver_cpu_mean')::DOUBLE PRECISION) / 1073741824 AS kube_api_server_cpu\n  FROM data\n  WHERE horreum_testid = 391\n    AND $__timeFilter(start)\n    AND label_values ? '__parameters_test_concurrent'\n    AND label_values ? '__measurements_apiserver_cpu_mean'\n    AND label_values ? '__measurements_kubeApiserver_cpu_mean'\n  GROUP BY day, concurrency\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'api_server_cpu @ ' || concurrency AS metric,\n  api_server_cpu AS value\nFROM daily_agg\n\n\nUNION ALL\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'kube_api_server_cpu @ ' || concurrency AS metric,\n  kube_api_server_cpu AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
+          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_concurrent')::INTEGER AS concurrency,\n    AVG((label_values->>'__measurements_apiserver_cpu_mean')::DOUBLE PRECISION) AS apiserver_cpu,\n    AVG((label_values->>'__measurements_kubeApiserver_cpu_mean')::DOUBLE PRECISION) AS kube_apiserver_cpu\n  FROM data\n  WHERE horreum_testid = 391\n    AND $__timeFilter(start)\n    AND (label_values->>'__parameters_test_concurrent')::INTEGER IN ($concurrency)\n\n    AND (\n  ('$deploy_config' = 'standard' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'ha-deployments' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments' AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'ha-statefulsets' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values->>'__deployment_haConfig_controllerType') = 'statefulSets' AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'qbt' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n  OR ('$deploy_config' = 'ha-qbt-deployments' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments' AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n)\n\n    AND (label_values ? '__deployment_nightly')\nAND (label_values->>'__deployment_nightly')::BOOLEAN = true\n\n    AND label_values ? '__measurements_apiserver_cpu_mean'\n    AND label_values ? '__measurements_kubeApiserver_cpu_mean'\n  GROUP BY day, concurrency\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'apiserver_cpu @ ' || concurrency AS metric,\n  apiserver_cpu AS value\nFROM daily_agg\n\n\nUNION ALL\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'kube_apiserver_cpu @ ' || concurrency AS metric,\n  kube_apiserver_cpu AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
           "refId": "A"
         }
       ],
-      "title": "OpenShift and Kube apiserver CPU Usage (Mean)",
+      "title": "OpenShift and Kube API Server CPU Usage (Mean)",
       "type": "timeseries"
     },
     {
@@ -676,11 +644,15 @@
         "type": "grafana-postgresql-datasource",
         "uid": "${datasource}"
       },
+      "description": "Mean memory usage of the OpenShift API server and Kubernetes API server during the test run.",
       "fieldConfig": {
         "defaults": {
           "custom": {
             "drawStyle": "line",
-            "fillOpacity": 0
+            "fillOpacity": 0,
+            "pointSize": 7,
+            "showPoints": "always",
+            "spanNulls": false
           },
           "min": 0,
           "unit": "bytes"
@@ -688,20 +660,179 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 24,
-        "x": 0,
-        "y": 64
+        "w": 12,
+        "x": 12,
+        "y": 68
       },
-      "id": 17,
+      "id": 21,
       "pluginVersion": "v11.4.0",
       "targets": [
         {
           "format": "time_series",
-          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_concurrent')::INTEGER AS concurrency,\n    AVG((label_values->>'__measurements_apiserver_memory_mean')::DOUBLE PRECISION) / 1073741824 AS api_server_mem,\n    AVG((label_values->>'__measurements_kubeApiserver_memory_mean')::DOUBLE PRECISION) / 1073741824 AS kube_api_server_mem\n  FROM data\n  WHERE horreum_testid = 391\n    AND $__timeFilter(start)\n    AND label_values ? '__parameters_test_concurrent'\n    AND label_values ? '__measurements_apiserver_memory_mean'\n    AND label_values ? '__measurements_kubeApiserver_memory_mean'\n  GROUP BY day, concurrency\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'api_server_mem @ ' || concurrency AS metric,\n  api_server_mem AS value\nFROM daily_agg\n\n\nUNION ALL\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'kube_api_server_mem @ ' || concurrency AS metric,\n  kube_api_server_mem AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
+          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_concurrent')::INTEGER AS concurrency,\n    AVG((label_values->>'__measurements_apiserver_memory_mean')::DOUBLE PRECISION) AS apiserver_mem,\n    AVG((label_values->>'__measurements_kubeApiserver_memory_mean')::DOUBLE PRECISION) AS kube_apiserver_mem\n  FROM data\n  WHERE horreum_testid = 391\n    AND $__timeFilter(start)\n    AND (label_values->>'__parameters_test_concurrent')::INTEGER IN ($concurrency)\n\n    AND (\n  ('$deploy_config' = 'standard' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'ha-deployments' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments' AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'ha-statefulsets' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values->>'__deployment_haConfig_controllerType') = 'statefulSets' AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'qbt' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n  OR ('$deploy_config' = 'ha-qbt-deployments' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments' AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n)\n\n    AND (label_values ? '__deployment_nightly')\nAND (label_values->>'__deployment_nightly')::BOOLEAN = true\n\n    AND label_values ? '__measurements_apiserver_memory_mean'\n    AND label_values ? '__measurements_kubeApiserver_memory_mean'\n  GROUP BY day, concurrency\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'apiserver_mem @ ' || concurrency AS metric,\n  apiserver_mem AS value\nFROM daily_agg\n\n\nUNION ALL\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'kube_apiserver_mem @ ' || concurrency AS metric,\n  kube_apiserver_mem AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
           "refId": "A"
         }
       ],
-      "title": "OpenShift and Kube apiserver Memory Usage (Mean)",
+      "title": "OpenShift and Kube API Server Memory Usage (Mean)",
+      "type": "timeseries"
+    },
+    {
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 76
+      },
+      "id": 22,
+      "title": "etcd Metrics",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "Mean etcd MVCC database size during the test run.\n- **db_total**: total allocated DB size on disk\n- **db_in_use**: portion of the DB actively in use\n\nA large gap between total and in-use may indicate fragmentation or the need for defragmentation.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "pointSize": 7,
+            "showPoints": "always",
+            "spanNulls": false
+          },
+          "min": 0,
+          "unit": "bytes"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 77
+      },
+      "id": 23,
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "time_series",
+          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_concurrent')::INTEGER AS concurrency,\n    AVG((label_values->>'__measurements_etcdMvccDbTotalSizeInUseInBytesAverage_mean')::DOUBLE PRECISION) AS db_in_use,\n    AVG((label_values->>'__measurements_etcdMvccDbTotalSizeInBytesAverage_mean')::DOUBLE PRECISION) AS db_total\n  FROM data\n  WHERE horreum_testid = 391\n    AND $__timeFilter(start)\n    AND (label_values->>'__parameters_test_concurrent')::INTEGER IN ($concurrency)\n\n    AND (\n  ('$deploy_config' = 'standard' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'ha-deployments' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments' AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'ha-statefulsets' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values->>'__deployment_haConfig_controllerType') = 'statefulSets' AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'qbt' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n  OR ('$deploy_config' = 'ha-qbt-deployments' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments' AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n)\n\n    AND (label_values ? '__deployment_nightly')\nAND (label_values->>'__deployment_nightly')::BOOLEAN = true\n\n    AND label_values ? '__measurements_etcdMvccDbTotalSizeInUseInBytesAverage_mean'\n    AND label_values ? '__measurements_etcdMvccDbTotalSizeInBytesAverage_mean'\n  GROUP BY day, concurrency\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'db_in_use @ ' || concurrency AS metric,\n  db_in_use AS value\nFROM daily_agg\n\n\nUNION ALL\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'db_total @ ' || concurrency AS metric,\n  db_total AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
+          "refId": "A"
+        }
+      ],
+      "title": "etcd MVCC DB Size (Mean)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "Average and maximum etcd request duration during the test run.\n- **req_duration_mean**: average latency across all etcd requests\n- **req_duration_max**: worst-case (peak) etcd request latency\n\nHigh values indicate etcd is under pressure, which can cause slow reconciliation and API server latency.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "pointSize": 7,
+            "showPoints": "always",
+            "spanNulls": false
+          },
+          "min": 0,
+          "unit": "s"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 77
+      },
+      "id": 24,
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "time_series",
+          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_concurrent')::INTEGER AS concurrency,\n    AVG((label_values->>'__measurements_etcdRequestDurationSecondsAverage_max')::DOUBLE PRECISION) AS req_duration_max,\n    AVG((label_values->>'__measurements_etcdRequestDurationSecondsAverage_mean')::DOUBLE PRECISION) AS req_duration_mean\n  FROM data\n  WHERE horreum_testid = 391\n    AND $__timeFilter(start)\n    AND (label_values->>'__parameters_test_concurrent')::INTEGER IN ($concurrency)\n\n    AND (\n  ('$deploy_config' = 'standard' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'ha-deployments' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments' AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'ha-statefulsets' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values->>'__deployment_haConfig_controllerType') = 'statefulSets' AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'qbt' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n  OR ('$deploy_config' = 'ha-qbt-deployments' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments' AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n)\n\n    AND (label_values ? '__deployment_nightly')\nAND (label_values->>'__deployment_nightly')::BOOLEAN = true\n\n    AND label_values ? '__measurements_etcdRequestDurationSecondsAverage_max'\n    AND label_values ? '__measurements_etcdRequestDurationSecondsAverage_mean'\n  GROUP BY day, concurrency\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'req_duration_max @ ' || concurrency AS metric,\n  req_duration_max AS value\nFROM daily_agg\n\n\nUNION ALL\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'req_duration_mean @ ' || concurrency AS metric,\n  req_duration_mean AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
+          "refId": "A"
+        }
+      ],
+      "title": "etcd Request Duration (Mean)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "Number of etcd Pod restarts during the test run. Should be 0 under normal conditions. Any restarts indicate instability that likely affected test results.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "pointSize": 7,
+            "showPoints": "always",
+            "spanNulls": false
+          },
+          "min": 0,
+          "unit": "short"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 85
+      },
+      "id": 25,
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "time_series",
+          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_concurrent')::INTEGER AS concurrency,\n    AVG((label_values->>'__measurements_etcd_restarts_range')::DOUBLE PRECISION) AS etcd_restarts\n  FROM data\n  WHERE horreum_testid = 391\n    AND $__timeFilter(start)\n    AND (label_values->>'__parameters_test_concurrent')::INTEGER IN ($concurrency)\n\n    AND (\n  ('$deploy_config' = 'standard' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'ha-deployments' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments' AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'ha-statefulsets' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values->>'__deployment_haConfig_controllerType') = 'statefulSets' AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'qbt' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n  OR ('$deploy_config' = 'ha-qbt-deployments' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments' AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n)\n\n    AND (label_values ? '__deployment_nightly')\nAND (label_values->>'__deployment_nightly')::BOOLEAN = true\n\n    AND label_values ? '__measurements_etcd_restarts_range'\n  GROUP BY day, concurrency\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'etcd_restarts @ ' || concurrency AS metric,\n  etcd_restarts AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
+          "refId": "A"
+        }
+      ],
+      "title": "etcd Restarts",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "Range of pending pods count in the Kubernetes scheduler during the test run. High values indicate scheduling pressure — pods are waiting for resources or node availability.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "pointSize": 7,
+            "showPoints": "always",
+            "spanNulls": false
+          },
+          "min": 0,
+          "unit": "short"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 85
+      },
+      "id": 26,
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "time_series",
+          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_concurrent')::INTEGER AS concurrency,\n    AVG((label_values->>'__measurements_schedulerPendingPodsCount_range')::DOUBLE PRECISION) AS pending_pods\n  FROM data\n  WHERE horreum_testid = 391\n    AND $__timeFilter(start)\n    AND (label_values->>'__parameters_test_concurrent')::INTEGER IN ($concurrency)\n\n    AND (\n  ('$deploy_config' = 'standard' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'ha-deployments' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments' AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'ha-statefulsets' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values->>'__deployment_haConfig_controllerType') = 'statefulSets' AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'qbt' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n  OR ('$deploy_config' = 'ha-qbt-deployments' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments' AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n)\n\n    AND (label_values ? '__deployment_nightly')\nAND (label_values->>'__deployment_nightly')::BOOLEAN = true\n\n    AND label_values ? '__measurements_schedulerPendingPodsCount_range'\n  GROUP BY day, concurrency\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'pending_pods @ ' || concurrency AS metric,\n  pending_pods AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
+          "refId": "A"
+        }
+      ],
+      "title": "Scheduler Pending Pods",
       "type": "timeseries"
     }
   ],
@@ -721,6 +852,65 @@
         "query": "grafana-postgresql-datasource",
         "regex": ".*grafana-postgresql-datasource.*",
         "type": "datasource"
+      },
+      {
+        "current": {
+          "text": "Standard",
+          "value": "standard"
+        },
+        "description": "Standard, HA (no QBT), QBT (non-HA), or HA+QBT (deployments only). Dashboard shows nightly builds only.",
+        "includeAll": false,
+        "label": "Deployment Configuration",
+        "multi": false,
+        "name": "deploy_config",
+        "options": [
+          {
+            "selected": true,
+            "text": "Standard",
+            "value": "standard"
+          },
+          {
+            "selected": false,
+            "text": "HA - Deployments",
+            "value": "ha-deployments"
+          },
+          {
+            "selected": false,
+            "text": "HA - StatefulSets",
+            "value": "ha-statefulsets"
+          },
+          {
+            "selected": false,
+            "text": "QBT (non-HA)",
+            "value": "qbt"
+          },
+          {
+            "selected": false,
+            "text": "HA + QBT - Deployments",
+            "value": "ha-qbt-deployments"
+          }
+        ],
+        "query": "Standard : standard,HA - Deployments : ha-deployments,HA - StatefulSets : ha-statefulsets,QBT (non-HA) : qbt,HA + QBT - Deployments : ha-qbt-deployments",
+        "type": "custom"
+      },
+      {
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "${datasource}"
+        },
+        "description": "Filter by concurrency level. Select one or more, or All.",
+        "includeAll": true,
+        "label": "Concurrency",
+        "multi": true,
+        "name": "concurrency",
+        "query": "SELECT DISTINCT (label_values->>'__parameters_test_concurrent')::INTEGER AS concurrency FROM data WHERE horreum_testid = 391 AND label_values ? '__parameters_test_concurrent' ORDER BY concurrency",
+        "refresh": 2,
+        "sort": 3,
+        "type": "query"
       }
     ]
   },

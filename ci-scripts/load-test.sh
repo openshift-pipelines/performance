@@ -14,8 +14,6 @@ TEST_TIMEOUT="${TEST_TIMEOUT:-18000}"   # 5 hours
 TEST_PARAMS="${TEST_PARAMS:-}"
 TEST_DO_CLEANUP="${TEST_DO_CLEANUP:-true}"
 
-measure_signed_pid=""
-
 info "General setup"
 cd tests/scaling-pipelines/
 
@@ -25,7 +23,7 @@ TEST_RUN="scenario/$TEST_SCENARIO/run.yaml"
 TEST_CONCURRENCY_PATH="scenario/$TEST_SCENARIO/concurrency.txt"
 
 # Create namespaces for benchmarking
-for namespace_idx in $(seq 1 ${TEST_NAMESPACE});
+for namespace_idx in $(seq 1 "${TEST_NAMESPACE}");
 do
     # Generate namespace as "benchmark" by default for TEST_NAMESPACE set to 1
     # Otherwise generate based on index count
@@ -38,11 +36,12 @@ done
 
 # Setup test scenario
 info "Setup for $TEST_SCENARIO scenario"
-[ -f scenario/$TEST_SCENARIO/setup.sh ] && source scenario/$TEST_SCENARIO/setup.sh
+# shellcheck source=/dev/null
+[ -f "scenario/$TEST_SCENARIO/setup.sh" ] && source "scenario/$TEST_SCENARIO/setup.sh"
 
 # Create Task and Pipelines in namespace
 if [ -e "$TEST_PIPELINE" ]; then
-    for namespace_idx in $(seq 1 ${TEST_NAMESPACE});
+    for namespace_idx in $(seq 1 "${TEST_NAMESPACE}");
     do
         namespace_tag=$([ "$TEST_NAMESPACE" -eq 1 ] && echo "" || echo "$namespace_idx")
         namespace="benchmark${namespace_tag}"
@@ -56,7 +55,7 @@ info "Benchmark ${TEST_TOTAL} | ${TEST_CONCURRENT} | ${TEST_RUN} | ${TEST_NAMESP
 before=$(date -Ins --utc)
 if [ -n "${WAIT_TIME:-}" ]; then
     info "Waiting to establish a baseline performance before creating PRs/TRs"
-    sleep $WAIT_TIME
+    sleep "$WAIT_TIME"
     info "Wait timeout completed"
 fi
 
@@ -66,7 +65,8 @@ if [ -e "$TEST_CONCURRENCY_PATH" ]; then
     info "Changed the TEST_CONCURRENT to ${TEST_CONCURRENCY_PATH}"
 fi
 
-time ../../tools/benchmark.py --insecure --namespace "${TEST_NAMESPACE}" --total "${TEST_TOTAL}" --concurrent "${TEST_CONCURRENT}" --run "${TEST_RUN}" --stats-file benchmark-stats.csv --output-file benchmark-output.json --verbose $TEST_PARAMS
+# shellcheck disable=SC2086  # TEST_PARAMS intentionally unquoted for word splitting
+time ../../tools/benchmark.py --insecure --namespace "${TEST_NAMESPACE}" --total "${TEST_TOTAL}" --concurrent "${TEST_CONCURRENT}" --run "${TEST_RUN}" --stats-file benchmark-stats.csv --output-file benchmark-output.json --verbose ${TEST_PARAMS}
 after=$(date -Ins --utc)
 
 # Capture test stats
@@ -81,14 +81,15 @@ time ../../tools/convert-benchmark-stats.py "benchmark-stats.csv" "cluster-bench
 time ../../tools/capture-run-stats.sh benchmark-output.json
 
 info "Tierdown for $TEST_SCENARIO scenario"
-[ -f scenario/$TEST_SCENARIO/tierdown.sh ] && source scenario/$TEST_SCENARIO/tierdown.sh
+# shellcheck source=/dev/null
+[ -f "scenario/$TEST_SCENARIO/tierdown.sh" ] && source "scenario/$TEST_SCENARIO/tierdown.sh"
 
 info "Cleanup PipelineRuns: $TEST_DO_CLEANUP"
 
 # Empty array to store pod.json output from each namespace
 pod_jsons=()
 
-for namespace_idx in $(seq 1 ${TEST_NAMESPACE});
+for namespace_idx in $(seq 1 "${TEST_NAMESPACE}");
 do
     namespace_tag=$([ "$TEST_NAMESPACE" -eq 1 ] && echo "" || echo "$namespace_idx")
     namespace="benchmark${namespace_tag}"
