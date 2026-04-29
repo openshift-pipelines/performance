@@ -83,7 +83,7 @@
   monitoring_query: |
     sum(tekton_pipelines_controller_workqueue_depth)
     or
-    sum(kn_workqueue_depth)
+    sum(kn_workqueue_depth{container='tekton-pipelines-controller'})
   monitoring_step: 15
 
 - name: measurements.tekton_tekton_chains_controller_workqueue_depth
@@ -106,7 +106,7 @@
   monitoring_query: |
     (sum(rate(tekton_pipelines_controller_client_latency_sum[1m])) / sum(rate(tekton_pipelines_controller_client_latency_count[1m])) > 0)
     or
-    (sum(rate(http_client_request_duration_seconds_sum[1m])) / sum(rate(http_client_request_duration_seconds_count[1m])) > 0)
+    (sum(rate(http_client_request_duration_seconds_sum{container='tekton-pipelines-controller'}[1m])) / sum(rate(http_client_request_duration_seconds_count{container='tekton-pipelines-controller'}[1m])) > 0)
   monitoring_step: 15
 
 - name: measurements.tekton_pipelines_controller_taskruns_pod_latency_milliseconds
