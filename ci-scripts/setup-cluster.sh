@@ -58,6 +58,11 @@ results_watcher_kube_api_burst="${DEPLOYMENT_RESULTS_WATCHER_KUBE_API_BURST:-}"
 results_watcher_threadiness="${DEPLOYMENT_RESULTS_WATCHER_THREADINESS:-}"
 results_watcher_disable_storing_incomplete_runs="${DEPLOYMENT_RESULTS_WATCHER_DISABLE_STORING_INCOMPLETE_RUNS:-}"
 
+# Results API performance tuning parameters (optimal values from performance testing)
+results_api_kube_api_qps="50"
+results_api_kube_api_burst="100"
+results_api_disable_storing_incomplete_runs="true"
+
 OCP_VERSION="${OCP_VERSION:-$(oc get clusterversion version -o jsonpath='{.status.desired.version}'|cut -d. -f1,2)}"
 
 # Configure deployment version based on build type
@@ -753,6 +758,17 @@ EOF
         wait_for_entity_by_selector 300 $TEKTON_RESULTS_NS pod app.kubernetes.io/name=tekton-results-api
         wait_for_entity_by_selector 300 $TEKTON_RESULTS_NS pod app.kubernetes.io/name=tekton-results-watcher
 
+        # Configure Results API performance options (K8S_QPS=50, K8S_BURST=100, disableStoringIncompleteRuns=true)
+        info "Configuring Results API with optimized performance settings"
+        kubectl wait --for=jsonpath='{.metadata.name}'=tekton-results-api-config --timeout=60s -n $TEKTON_RESULTS_NS configmap/tekton-results-api-config 2>/dev/null || true
+        kubectl patch configmap tekton-results-api-config -n $TEKTON_RESULTS_NS --type merge -p "{\"data\":{\"K8S_QPS\":\"$results_api_kube_api_qps\",\"K8S_BURST\":\"$results_api_kube_api_burst\",\"DISABLE_STORING_INCOMPLETE_RUNS\":\"$results_api_disable_storing_incomplete_runs\"}}"
+
+        # Restart Results API pod to pick up new config
+        info "Restarting Results API to apply configuration"
+        kubectl delete pod -n $TEKTON_RESULTS_NS -l app.kubernetes.io/name=tekton-results-api
+        wait_for_entity_by_selector 300 $TEKTON_RESULTS_NS pod app.kubernetes.io/name=tekton-results-api
+        kubectl -n $TEKTON_RESULTS_NS wait --for=condition=ready --timeout=300s pod -l app.kubernetes.io/name=tekton-results-api
+
         # Setup route to access Results-API endpoint
         # TODO: Should test this with CI setup and also should evaluate how encryption works
         oc get route -n "$TEKTON_RESULTS_NS" tekton-results-api-service >/dev/null 2>&1 || oc create route -n "$TEKTON_RESULTS_NS" passthrough tekton-results-api-service --service=tekton-results-api-service --port=8080
@@ -794,6 +810,17 @@ EOF
         # Wait for tekton-results resources to start
         wait_for_entity_by_selector 300 $TEKTON_RESULTS_NS pod app.kubernetes.io/name=tekton-results-api
         wait_for_entity_by_selector 300 $TEKTON_RESULTS_NS pod app.kubernetes.io/name=tekton-results-watcher
+
+        # Configure Results API performance options (K8S_QPS=50, K8S_BURST=100, disableStoringIncompleteRuns=true)
+        info "Configuring Results API with optimized performance settings"
+        kubectl wait --for=jsonpath='{.metadata.name}'=tekton-results-api-config --timeout=60s -n $TEKTON_RESULTS_NS configmap/tekton-results-api-config 2>/dev/null || true
+        kubectl patch configmap tekton-results-api-config -n $TEKTON_RESULTS_NS --type merge -p "{\"data\":{\"K8S_QPS\":\"$results_api_kube_api_qps\",\"K8S_BURST\":\"$results_api_kube_api_burst\",\"DISABLE_STORING_INCOMPLETE_RUNS\":\"$results_api_disable_storing_incomplete_runs\"}}"
+
+        # Restart Results API pod to pick up new config
+        info "Restarting Results API to apply configuration"
+        kubectl delete pod -n $TEKTON_RESULTS_NS -l app.kubernetes.io/name=tekton-results-api
+        wait_for_entity_by_selector 300 $TEKTON_RESULTS_NS pod app.kubernetes.io/name=tekton-results-api
+        kubectl -n $TEKTON_RESULTS_NS wait --for=condition=ready --timeout=300s pod -l app.kubernetes.io/name=tekton-results-api
 
         # Setup route to access Results-API endpoint
         # TODO: Should test this with CI setup and also should evaluate how encryption works
