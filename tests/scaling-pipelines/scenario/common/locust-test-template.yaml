@@ -1,17 +1,18 @@
 apiVersion: locust.io/v1
 kind: LocustTest
 metadata:
-  name: ${SCENARIO}.test
+  name: ${SCENARIO}-test
 spec:
-  image: quay.io/backstage-performance/locust:latest
-  imagePullPolicy: Always
-  masterCommandSeed: --locustfile /lotest/src/${SCENARIO}.py
+  image: locustio/locust:2.43.4
+  workers: ${LOCUST_WORKERS}
+  args:
+    --locustfile /home/locust/${SCENARIO}.py
     --host ${LOCUST_HOST}
     --users ${LOCUST_USERS}
     --spawn-rate ${LOCUST_SPAWN_RATE}
     --run-time ${LOCUST_DURATION}
+    --headless
     ${LOCUST_EXTRA_CMD}
-  workerCommandSeed: --locustfile /lotest/src/${SCENARIO}.py
-    ${LOCUST_EXTRA_CMD}
-  workerReplicas: ${LOCUST_WORKERS}
-  configMap: locust.${SCENARIO}
+  locustfile:
+    configMap:
+      name: locust.${SCENARIO}
