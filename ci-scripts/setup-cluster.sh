@@ -811,7 +811,8 @@ EOF
     # Configure Results API performance options (K8S_QPS=50, K8S_BURST=100, disableStoringIncompleteRuns=true)
     # This is common for both downstream and upstream deployments
     info "Configuring Results API with optimized performance settings"
-    kubectl wait --for=jsonpath='{.metadata.name}'=tekton-results-api-config --timeout=60s -n $TEKTON_RESULTS_NS configmap/tekton-results-api-config 2>/dev/null || true
+    # Wait for ConfigMap to be created by the operator (up to 60 seconds)
+    for i in {1..30}; do kubectl get configmap tekton-results-api-config -n $TEKTON_RESULTS_NS >/dev/null 2>&1 && break || sleep 2; done
     kubectl patch configmap tekton-results-api-config -n $TEKTON_RESULTS_NS --type merge -p "{\"data\":{\"K8S_QPS\":\"$results_api_kube_api_qps\",\"K8S_BURST\":\"$results_api_kube_api_burst\",\"DISABLE_STORING_INCOMPLETE_RUNS\":\"$results_api_disable_storing_incomplete_runs\"}}"
 
     # Restart Results API deployment to pick up new config
