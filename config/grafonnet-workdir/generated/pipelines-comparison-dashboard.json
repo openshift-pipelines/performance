@@ -93,7 +93,7 @@
         "type": "grafana-postgresql-datasource",
         "uid": "${datasource}"
       },
-      "description": "Total number of PipelineRuns that failed, averaged per day per concurrency level.",
+      "description": "Total number of PipelineRuns that failed, averaged per day per concurrency level. A value of 0 means all runs succeeded.",
       "fieldConfig": {
         "defaults": {
           "custom": {
@@ -130,7 +130,7 @@
         "type": "grafana-postgresql-datasource",
         "uid": "${datasource}"
       },
-      "description": "Total number of PipelineRuns that failed, averaged per day per concurrency level.",
+      "description": "Total number of PipelineRuns that failed, averaged per day per concurrency level. A value of 0 means all runs succeeded.",
       "fieldConfig": {
         "defaults": {
           "custom": {
@@ -167,7 +167,7 @@
         "type": "grafana-postgresql-datasource",
         "uid": "${datasource}"
       },
-      "description": "Average wall-clock duration of all PipelineRuns, per day per concurrency level.",
+      "description": "Average wall-clock duration of all PipelineRuns (creationTimestamp to completionTime), per day per concurrency level.",
       "fieldConfig": {
         "defaults": {
           "custom": {
@@ -204,7 +204,7 @@
         "type": "grafana-postgresql-datasource",
         "uid": "${datasource}"
       },
-      "description": "Average wall-clock duration of all PipelineRuns, per day per concurrency level.",
+      "description": "Average wall-clock duration of all PipelineRuns (creationTimestamp to completionTime), per day per concurrency level.",
       "fieldConfig": {
         "defaults": {
           "custom": {
@@ -241,7 +241,7 @@
         "type": "grafana-postgresql-datasource",
         "uid": "${datasource}"
       },
-      "description": "Breakdown of successful PipelineRun duration into pending and running phases.",
+      "description": "Breakdown of successful PipelineRun duration into two phases:\n- **pending**: time from creation to start (waiting for scheduling)\n- **running**: time from start to completion (actual execution)\n\nHigh pending time indicates scheduling pressure; high running time indicates slow task execution.",
       "fieldConfig": {
         "defaults": {
           "custom": {
@@ -278,7 +278,7 @@
         "type": "grafana-postgresql-datasource",
         "uid": "${datasource}"
       },
-      "description": "Breakdown of successful PipelineRun duration into pending and running phases.",
+      "description": "Breakdown of successful PipelineRun duration into two phases:\n- **pending**: time from creation to start (waiting for scheduling)\n- **running**: time from start to completion (actual execution)\n\nHigh pending time indicates scheduling pressure; high running time indicates slow task execution.",
       "fieldConfig": {
         "defaults": {
           "custom": {
@@ -326,7 +326,7 @@
         "type": "grafana-postgresql-datasource",
         "uid": "${datasource}"
       },
-      "description": "Total number of TaskRuns that completed successfully, averaged per day per concurrency level.",
+      "description": "Total number of TaskRuns that completed successfully, averaged per day per concurrency level. Each PipelineRun creates multiple TaskRuns.",
       "fieldConfig": {
         "defaults": {
           "custom": {
@@ -363,7 +363,7 @@
         "type": "grafana-postgresql-datasource",
         "uid": "${datasource}"
       },
-      "description": "Total number of TaskRuns that completed successfully, averaged per day per concurrency level.",
+      "description": "Total number of TaskRuns that completed successfully, averaged per day per concurrency level. Each PipelineRun creates multiple TaskRuns.",
       "fieldConfig": {
         "defaults": {
           "custom": {
@@ -474,7 +474,7 @@
         "type": "grafana-postgresql-datasource",
         "uid": "${datasource}"
       },
-      "description": "Average wall-clock duration of successful TaskRuns, per day per concurrency level.",
+      "description": "Average wall-clock duration of successful TaskRuns (creationTimestamp to completionTime), per day per concurrency level.",
       "fieldConfig": {
         "defaults": {
           "custom": {
@@ -511,7 +511,7 @@
         "type": "grafana-postgresql-datasource",
         "uid": "${datasource}"
       },
-      "description": "Average wall-clock duration of successful TaskRuns, per day per concurrency level.",
+      "description": "Average wall-clock duration of successful TaskRuns (creationTimestamp to completionTime), per day per concurrency level.",
       "fieldConfig": {
         "defaults": {
           "custom": {
@@ -548,7 +548,7 @@
         "type": "grafana-postgresql-datasource",
         "uid": "${datasource}"
       },
-      "description": "Breakdown of successful TaskRun duration into pending and running phases.",
+      "description": "Breakdown of successful TaskRun duration into two phases:\n- **pending**: time from creation to start (waiting for Pod scheduling)\n- **running**: time from start to completion (actual container execution)\n\nHigh pending time indicates Pod scheduling delays or resource pressure.",
       "fieldConfig": {
         "defaults": {
           "custom": {
@@ -585,7 +585,7 @@
         "type": "grafana-postgresql-datasource",
         "uid": "${datasource}"
       },
-      "description": "Breakdown of successful TaskRun duration into pending and running phases.",
+      "description": "Breakdown of successful TaskRun duration into two phases:\n- **pending**: time from creation to start (waiting for Pod scheduling)\n- **running**: time from start to completion (actual container execution)\n\nHigh pending time indicates Pod scheduling delays or resource pressure.",
       "fieldConfig": {
         "defaults": {
           "custom": {
@@ -633,7 +633,7 @@
         "type": "grafana-postgresql-datasource",
         "uid": "${datasource}"
       },
-      "description": "Mean time between TaskRun creation and its Pod creation. High values indicate controller backlog.",
+      "description": "Mean time between TaskRun creation and its corresponding Pod creation. Measures how long the Tekton controller takes to reconcile a TaskRun and create the Pod. High values indicate controller backlog.",
       "fieldConfig": {
         "defaults": {
           "custom": {
@@ -670,7 +670,7 @@
         "type": "grafana-postgresql-datasource",
         "uid": "${datasource}"
       },
-      "description": "Mean time between TaskRun creation and its Pod creation. High values indicate controller backlog.",
+      "description": "Mean time between TaskRun creation and its corresponding Pod creation. Measures how long the Tekton controller takes to reconcile a TaskRun and create the Pod. High values indicate controller backlog.",
       "fieldConfig": {
         "defaults": {
           "custom": {
@@ -707,7 +707,7 @@
         "type": "grafana-postgresql-datasource",
         "uid": "${datasource}"
       },
-      "description": "Mean CPU usage of Tekton Pipelines controller, webhook, and proxy webhook.",
+      "description": "Mean CPU usage of Tekton Pipelines components during the test run, in CPU cores (e.g. 0.06 = 60 millicores).\n- **controller_cpu**: main reconciliation controller\n- **webhook_cpu**: admission webhook\n- **proxy_webhook_cpu**: operator proxy webhook",
       "fieldConfig": {
         "defaults": {
           "custom": {
@@ -744,7 +744,7 @@
         "type": "grafana-postgresql-datasource",
         "uid": "${datasource}"
       },
-      "description": "Mean CPU usage of Tekton Pipelines controller, webhook, and proxy webhook.",
+      "description": "Mean CPU usage of Tekton Pipelines components during the test run, in CPU cores (e.g. 0.06 = 60 millicores).\n- **controller_cpu**: main reconciliation controller\n- **webhook_cpu**: admission webhook\n- **proxy_webhook_cpu**: operator proxy webhook",
       "fieldConfig": {
         "defaults": {
           "custom": {
@@ -781,7 +781,7 @@
         "type": "grafana-postgresql-datasource",
         "uid": "${datasource}"
       },
-      "description": "Mean memory (RSS) usage of Tekton Pipelines controller, webhook, and proxy webhook.",
+      "description": "Mean memory (RSS) usage of Tekton Pipelines components during the test run.\n- **controller_mem**: main reconciliation controller\n- **webhook_mem**: admission webhook\n- **proxy_webhook_mem**: operator proxy webhook",
       "fieldConfig": {
         "defaults": {
           "custom": {
@@ -818,7 +818,7 @@
         "type": "grafana-postgresql-datasource",
         "uid": "${datasource}"
       },
-      "description": "Mean memory (RSS) usage of Tekton Pipelines controller, webhook, and proxy webhook.",
+      "description": "Mean memory (RSS) usage of Tekton Pipelines components during the test run.\n- **controller_mem**: main reconciliation controller\n- **webhook_mem**: admission webhook\n- **proxy_webhook_mem**: operator proxy webhook",
       "fieldConfig": {
         "defaults": {
           "custom": {
@@ -855,7 +855,7 @@
         "type": "grafana-postgresql-datasource",
         "uid": "${datasource}"
       },
-      "description": "Mean depth of the Tekton Pipelines controller workqueue. High values suggest the controller is a bottleneck.",
+      "description": "Mean depth of the Tekton Pipelines controller workqueue during the test. A growing workqueue indicates the controller cannot reconcile objects fast enough. Consistently high values suggest the controller is a bottleneck.\n\nNote: Nightly builds using Tekton >= v1.10 report this as kn_workqueue_depth (OpenTelemetry).",
       "fieldConfig": {
         "defaults": {
           "custom": {
@@ -892,7 +892,7 @@
         "type": "grafana-postgresql-datasource",
         "uid": "${datasource}"
       },
-      "description": "Mean depth of the Tekton Pipelines controller workqueue. High values suggest the controller is a bottleneck.",
+      "description": "Mean depth of the Tekton Pipelines controller workqueue during the test. A growing workqueue indicates the controller cannot reconcile objects fast enough. Consistently high values suggest the controller is a bottleneck.\n\nNote: Nightly builds using Tekton >= v1.10 report this as kn_workqueue_depth (OpenTelemetry).",
       "fieldConfig": {
         "defaults": {
           "custom": {
@@ -929,7 +929,7 @@
         "type": "grafana-postgresql-datasource",
         "uid": "${datasource}"
       },
-      "description": "Mean HTTP client latency of the Tekton Pipelines controller when communicating with the Kubernetes API server.",
+      "description": "Mean HTTP client latency (p50) of the Tekton Pipelines controller when communicating with the Kubernetes API server. High latency indicates API server pressure or network issues.\n\nNote: Nightly builds using Tekton >= v1.10 report this as http_client_request_duration_seconds (OpenTelemetry).",
       "fieldConfig": {
         "defaults": {
           "custom": {
@@ -966,7 +966,7 @@
         "type": "grafana-postgresql-datasource",
         "uid": "${datasource}"
       },
-      "description": "Mean HTTP client latency of the Tekton Pipelines controller when communicating with the Kubernetes API server.",
+      "description": "Mean HTTP client latency (p50) of the Tekton Pipelines controller when communicating with the Kubernetes API server. High latency indicates API server pressure or network issues.\n\nNote: Nightly builds using Tekton >= v1.10 report this as http_client_request_duration_seconds (OpenTelemetry).",
       "fieldConfig": {
         "defaults": {
           "custom": {
@@ -1014,7 +1014,7 @@
         "type": "grafana-postgresql-datasource",
         "uid": "${datasource}"
       },
-      "description": "Mean total CPU usage rate across all cluster nodes during the test run.",
+      "description": "Mean total CPU usage rate across all cluster nodes during the test run, in CPU cores.",
       "fieldConfig": {
         "defaults": {
           "custom": {
@@ -1051,7 +1051,7 @@
         "type": "grafana-postgresql-datasource",
         "uid": "${datasource}"
       },
-      "description": "Mean total CPU usage rate across all cluster nodes during the test run.",
+      "description": "Mean total CPU usage rate across all cluster nodes during the test run, in CPU cores.",
       "fieldConfig": {
         "defaults": {
           "custom": {
@@ -1162,7 +1162,7 @@
         "type": "grafana-postgresql-datasource",
         "uid": "${datasource}"
       },
-      "description": "Mean CPU usage of the OpenShift API server and Kubernetes API server.",
+      "description": "Mean CPU usage of the OpenShift API server and Kubernetes API server during the test run.\n- **apiserver_cpu**: openshift-apiserver\n- **kube_apiserver_cpu**: kube-apiserver",
       "fieldConfig": {
         "defaults": {
           "custom": {
@@ -1199,7 +1199,7 @@
         "type": "grafana-postgresql-datasource",
         "uid": "${datasource}"
       },
-      "description": "Mean CPU usage of the OpenShift API server and Kubernetes API server.",
+      "description": "Mean CPU usage of the OpenShift API server and Kubernetes API server during the test run.\n- **apiserver_cpu**: openshift-apiserver\n- **kube_apiserver_cpu**: kube-apiserver",
       "fieldConfig": {
         "defaults": {
           "custom": {
@@ -1236,7 +1236,7 @@
         "type": "grafana-postgresql-datasource",
         "uid": "${datasource}"
       },
-      "description": "Mean memory usage of the OpenShift API server and Kubernetes API server.",
+      "description": "Mean memory (RSS) usage of the OpenShift API server and Kubernetes API server during the test run.\n- **apiserver_mem**: openshift-apiserver\n- **kube_apiserver_mem**: kube-apiserver",
       "fieldConfig": {
         "defaults": {
           "custom": {
@@ -1273,7 +1273,7 @@
         "type": "grafana-postgresql-datasource",
         "uid": "${datasource}"
       },
-      "description": "Mean memory usage of the OpenShift API server and Kubernetes API server.",
+      "description": "Mean memory (RSS) usage of the OpenShift API server and Kubernetes API server during the test run.\n- **apiserver_mem**: openshift-apiserver\n- **kube_apiserver_mem**: kube-apiserver",
       "fieldConfig": {
         "defaults": {
           "custom": {
@@ -1321,7 +1321,7 @@
         "type": "grafana-postgresql-datasource",
         "uid": "${datasource}"
       },
-      "description": "Mean etcd MVCC database size. A large gap between total and in-use indicates fragmentation.",
+      "description": "Mean etcd MVCC database size during the test run.\n- **db_total**: total allocated size on disk\n- **db_in_use**: logical size of live data\n\nA large gap between total and in-use indicates fragmentation; an etcd defrag may be needed.",
       "fieldConfig": {
         "defaults": {
           "custom": {
@@ -1358,7 +1358,7 @@
         "type": "grafana-postgresql-datasource",
         "uid": "${datasource}"
       },
-      "description": "Mean etcd MVCC database size. A large gap between total and in-use indicates fragmentation.",
+      "description": "Mean etcd MVCC database size during the test run.\n- **db_total**: total allocated size on disk\n- **db_in_use**: logical size of live data\n\nA large gap between total and in-use indicates fragmentation; an etcd defrag may be needed.",
       "fieldConfig": {
         "defaults": {
           "custom": {
@@ -1395,7 +1395,7 @@
         "type": "grafana-postgresql-datasource",
         "uid": "${datasource}"
       },
-      "description": "Average and peak etcd request duration. High values indicate etcd pressure.",
+      "description": "Mean and peak etcd request durations during the test run.\n- **req_duration_mean**: average latency per request\n- **req_duration_max**: worst-case latency observed\n\nHigh values indicate etcd pressure, disk I/O issues, or large key-value operations.",
       "fieldConfig": {
         "defaults": {
           "custom": {
@@ -1432,7 +1432,7 @@
         "type": "grafana-postgresql-datasource",
         "uid": "${datasource}"
       },
-      "description": "Average and peak etcd request duration. High values indicate etcd pressure.",
+      "description": "Mean and peak etcd request durations during the test run.\n- **req_duration_mean**: average latency per request\n- **req_duration_max**: worst-case latency observed\n\nHigh values indicate etcd pressure, disk I/O issues, or large key-value operations.",
       "fieldConfig": {
         "defaults": {
           "custom": {
@@ -1469,7 +1469,7 @@
         "type": "grafana-postgresql-datasource",
         "uid": "${datasource}"
       },
-      "description": "Number of etcd Pod restarts during the test run. Should be 0 under normal conditions.",
+      "description": "Number of etcd Pod restarts during the test run. Should be 0 under normal conditions. Restarts indicate OOM kills, liveness probe failures, or cluster instability.",
       "fieldConfig": {
         "defaults": {
           "custom": {
@@ -1506,7 +1506,7 @@
         "type": "grafana-postgresql-datasource",
         "uid": "${datasource}"
       },
-      "description": "Number of etcd Pod restarts during the test run. Should be 0 under normal conditions.",
+      "description": "Number of etcd Pod restarts during the test run. Should be 0 under normal conditions. Restarts indicate OOM kills, liveness probe failures, or cluster instability.",
       "fieldConfig": {
         "defaults": {
           "custom": {
@@ -1543,7 +1543,7 @@
         "type": "grafana-postgresql-datasource",
         "uid": "${datasource}"
       },
-      "description": "Range of pending pods count in the scheduler. High values indicate scheduling pressure.",
+      "description": "Range of pending pods in the kube-scheduler queue during the test run. High values indicate scheduling pressure caused by insufficient node resources or excessive Pod creation rate.",
       "fieldConfig": {
         "defaults": {
           "custom": {
@@ -1580,7 +1580,7 @@
         "type": "grafana-postgresql-datasource",
         "uid": "${datasource}"
       },
-      "description": "Range of pending pods count in the scheduler. High values indicate scheduling pressure.",
+      "description": "Range of pending pods in the kube-scheduler queue during the test run. High values indicate scheduling pressure caused by insufficient node resources or excessive Pod creation rate.",
       "fieldConfig": {
         "defaults": {
           "custom": {
@@ -1679,7 +1679,7 @@
           "type": "grafana-postgresql-datasource",
           "uid": "${datasource}"
         },
-        "description": "First version for comparison",
+        "description": "Version 1 for comparison",
         "includeAll": false,
         "label": "Version 1",
         "multi": false,
@@ -1698,7 +1698,7 @@
           "type": "grafana-postgresql-datasource",
           "uid": "${datasource}"
         },
-        "description": "Second version for comparison",
+        "description": "Version 2 for comparison",
         "includeAll": false,
         "label": "Version 2",
         "multi": false,
@@ -1733,7 +1733,7 @@
     "from": "now-90d",
     "to": "now"
   },
-  "timezone": "browser",
+  "timezone": "utc",
   "title": "Pipelines Performance Comparison Dashboard",
   "uid": "Pipelines_Performance_Comparison"
 }
