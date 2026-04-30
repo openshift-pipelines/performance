@@ -15,3 +15,4 @@ mkdir -p generated/
 # Dashboards
 build src/first.jsonnet generated/first.json
 build src/pipelines-dashboard.jsonnet generated/pipelines-dashboard.json
+build src/pipelines-comparison-dashboard.jsonnet generated/pipelines-comparison-dashboard.json
