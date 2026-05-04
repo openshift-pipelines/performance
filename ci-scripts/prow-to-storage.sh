@@ -12,7 +12,9 @@ PROW_JOBS=()
 for sfx in "${_PROW_VARIANT_SUFFIXES[@]}"; do
     PROW_JOBS+=( "max-concurrency-downstream-nightly${sfx}" )
 done
-for pv in 19 20 21; do
+PROW_MIN_VERSION=19
+PROW_MAX_VERSION=22
+for pv in $(seq $PROW_MIN_VERSION $PROW_MAX_VERSION); do
     for sfx in "${_PROW_VARIANT_SUFFIXES[@]}"; do
         PROW_JOBS+=( "max-concurrency-downstream-pipelines1-${pv}${sfx}" )
     done
