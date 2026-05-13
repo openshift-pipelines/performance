@@ -4,12 +4,12 @@ This scenario is supposed to stress Pipelines, Chains controller and Pruner by c
 
 ## Execution Modes
 
-This scenario supports two mutually exclusive execution modes:
+This scenario supports two execution modes:
 
-1. **Count-based mode**: Use `TEST_TOTAL` to run for a specific number of PipelineRuns
-2. **Time-based mode**: Use `TOTAL_TIMEOUT` to run for a specific duration
+1. **Count-based mode**: Use `TEST_TOTAL` to run for a specific number of PipelineRuns (no time limit)
+2. **Time-based mode**: Use `TOTAL_TIMEOUT` to run for a specific duration (ignores TEST_TOTAL)
 
-**Important**: You MUST use only one mode. Setting both `TEST_TOTAL` and `TOTAL_TIMEOUT` will result in an error.
+**Note**: If both are set, `TOTAL_TIMEOUT` takes precedence (time-based mode). This handles the default `TEST_TOTAL=100` from `load-test.sh` gracefully.
 
 ### Examples
 
@@ -26,8 +26,8 @@ export TOTAL_TIMEOUT="7200"  # 2 hours
 ```
 
 The following environment variables are available for controlling execution:
-- **TEST_TOTAL**: Total number of PipelineRuns to execute (count-based mode)
-- **TOTAL_TIMEOUT**: Total time for test execution in seconds (time-based mode, Default: 7200 = 2 hours)
+- **TEST_TOTAL**: Total number of PipelineRuns to execute (count-based mode, Default: 100 from load-test.sh)
+- **TOTAL_TIMEOUT**: Total time for test execution in seconds (time-based mode, no default - must be explicitly set)
 - **CHAINS_WAIT_TIME**: Wait period before enabling chains (Default: 600 = 10 mins)
 - **PRUNER_WAIT_TIME**: Wait period before enabling pruner (Default: 600 = 10 mins)
 
