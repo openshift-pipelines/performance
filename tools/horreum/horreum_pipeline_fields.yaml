@@ -17,21 +17,21 @@ change_detection_defaults:
 # Change detection groups with specific configurations
 change_detection_groups:
   "cpu":
-    description: "High-impact metrics requiring immediate attention"
-    threshold: 0.10              # 5% threshold for critical metrics
+    description: "CPU metrics"
+    threshold: 0.10
     window: 5
     min_previous: 5
     model: "relativeDifference"
 
   "etcdMvccDb":
-    description: "Pipeline execution and timing metrics"
-    threshold: 0.10              # 8% threshold for pipeline metrics
+    description: "etcd database metrics"
+    threshold: 0.10
     window: 5
     min_previous: 5
 
   "memory":
-    description: "TaskRun execution and resource metrics"
-    threshold: 0.10              # 10% threshold for task metrics
+    description: "memory metrics"
+    threshold: 0.10
     window: 5
     min_previous: 5
 
@@ -67,8 +67,8 @@ change_detection_groups:
       min_enabled: false
 
   "PipelineRuns_TaskRuns_duration":
-    description: "Cluster and system-level performance metrics"
-    threshold: 0.20              # 20% threshold for system metrics
+    description: "PLRs/TRs duration metrics"
+    threshold: 0.20
     window: 10
     min_previous: 5
     model: "relativeDifference"
@@ -78,13 +78,13 @@ change_detection_groups:
     model: "fixedThreshold"
     fixed_threshold:
       max_enabled: true
-      max_value: 0               # Alert if ANY restart occurs
+      max_value: 0
       max_inclusive: true
       min_enabled: false
 
   "TaskRunsToPods_creation":
-    description: "etcd database and storage metrics"
-    threshold: 0.20              # 20% threshold for etcd metrics
+    description: "TaskRun-to-Pods creation lag"
+    threshold: 0.20
     window: 10
     min_previous: 5
     model: "relativeDifference"
@@ -247,49 +247,7 @@ fields:
     metrics: false
     change_detection_group: null
 
-  # cpu Metrics
-  - name: "measurements_apiserver_cpu_max"
-    jsonpath: "$.measurements.apiserver.cpu.max"
-    description: "Maximum CPU usage for API server"
-    filtering: false
-    metrics: true
-    change_detection_group: null #"cpu"
-
-  - name: "measurements_apiserver_cpu_mean"
-    jsonpath: "$.measurements.apiserver.cpu.mean"
-    description: "Mean CPU usage for API server"
-    filtering: false
-    metrics: true
-    change_detection_group: null #"cpu"
-
-  - name: "measurements_kubeApiserver_cpu_max"
-    jsonpath: "$.measurements.\"kube-apiserver\".cpu.max"
-    description: "Maximum CPU usage for kube-apiserver"
-    filtering: false
-    metrics: true
-    change_detection_group: null #"cpu"
-
-  - name: "measurements_kubeApiserver_cpu_mean"
-    jsonpath: "$.measurements.\"kube-apiserver\".cpu.mean"
-    description: "Mean CPU usage for kube-apiserver"
-    filtering: false
-    metrics: true
-    change_detection_group: null #"cpu"
-
-  - name: "measurements_tektonOperatorProxyWebhook_cpu_mean"
-    jsonpath: "$.measurements.\"tekton-operator-proxy-webhook\".cpu.mean"
-    description: "Mean CPU usage for tekton-operator-proxy-webhook"
-    filtering: false
-    metrics: true
-    change_detection_group: null #"cpu"
-
-  - name: "measurements_tektonOperatorProxyWebhook_cpu_max"
-    jsonpath: "$.measurements.\"tekton-operator-proxy-webhook\".cpu.max"
-    description: "Maximum CPU usage for tekton-operator-proxy-webhook"
-    filtering: false
-    metrics: true
-    change_detection_group: null #"cpu"
-
+  # tekton-pipelines-controller
   - name: "measurements_tektonPipelinesController_cpu_mean"
     jsonpath: "$.measurements.\"tekton-pipelines-controller\".cpu.mean"
     description: "Mean CPU usage for tekton-pipelines-controller"
@@ -304,6 +262,21 @@ fields:
     metrics: true
     change_detection_group: null #"cpu"
 
+  - name: "measurements_tektonPipelinesController_memory_mean"
+    jsonpath: "$.measurements.\"tekton-pipelines-controller\".memory.mean"
+    description: "Mean memory usage for tekton-pipelines-controller"
+    filtering: false
+    metrics: true
+    change_detection_group: null #"memory"
+
+  - name: "measurements_tektonPipelinesController_memory_max"
+    jsonpath: "$.measurements.\"tekton-pipelines-controller\".memory.max"
+    description: "Maximum memory usage for tekton-pipelines-controller"
+    filtering: false
+    metrics: true
+    change_detection_group: null #"memory"
+
+  # tekton-pipelines-webhook
   - name: "measurements_tektonPipelinesWebhook_cpu_mean"
     jsonpath: "$.measurements.\"tekton-pipelines-webhook\".cpu.mean"
     description: "Mean CPU usage for tekton-pipelines-webhook"
@@ -318,6 +291,108 @@ fields:
     metrics: true
     change_detection_group: null #"cpu"
 
+  - name: "measurements_tektonPipelinesWebhook_memory_mean"
+    jsonpath: "$.measurements.\"tekton-pipelines-webhook\".memory.mean"
+    description: "Mean memory usage for tekton-pipelines-webhook"
+    filtering: false
+    metrics: true
+    change_detection_group: null #"memory"
+
+  - name: "measurements_tektonPipelinesWebhook_memory_max"
+    jsonpath: "$.measurements.\"tekton-pipelines-webhook\".memory.max"
+    description: "Maximum memory usage for tekton-pipelines-webhook"
+    filtering: false
+    metrics: true
+    change_detection_group: null #"memory"
+
+  # tekton-operator-proxy-webhook
+  - name: "measurements_tektonOperatorProxyWebhook_cpu_mean"
+    jsonpath: "$.measurements.\"tekton-operator-proxy-webhook\".cpu.mean"
+    description: "Mean CPU usage for tekton-operator-proxy-webhook"
+    filtering: false
+    metrics: true
+    change_detection_group: null #"cpu"
+
+  - name: "measurements_tektonOperatorProxyWebhook_cpu_max"
+    jsonpath: "$.measurements.\"tekton-operator-proxy-webhook\".cpu.max"
+    description: "Maximum CPU usage for tekton-operator-proxy-webhook"
+    filtering: false
+    metrics: true
+    change_detection_group: null #"cpu"
+
+  - name: "measurements_tektonOperatorProxyWebhook_memory_mean"
+    jsonpath: "$.measurements.\"tekton-operator-proxy-webhook\".memory.mean"
+    description: "Mean memory usage for tekton-operator-proxy-webhook"
+    filtering: false
+    metrics: true
+    change_detection_group: null #"memory"
+
+  - name: "measurements_tektonOperatorProxyWebhook_memory_max"
+    jsonpath: "$.measurements.\"tekton-operator-proxy-webhook\".memory.max"
+    description: "Maximum memory usage for tekton-operator-proxy-webhook"
+    filtering: false
+    metrics: true
+    change_detection_group: null #"memory"
+
+  # apiserver
+  - name: "measurements_apiserver_cpu_mean"
+    jsonpath: "$.measurements.apiserver.cpu.mean"
+    description: "Mean CPU usage for API server"
+    filtering: false
+    metrics: true
+    change_detection_group: null #"cpu"
+
+  - name: "measurements_apiserver_cpu_max"
+    jsonpath: "$.measurements.apiserver.cpu.max"
+    description: "Maximum CPU usage for API server"
+    filtering: false
+    metrics: true
+    change_detection_group: null #"cpu"
+
+  - name: "measurements_apiserver_memory_mean"
+    jsonpath: "$.measurements.apiserver.memory.mean"
+    description: "Mean memory usage for API server"
+    filtering: false
+    metrics: true
+    change_detection_group: null #"memory"
+
+  - name: "measurements_apiserver_memory_max"
+    jsonpath: "$.measurements.apiserver.memory.max"
+    description: "Max memory usage for API server"
+    filtering: false
+    metrics: true
+    change_detection_group: null #"memory"
+
+  # kube-apiserver
+  - name: "measurements_kubeApiserver_cpu_mean"
+    jsonpath: "$.measurements.\"kube-apiserver\".cpu.mean"
+    description: "Mean CPU usage for kube-apiserver"
+    filtering: false
+    metrics: true
+    change_detection_group: null #"cpu"
+
+  - name: "measurements_kubeApiserver_cpu_max"
+    jsonpath: "$.measurements.\"kube-apiserver\".cpu.max"
+    description: "Maximum CPU usage for kube-apiserver"
+    filtering: false
+    metrics: true
+    change_detection_group: null #"cpu"
+
+  - name: "measurements_kubeApiserver_memory_mean"
+    jsonpath: "$.measurements.\"kube-apiserver\".memory.mean"
+    description: "Mean memory usage for kube-apiserver"
+    filtering: false
+    metrics: true
+    change_detection_group: null #"memory"
+
+  - name: "measurements_kubeApiserver_memory_max"
+    jsonpath: "$.measurements.\"kube-apiserver\".memory.max"
+    description: "Max memory usage for kube-apiserver"
+    filtering: false
+    metrics: true
+    change_detection_group: null #"memory"
+
+  # Cluster-level resource metrics
   - name: "measurements_clusterCpuUsageSecondsTotalRate_mean"
     jsonpath: "$.measurements.cluster_cpu_usage_seconds_total_rate.mean"
     description: "Mean total CPU usage rate across all cluster nodes"
@@ -346,6 +421,20 @@ fields:
     metrics: true
     change_detection_group: null #"cpu"
 
+  - name: "measurements_clusterMemoryUsageRssTotal_mean"
+    jsonpath: "$.measurements.cluster_memory_usage_rss_total.mean"
+    description: "Mean total RSS memory usage across all cluster nodes"
+    filtering: false
+    metrics: true
+    change_detection_group: null #"memory"
+
+  - name: "measurements_clusterMemoryUsageRssTotal_max"
+    jsonpath: "$.measurements.cluster_memory_usage_rss_total.max"
+    description: "Maximum total RSS memory usage across all cluster nodes"
+    filtering: false
+    metrics: true
+    change_detection_group: null #"memory"
+
   - name: "measurements_apiserverRequestTotalRate_mean"
     jsonpath: "$.measurements.apiserver_request_total_rate.mean"
     description: "Mean API server request rate"
@@ -353,14 +442,7 @@ fields:
     metrics: true
     change_detection_group: null #"cpu"
 
-  - name: "measurements_tektonTektonPipelinesControllerWorkqueueDepth_mean"
-    jsonpath: "$.measurements.tekton_tekton_pipelines_controller_workqueue_depth.mean"
-    description: "Mean Tekton Pipelines controller workqueue depth"
-    filtering: false
-    metrics: true
-    change_detection_group: null #"cpu"
-
-  # etcdMvccDb Metrics
+  # etcd metrics
   - name: "measurements_etcdMvccDbTotalSizeInBytesAverage_mean"
     jsonpath: "$.measurements.etcd_mvcc_db_total_size_in_bytes_average.mean"
     description: "Mean etcd database total size"
@@ -403,90 +485,27 @@ fields:
     metrics: true
     change_detection_group: null #"etcdMvccDb"
 
-  # memory Metrics
-  - name: "measurements_apiserver_memory_mean"
-    jsonpath: "$.measurements.apiserver.memory.mean"
-    description: "Mean memory usage for API server"
+  # Controller workqueue & latency
+  - name: "measurements_tektonTektonPipelinesControllerWorkqueueDepth_mean"
+    jsonpath: "$.measurements.tekton_tekton_pipelines_controller_workqueue_depth.mean"
+    description: "Mean Tekton Pipelines controller workqueue depth"
     filtering: false
     metrics: true
-    change_detection_group: null #"memory"
+    change_detection_group: null #"cpu"
 
-  - name: "measurements_apiserver_memory_max"
-    jsonpath: "$.measurements.apiserver.memory.max"
-    description: "Max memory usage for API server"
+  - name: "measurements_tektonPipelinesControllerClientLatencyAverage_mean"
+    jsonpath: "$.measurements.tekton_pipelines_controller_client_latency_average.mean"
+    description: "Mean Tekton Pipelines controller HTTP client latency"
     filtering: false
     metrics: true
-    change_detection_group: null #"memory"
+    change_detection_group: "PipelineRuns_TaskRuns_duration"
 
-  - name: "measurements_kubeApiserver_memory_mean"
-    jsonpath: "$.measurements.\"kube-apiserver\".memory.mean"
-    description: "Mean memory usage for kube-apiserver"
+  - name: "measurements_tektonPipelinesControllerClientLatencyAverage_max"
+    jsonpath: "$.measurements.tekton_pipelines_controller_client_latency_average.max"
+    description: "Maximum Tekton Pipelines controller HTTP client latency"
     filtering: false
     metrics: true
-    change_detection_group: null #"memory"
-
-  - name: "measurements_kubeApiserver_memory_max"
-    jsonpath: "$.measurements.\"kube-apiserver\".memory.max"
-    description: "Max memory usage for kube-apiserver"
-    filtering: false
-    metrics: true
-    change_detection_group: null #"memory"
-
-  - name: "measurements_tektonPipelinesWebhook_memory_mean"
-    jsonpath: "$.measurements.\"tekton-pipelines-webhook\".memory.mean"
-    description: "Mean memory usage for tekton-pipelines-webhook"
-    filtering: false
-    metrics: true
-    change_detection_group: null #"memory"
-
-  - name: "measurements_tektonPipelinesWebhook_memory_max"
-    jsonpath: "$.measurements.\"tekton-pipelines-webhook\".memory.max"
-    description: "Maximum memory usage for tekton-pipelines-webhook"
-    filtering: false
-    metrics: true
-    change_detection_group: null #"memory"
-
-  - name: "measurements_tektonPipelinesController_memory_mean"
-    jsonpath: "$.measurements.\"tekton-pipelines-controller\".memory.mean"
-    description: "Mean memory usage for tekton-pipelines-controller"
-    filtering: false
-    metrics: true
-    change_detection_group: null #"memory"
-
-  - name: "measurements_tektonPipelinesController_memory_max"
-    jsonpath: "$.measurements.\"tekton-pipelines-controller\".memory.max"
-    description: "Maximum memory usage for tekton-pipelines-controller"
-    filtering: false
-    metrics: true
-    change_detection_group: null #"memory"
-
-  - name: "measurements_tektonOperatorProxyWebhook_memory_mean"
-    jsonpath: "$.measurements.\"tekton-operator-proxy-webhook\".memory.mean"
-    description: "Mean memory usage for tekton-operator-proxy-webhook"
-    filtering: false
-    metrics: true
-    change_detection_group: null #"memory"
-
-  - name: "measurements_tektonOperatorProxyWebhook_memory_max"
-    jsonpath: "$.measurements.\"tekton-operator-proxy-webhook\".memory.max"
-    description: "Maximum memory usage for tekton-operator-proxy-webhook"
-    filtering: false
-    metrics: true
-    change_detection_group: null #"memory"
-
-  - name: "measurements_clusterMemoryUsageRssTotal_mean"
-    jsonpath: "$.measurements.cluster_memory_usage_rss_total.mean"
-    description: "Mean total RSS memory usage across all cluster nodes"
-    filtering: false
-    metrics: true
-    change_detection_group: null #"memory"
-
-  - name: "measurements_clusterMemoryUsageRssTotal_max"
-    jsonpath: "$.measurements.cluster_memory_usage_rss_total.max"
-    description: "Maximum total RSS memory usage across all cluster nodes"
-    filtering: false
-    metrics: true
-    change_detection_group: null #"memory"
+    change_detection_group: "PipelineRuns_TaskRuns_duration"
 
   # PipelineRuns and TaskRuns counts
   - name: "results_PipelineRuns_count_succeeded"
@@ -562,28 +581,14 @@ fields:
 
   - name: "results_PipelineRuns_Success_pending_avg"
     jsonpath: "$.results.PipelineRuns.Success.pending.avg"
-    description: "Average duration for successful PipelineRuns"
+    description: "Average duration for pending PipelineRuns"
     filtering: false
     metrics: true
     change_detection_group: "PipelineRuns_TaskRuns_duration"
 
   - name: "results_PipelineRuns_Success_running_avg"
     jsonpath: "$.results.PipelineRuns.Success.running.avg"
-    description: "Average duration for successful PipelineRuns"
-    filtering: false
-    metrics: true
-    change_detection_group: "PipelineRuns_TaskRuns_duration"
-
-  - name: "measurements_tektonPipelinesControllerClientLatencyAverage_mean"
-    jsonpath: "$.measurements.tekton_pipelines_controller_client_latency_average.mean"
-    description: "Mean Tekton Pipelines controller HTTP client latency"
-    filtering: false
-    metrics: true
-    change_detection_group: "PipelineRuns_TaskRuns_duration"
-
-  - name: "measurements_tektonPipelinesControllerClientLatencyAverage_max"
-    jsonpath: "$.measurements.tekton_pipelines_controller_client_latency_average.max"
-    description: "Maximum Tekton Pipelines controller HTTP client latency"
+    description: "Average duration for running PipelineRuns"
     filtering: false
     metrics: true
     change_detection_group: "PipelineRuns_TaskRuns_duration"

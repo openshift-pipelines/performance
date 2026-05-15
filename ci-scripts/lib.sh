@@ -225,15 +225,15 @@ capture_ha_qbt_config() {
     info "Collecting HA and QBT configuration information"
 
     (cat "$output_file" 2>/dev/null || echo "{}") | jq \
-        --arg ha_pipelines "${DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS:-0}" \
+        --arg ha_replicas "${DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS:-${DEPLOYMENT_CHAINS_CONTROLLER_HA_REPLICAS:-0}}" \
         --arg controller_type "${DEPLOYMENT_PIPELINES_CONTROLLER_TYPE:-deployments}" \
-        --arg qps "${DEPLOYMENT_PIPELINES_KUBE_API_QPS:-}" \
-        --arg burst "${DEPLOYMENT_PIPELINES_KUBE_API_BURST:-}" \
-        --arg threads "${DEPLOYMENT_PIPELINES_THREADS_PER_CONTROLLER:-}" \
+        --arg qps "${DEPLOYMENT_PIPELINES_KUBE_API_QPS:-${DEPLOYMENT_CHAINS_KUBE_API_QPS:-}}" \
+        --arg burst "${DEPLOYMENT_PIPELINES_KUBE_API_BURST:-${DEPLOYMENT_CHAINS_KUBE_API_BURST:-}}" \
+        --arg threads "${DEPLOYMENT_PIPELINES_THREADS_PER_CONTROLLER:-${DEPLOYMENT_CHAINS_THREADS_PER_CONTROLLER:-}}" \
         --arg ocp_version "${OCP_VERSION:-$(oc get clusterversion version -o jsonpath='{.status.desired.version}' 2>/dev/null | cut -d. -f1,2)}" \
         '.deployment.ha_config = {
-            ha_enabled: (($ha_pipelines | tonumber) > 0),
-            ha_replicas: ($ha_pipelines | tonumber),
+            ha_enabled: (($ha_replicas | tonumber) > 0),
+            ha_replicas: ($ha_replicas | tonumber),
             controller_type: $controller_type
         } |
         .deployment.qbt_config = {
@@ -252,15 +252,23 @@ capture_scenario_name() {
 
     info "Generating scenario descriptive name"
 
+    local controller_label
+    local base_name
+    if [[ "${TEST_SCENARIO:-}" == *signing* ]]; then
+        base_name="Chains controller signing performance"
+    else
+        base_name="Pipelines controller with rising concurrency"
+    fi
+
     local scenario_name
     scenario_name=$(jq -n \
-        --arg ha_replicas "${DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS:-0}" \
+        --arg base "$base_name" \
+        --arg ha_replicas "${DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS:-${DEPLOYMENT_CHAINS_CONTROLLER_HA_REPLICAS:-0}}" \
         --arg controller_type "${DEPLOYMENT_PIPELINES_CONTROLLER_TYPE:-deployments}" \
-        --arg qps "${DEPLOYMENT_PIPELINES_KUBE_API_QPS:-}" \
-        --arg burst "${DEPLOYMENT_PIPELINES_KUBE_API_BURST:-}" \
-        --arg threads "${DEPLOYMENT_PIPELINES_THREADS_PER_CONTROLLER:-}" \
+        --arg qps "${DEPLOYMENT_PIPELINES_KUBE_API_QPS:-${DEPLOYMENT_CHAINS_KUBE_API_QPS:-}}" \
+        --arg burst "${DEPLOYMENT_PIPELINES_KUBE_API_BURST:-${DEPLOYMENT_CHAINS_KUBE_API_BURST:-}}" \
+        --arg threads "${DEPLOYMENT_PIPELINES_THREADS_PER_CONTROLLER:-${DEPLOYMENT_CHAINS_THREADS_PER_CONTROLLER:-}}" \
         -r '
-        "Pipelines controller with rising concurrency" as $base |
         [] |
         if ($ha_replicas | tonumber) > 0 then . + ["HA=\($ha_replicas)"] else . end |
         if $controller_type == "statefulsets" then . + ["statefulsets"] else . end |
