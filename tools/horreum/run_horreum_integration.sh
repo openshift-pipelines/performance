@@ -4,16 +4,19 @@
 # Horreum API Integration Script Wrapper
 # =============================================================================
 #
-# This script provides a convenient wrapper for the horreum_api.py 
-# Python script with environment variable validation and helpful error messages.
+# This script provides a convenient wrapper for OPL's horreum_api.py
+# with environment validation and helpful error messages.
 #
 # Prerequisites:
-# - horreum_api package installed via pip
-# - horreum_fields_config.yaml configuration file present
+# - Python 3 with opl.horreum_api (OPL extras on main: extras/opl/horreum_api.py)
+# - A Horreum fields YAML (this repo: tools/horreum/horreum_pipeline_fields.yaml)
 #
-# Installation:
-# pip install git+https://github.com/redhat-performance/opl.git@horreum-api
+# TLS: Prefer REQUESTS_CA_BUNDLE to a PEM with your corporate CA.
 #
+# OPL / Horreum tooling:
+# - horreum_api.py (this wrapper): OPL extras package
+#     pip install "git+https://github.com/redhat-performance/opl.git#subdirectory=extras&egg=opl-rhcloud-perf-team-extras"
+
 # =============================================================================
 
 set -e  # Exit on any error
@@ -130,9 +133,9 @@ EOF
 
 check_command_available() {
     if ! command -v "$REQUIRED_COMMAND" &> /dev/null; then
-        error "Command '$REQUIRED_COMMAND' not found in PATH"
-        error "Please install the horreum_api package:"
-        error "  pip install git+https://github.com/redhat-performance/opl.git@horreum-api"
+        error "Command '$REQUIRED_COMMAND' not found in PATH."
+        error "Install OPL extras from main, subdirectory extras:"
+        error "  pip install \"git+https://github.com/redhat-performance/opl.git#subdirectory=extras&egg=opl-rhcloud-perf-team-extras\""
         error ""
         error "Or if already installed, ensure it's in your PATH:"
         error "  which $REQUIRED_COMMAND"
@@ -243,8 +246,8 @@ show_env_summary() {
     info "Environment Configuration Summary:"
     info "=================================="
     info "HORREUM_URL: ${HORREUM_URL}"
-    info "HORREUM_API_KEY: ${HORREUM_API_KEY:+***set***}${HORREUM_API_KEY:-not set}"
-    info "HORREUM_TOKEN: ${HORREUM_TOKEN:+***set***}${HORREUM_TOKEN:-not set}"
+    info "HORREUM_API_KEY: $([[ -n "${HORREUM_API_KEY:-}" ]] && echo "***set***" || echo "not set")"
+    info "HORREUM_TOKEN: $([[ -n "${HORREUM_TOKEN:-}" ]] && echo "***set***" || echo "not set")"
     info "HORREUM_CONFIG_FILE: ${HORREUM_CONFIG_FILE:-$CONFIG_FILE_DEFAULT}"
     info "HORREUM_SCHEMA_ID: ${HORREUM_SCHEMA_ID:-not set (will create new)}"
     info "HORREUM_TEST_ID: ${HORREUM_TEST_ID:-not set (will create new)}"
@@ -252,6 +255,7 @@ show_env_summary() {
     info "SKIP_LABELS: ${SKIP_LABELS}"
     info "CLEANUP_LABELS: ${CLEANUP_LABELS}"
     info "CLEANUP_VARIABLES: ${CLEANUP_VARIABLES}"
+    info "REQUESTS_CA_BUNDLE: ${REQUESTS_CA_BUNDLE:-not set}"
     info "=================================="
     
     if [[ "${DRY_RUN}" == "true" ]]; then

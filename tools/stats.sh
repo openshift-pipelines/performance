@@ -22,7 +22,7 @@ if [ ! -f $output ]; then
 
 cat <<EOF >$output
 {
-    "name": "OpenShift Pipelines scalingPipelines test",
+    "name": "$(if [[ "${TEST_SCENARIO:-}" == *signing* ]]; then echo "OpenShift Pipelines Chains signing test"; else echo "OpenShift Pipelines scalingPipelines test"; fi)",
     "results": {
         "started": "$started",
         "ended": "$ended"
@@ -165,3 +165,44 @@ cat $output | jq --arg type "$type" '.results.[$type].startTime.first = '$pr_sta
 pr_completionTime_first=$(echo $data | jq  '[.[] | select(has("finished_at")) | (.completionTime // (.finished_at | .[0:19] + "Z") ) ] | sort | first')
 pr_completionTime_last=$(echo $data | jq  '[.[] | select(has("finished_at")) | (.completionTime // (.finished_at | .[0:19] + "Z") ) ] | sort | last')
 cat $output | jq --arg type "$type" '.results.[$type].completionTime.first = '$pr_completionTime_first' | .results.[$type].completionTime.last = '$pr_completionTime_last'' >"$$.json" && mv -f "$$.json" "$output"
+
+###############################################################################################
+# Signing metrics
+signing_count=$(echo "$data_overall" | jq -s '[.[] | select(.signed == "true" and has("signed_at"))] | length')
+
+if [ "$signing_count" -gt 0 ]; then
+    echo "DEBUG: Computing signing metrics for ${signing_count} signed ${type}..."
+
+    # Signing count
+    signing_false=$(echo "$data_overall" | jq -s '[.[] | select(.signed == "false")] | length')
+    signing_unknown=$(echo "$data_overall" | jq -s '[.[] | select(.signed == "unknown" or (has("signed") | not))] | length')
+    cat $output | jq --arg type "$type" \
+        '.results.[$type].signing.count.signed_true = '$signing_count'
+        | .results.[$type].signing.count.signed_false = '$signing_false'
+        | .results.[$type].signing.count.unsigned = '$signing_unknown'' >"$$.json" && mv -f "$$.json" "$output"
+
+    # Signing timestamps: first and last signed_at
+    signing_first=$(echo "$data_overall" | jq -s '[.[] | select(.signed == "true" and has("signed_at")) | (.signed_at | .[0:19] + "Z")] | sort | first')
+    signing_last=$(echo "$data_overall" | jq -s '[.[] | select(.signed == "true" and has("signed_at")) | (.signed_at | .[0:19] + "Z")] | sort | last')
+    cat $output | jq --arg type "$type" \
+        '.results.[$type].signing.signed_at.first = '$signing_first'
+        | .results.[$type].signing.signed_at.last = '$signing_last'' >"$$.json" && mv -f "$$.json" "$output"
+
+    # Signing duration: last_signed - first_signed (pure signing window)
+    first_signed_epoch=$(echo "$data_overall" | jq -s '[.[] | select(.signed == "true" and has("signed_at")) | (.signed_at | .[0:19] + "Z" | fromdate)] | min')
+    last_signed_epoch=$(echo "$data_overall" | jq -s '[.[] | select(.signed == "true" and has("signed_at")) | (.signed_at | .[0:19] + "Z" | fromdate)] | max')
+    signing_duration=$(echo "$last_signed_epoch - $first_signed_epoch" | bc)
+    cat $output | jq --arg type "$type" \
+        '.results.[$type].signing.duration = '$signing_duration'' >"$$.json" && mv -f "$$.json" "$output"
+
+    # Signing throughput: signed_count / signing_duration (signs per second)
+    if [ "$signing_duration" != "0" ]; then
+        signing_throughput=$(echo "scale=4; $signing_count / $signing_duration" | bc)
+        cat $output | jq --arg type "$type" \
+            '.results.[$type].signing.throughput = '$signing_throughput'' >"$$.json" && mv -f "$$.json" "$output"
+    fi
+
+    echo "DEBUG: Signing count=${signing_count}, duration=${signing_duration}s, throughput=${signing_throughput}/s"
+else
+    echo "DEBUG: No signed ${type} found. Skipping signing metrics..."
+fi

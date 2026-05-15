@@ -1,0 +1,607 @@
+# Horreum Fields Configuration — Chains Test
+# Shares the same schema as Pipelines (same URI), but has its own test definition
+# and change detection variables for Chains-specific metrics.
+#
+# IMPORTANT: Run with CLEANUP_LABELS=false to avoid deleting Pipelines labels
+# from the shared schema.
+
+# Global configuration
+global:
+  owner: "Openshift-pipelines-team"
+  access: "PUBLIC"
+
+# Global change detection defaults
+change_detection_defaults:
+  model: "relativeDifference"
+  window: 10
+  min_previous: 5
+  threshold: 0.10
+
+# Change detection groups for Chains test
+change_detection_groups:
+  "chains_cpu":
+    description: "Chains controller CPU metrics"
+    threshold: 0.10
+    window: 5
+    min_previous: 5
+    model: "relativeDifference"
+
+  "chains_memory":
+    description: "Chains controller memory metrics"
+    threshold: 0.10
+    window: 5
+    min_previous: 5
+
+  "chains_workqueue":
+    description: "Chains controller workqueue depth"
+    threshold: 0.20
+    window: 5
+    min_previous: 5
+
+  "signing_throughput":
+    description: "Signing duration and throughput metrics"
+    threshold: 0.20
+    window: 10
+    min_previous: 5
+    model: "relativeDifference"
+
+  "PipelineRuns_Succeeded_count":
+    description: "Number of successful PipelineRuns (varies with TEST_TOTAL)"
+    model: "relativeDifference"
+    threshold: 0.01
+    window: 5
+    min_previous: 3
+
+  "TaskRuns_Succeeded_count":
+    description: "Number of successful TaskRuns (varies with TEST_TOTAL)"
+    model: "relativeDifference"
+    threshold: 0.01
+    window: 5
+    min_previous: 3
+
+  "PipelineRuns_TaskRuns_Failed_count":
+    description: "Number of failing PipelineRuns and TaskRuns"
+    model: "fixedThreshold"
+    fixed_threshold:
+      max_enabled: true
+      max_value: 0
+      max_inclusive: true
+      min_enabled: false
+
+  "signing_count":
+    description: "All runs must be signed (varies with TEST_TOTAL)"
+    model: "relativeDifference"
+    threshold: 0.01
+    window: 5
+    min_previous: 3
+
+  "signing_unsigned_count":
+    description: "No runs should remain unsigned"
+    model: "fixedThreshold"
+    fixed_threshold:
+      max_enabled: true
+      max_value: 0
+      max_inclusive: true
+      min_enabled: false
+
+  "restarts":
+    description: "Pod and container restart counts"
+    model: "fixedThreshold"
+    fixed_threshold:
+      max_enabled: true
+      max_value: 0
+      max_inclusive: true
+      min_enabled: false
+
+# Test definition — Chains-specific
+test:
+  access: "PUBLIC"
+  owner: "Openshift-pipelines-team"
+  name: "OpenShift Pipelines Chains signing test"
+  folder: "Openshift-pipelines"
+  description: "Chains signing performance test results"
+  datastoreId: 1
+  timelineLabels: ["started"]
+  timelineFunction: "value => new Date(value).getTime()"
+  fingerprintLabels:
+    - deployment_haConfig_haEnabled
+    - deployment_version
+    - parameters_test_total
+    - deployment_qbtConfig_qbtEnabled
+    - metadata_env_TEST_SCENARIO
+  fingerprintFilter: "value => value !== null"
+  notificationsEnabled: true
+
+# Schema definition — SAME as Pipelines (shared schema)
+schema:
+  access: "PUBLIC"
+  owner: "Openshift-pipelines-team"
+  uri: "urn:openshift-pipelines-perfscale-scalingPipelines:0.2"
+  name: "openshift-pipelines-perfscale-scalingPipelines-0.2"
+  description: "Schema for OpenShift Pipelines scalingPipelines performance test data"
+  json_schema:
+    $schema: "https://json-schema.org/draft/2020-12/schema"
+    $id: "urn:openshift-pipelines-perfscale-scalingPipelines:0.2"
+    title: "openshift-pipelines-perfscale-scalingPipelines-0.2"
+    description: "Schema for OpenShift Pipelines performance benchmark data generated from field configuration"
+
+# Field definitions
+# Includes shared labels (same as Pipelines) + Chains-specific labels
+fields:
+  # =========================================================================
+  # Shared labels (also in horreum_pipeline_fields.yaml)
+  # =========================================================================
+
+  # Metadata & identifiers
+  - name: "started"
+    jsonpath: "$.started"
+    description: "Run start timestamp"
+    filtering: false
+    metrics: true
+    change_detection_group: null
+
+  - name: "metadata_env_BUILD_ID"
+    jsonpath: "$.metadata.env.BUILD_ID"
+    description: "Prow build ID"
+    filtering: true
+    metrics: false
+    change_detection_group: null
+
+  - name: "metadata_env_SUBJOB_BUILD_ID"
+    jsonpath: "$.metadata.env.SUBJOB_BUILD_ID"
+    description: "Sub-job build ID (unique per concurrency level)"
+    filtering: true
+    metrics: false
+    change_detection_group: null
+
+  - name: "metadata_env_TEST_SCENARIO"
+    jsonpath: "$.metadata.env.TEST_SCENARIO"
+    description: "Test scenario name (e.g. signing-tr-tekton-bigbang)"
+    filtering: true
+    metrics: false
+    change_detection_group: null
+
+  # Test parameters
+  - name: "parameters_test_concurrent"
+    jsonpath: "$.parameters.test.concurrent"
+    description: "Test concurrency level"
+    filtering: true
+    metrics: false
+    change_detection_group: null
+
+  - name: "parameters_test_total"
+    jsonpath: "$.parameters.test.total"
+    description: "Total PipelineRuns per concurrency level"
+    filtering: true
+    metrics: false
+    change_detection_group: null
+
+  # Deployment configuration
+  - name: "deployment_version"
+    jsonpath: "$.deployment.version"
+    description: "Deployment version"
+    filtering: true
+    metrics: false
+    change_detection_group: null
+
+  - name: "deployment_nightly"
+    jsonpath: "$.deployment.is_nightly_build"
+    description: "Whether this is a nightly build"
+    filtering: true
+    metrics: false
+    change_detection_group: null
+
+  - name: "deployment_haConfig_haEnabled"
+    jsonpath: "$.deployment.ha_config.ha_enabled"
+    description: "HA mode enabled flag"
+    filtering: true
+    metrics: false
+    change_detection_group: null
+
+  - name: "deployment_haConfig_haReplicas"
+    jsonpath: "$.deployment.ha_config.ha_replicas"
+    description: "Number of HA replicas for controller"
+    filtering: true
+    metrics: false
+    change_detection_group: null
+
+  - name: "deployment_haConfig_controllerType"
+    jsonpath: "$.deployment.ha_config.controller_type"
+    description: "Controller type (deployments or statefulsets)"
+    filtering: true
+    metrics: false
+    change_detection_group: null
+
+  - name: "deployment_ocpVersion"
+    jsonpath: "$.deployment.ocp_version"
+    description: "OpenShift cluster version"
+    filtering: true
+    metrics: false
+    change_detection_group: null
+
+  - name: "deployment_qbtConfig_qbtEnabled"
+    jsonpath: "$.deployment.qbt_config.qbt_enabled"
+    description: "QBT enabled flag"
+    filtering: true
+    metrics: false
+    change_detection_group: null
+
+  - name: "deployment_qbtConfig_kubeApiQps"
+    jsonpath: "$.deployment.qbt_config.kube_api_qps"
+    description: "Kube API queries per second limit"
+    filtering: true
+    metrics: false
+    change_detection_group: null
+
+  - name: "deployment_qbtConfig_kubeApiBurst"
+    jsonpath: "$.deployment.qbt_config.kube_api_burst"
+    description: "Kube API burst limit"
+    filtering: true
+    metrics: false
+    change_detection_group: null
+
+  - name: "deployment_qbtConfig_threadsPerController"
+    jsonpath: "$.deployment.qbt_config.threads_per_controller"
+    description: "Number of threads per controller"
+    filtering: true
+    metrics: false
+    change_detection_group: null
+
+  # apiserver
+  - name: "measurements_apiserver_cpu_mean"
+    jsonpath: "$.measurements.apiserver.cpu.mean"
+    description: "Mean CPU usage for API server"
+    filtering: false
+    metrics: true
+    change_detection_group: null
+
+  - name: "measurements_apiserver_cpu_max"
+    jsonpath: "$.measurements.apiserver.cpu.max"
+    description: "Maximum CPU usage for API server"
+    filtering: false
+    metrics: true
+    change_detection_group: null
+
+  - name: "measurements_apiserver_memory_mean"
+    jsonpath: "$.measurements.apiserver.memory.mean"
+    description: "Mean memory usage for API server"
+    filtering: false
+    metrics: true
+    change_detection_group: null
+
+  - name: "measurements_apiserver_memory_max"
+    jsonpath: "$.measurements.apiserver.memory.max"
+    description: "Max memory usage for API server"
+    filtering: false
+    metrics: true
+    change_detection_group: null
+
+  # kube-apiserver
+  - name: "measurements_kubeApiserver_cpu_mean"
+    jsonpath: "$.measurements.\"kube-apiserver\".cpu.mean"
+    description: "Mean CPU usage for kube-apiserver"
+    filtering: false
+    metrics: true
+    change_detection_group: null
+
+  - name: "measurements_kubeApiserver_cpu_max"
+    jsonpath: "$.measurements.\"kube-apiserver\".cpu.max"
+    description: "Maximum CPU usage for kube-apiserver"
+    filtering: false
+    metrics: true
+    change_detection_group: null
+
+  - name: "measurements_kubeApiserver_memory_mean"
+    jsonpath: "$.measurements.\"kube-apiserver\".memory.mean"
+    description: "Mean memory usage for kube-apiserver"
+    filtering: false
+    metrics: true
+    change_detection_group: null
+
+  - name: "measurements_kubeApiserver_memory_max"
+    jsonpath: "$.measurements.\"kube-apiserver\".memory.max"
+    description: "Max memory usage for kube-apiserver"
+    filtering: false
+    metrics: true
+    change_detection_group: null
+
+  # Cluster-level resource metrics
+  - name: "measurements_clusterCpuUsageSecondsTotalRate_mean"
+    jsonpath: "$.measurements.cluster_cpu_usage_seconds_total_rate.mean"
+    description: "Mean total CPU usage rate across all cluster nodes"
+    filtering: false
+    metrics: true
+    change_detection_group: null
+
+  - name: "measurements_clusterCpuUsageSecondsTotalRate_max"
+    jsonpath: "$.measurements.cluster_cpu_usage_seconds_total_rate.max"
+    description: "Maximum total CPU usage rate across all cluster nodes"
+    filtering: false
+    metrics: true
+    change_detection_group: null
+
+  - name: "measurements_workersAvgCpuUsagePercentage_mean"
+    jsonpath: "$.measurements.workers_avg_cpu_usage_percentage.mean"
+    description: "Mean CPU usage percentage across worker nodes"
+    filtering: false
+    metrics: true
+    change_detection_group: null
+
+  - name: "measurements_workersAvgCpuUsagePercentage_max"
+    jsonpath: "$.measurements.workers_avg_cpu_usage_percentage.max"
+    description: "Maximum CPU usage percentage across worker nodes"
+    filtering: false
+    metrics: true
+    change_detection_group: null
+
+  - name: "measurements_clusterMemoryUsageRssTotal_mean"
+    jsonpath: "$.measurements.cluster_memory_usage_rss_total.mean"
+    description: "Mean total RSS memory usage across all cluster nodes"
+    filtering: false
+    metrics: true
+    change_detection_group: null
+
+  - name: "measurements_clusterMemoryUsageRssTotal_max"
+    jsonpath: "$.measurements.cluster_memory_usage_rss_total.max"
+    description: "Maximum total RSS memory usage across all cluster nodes"
+    filtering: false
+    metrics: true
+    change_detection_group: null
+
+  - name: "measurements_apiserverRequestTotalRate_mean"
+    jsonpath: "$.measurements.apiserver_request_total_rate.mean"
+    description: "Mean API server request rate"
+    filtering: false
+    metrics: true
+    change_detection_group: null
+
+  # etcd metrics
+  - name: "measurements_etcdMvccDbTotalSizeInBytesAverage_mean"
+    jsonpath: "$.measurements.etcd_mvcc_db_total_size_in_bytes_average.mean"
+    description: "Mean etcd database total size"
+    filtering: false
+    metrics: true
+    change_detection_group: null
+
+  - name: "measurements_etcdMvccDbTotalSizeInBytesAverage_max"
+    jsonpath: "$.measurements.etcd_mvcc_db_total_size_in_bytes_average.max"
+    description: "Maximum etcd database total size"
+    filtering: false
+    metrics: true
+    change_detection_group: null
+
+  - name: "measurements_etcdMvccDbTotalSizeInUseInBytesAverage_mean"
+    jsonpath: "$.measurements.etcd_mvcc_db_total_size_in_use_in_bytes_average.mean"
+    description: "Mean etcd database size in use"
+    filtering: false
+    metrics: true
+    change_detection_group: null
+
+  - name: "measurements_etcdMvccDbTotalSizeInUseInBytesAverage_max"
+    jsonpath: "$.measurements.etcd_mvcc_db_total_size_in_use_in_bytes_average.max"
+    description: "Maximum etcd database size in use"
+    filtering: false
+    metrics: true
+    change_detection_group: null
+
+  - name: "measurements_etcdRequestDurationSecondsAverage_mean"
+    jsonpath: "$.measurements.etcd_request_duration_seconds_average.mean"
+    description: "Mean etcd request duration"
+    filtering: false
+    metrics: true
+    change_detection_group: null
+
+  - name: "measurements_etcdRequestDurationSecondsAverage_max"
+    jsonpath: "$.measurements.etcd_request_duration_seconds_average.max"
+    description: "Maximum etcd request duration"
+    filtering: false
+    metrics: true
+    change_detection_group: null
+
+  # PipelineRuns and TaskRuns counts
+  - name: "results_PipelineRuns_count_succeeded"
+    jsonpath: "$.results.PipelineRuns.count.succeeded"
+    description: "Number of successful PipelineRuns"
+    filtering: false
+    metrics: true
+    change_detection_group: "PipelineRuns_Succeeded_count"
+
+  - name: "results_PipelineRuns_count_failed"
+    jsonpath: "$.results.PipelineRuns.count.failed"
+    description: "Number of failed PipelineRuns"
+    filtering: false
+    metrics: true
+    change_detection_group: "PipelineRuns_TaskRuns_Failed_count"
+
+  - name: "results_TaskRuns_count_succeeded"
+    jsonpath: "$.results.TaskRuns.count.succeeded"
+    description: "Number of successful TaskRuns"
+    filtering: false
+    metrics: true
+    change_detection_group: "TaskRuns_Succeeded_count"
+
+  - name: "results_TaskRuns_count_failed"
+    jsonpath: "$.results.TaskRuns.count.failed"
+    description: "Number of failed TaskRuns"
+    filtering: false
+    metrics: true
+    change_detection_group: "PipelineRuns_TaskRuns_Failed_count"
+
+  # restarts
+  - name: "measurements_apiserver_restarts_range"
+    jsonpath: "$.measurements.apiserver.restarts.range"
+    description: "apiserver restart count"
+    filtering: false
+    metrics: true
+    change_detection_group: "restarts"
+
+  - name: "measurements_etcd_restarts_range"
+    jsonpath: "$.measurements.etcd.restarts.range"
+    description: "etcd restart count"
+    filtering: false
+    metrics: true
+    change_detection_group: "restarts"
+
+  - name: "measurements_kubeApiserver_restarts_range"
+    jsonpath: "$.measurements.\"kube-apiserver\".restarts.range"
+    description: "kubeApiserver restart count"
+    filtering: false
+    metrics: true
+    change_detection_group: "restarts"
+
+  - name: "measurements_tektonPipelinesController_restarts_range"
+    jsonpath: "$.measurements.\"tekton-pipelines-controller\".restarts.range"
+    description: "tektonPipelinesController restart count"
+    filtering: false
+    metrics: true
+    change_detection_group: "restarts"
+
+  - name: "measurements_tektonPipelinesWebhook_restarts_range"
+    jsonpath: "$.measurements.\"tekton-pipelines-webhook\".restarts.range"
+    description: "tektonPipelinesWebhook restart count"
+    filtering: false
+    metrics: true
+    change_detection_group: "restarts"
+
+  - name: "measurements_tektonOperatorProxyWebhook_restarts_range"
+    jsonpath: "$.measurements.\"tekton-operator-proxy-webhook\".restarts.range"
+    description: "tektonOperatorProxyWebhook restart count"
+    filtering: false
+    metrics: true
+    change_detection_group: "restarts"
+
+  - name: "measurements_schedulerPendingPodsCount_range"
+    jsonpath: "$.measurements.scheduler_pending_pods_count.range"
+    description: "Range of pending pods in the Kubernetes scheduler"
+    filtering: false
+    metrics: true
+    change_detection_group: null
+
+  # =========================================================================
+  # Chains-specific labels
+  # =========================================================================
+
+  # Chains controller CPU
+  - name: "measurements_tektonChainsController_cpu_mean"
+    jsonpath: "$.measurements.\"tekton-chains-controller\".cpu.mean"
+    description: "Mean CPU usage for tekton-chains-controller"
+    filtering: false
+    metrics: true
+    change_detection_group: "chains_cpu"
+
+  - name: "measurements_tektonChainsController_cpu_max"
+    jsonpath: "$.measurements.\"tekton-chains-controller\".cpu.max"
+    description: "Maximum CPU usage for tekton-chains-controller"
+    filtering: false
+    metrics: true
+    change_detection_group: "chains_cpu"
+
+  # Chains controller memory
+  - name: "measurements_tektonChainsController_memory_mean"
+    jsonpath: "$.measurements.\"tekton-chains-controller\".memory.mean"
+    description: "Mean memory usage for tekton-chains-controller"
+    filtering: false
+    metrics: true
+    change_detection_group: "chains_memory"
+
+  - name: "measurements_tektonChainsController_memory_max"
+    jsonpath: "$.measurements.\"tekton-chains-controller\".memory.max"
+    description: "Maximum memory usage for tekton-chains-controller"
+    filtering: false
+    metrics: true
+    change_detection_group: "chains_memory"
+
+  # Chains controller restarts
+  - name: "measurements_tektonChainsController_restarts_range"
+    jsonpath: "$.measurements.\"tekton-chains-controller\".restarts.range"
+    description: "tekton-chains-controller restart count"
+    filtering: false
+    metrics: true
+    change_detection_group: "restarts"
+
+  # Chains controller workqueue depth
+  - name: "measurements_tektonChainsControllerWorkqueueDepth_mean"
+    jsonpath: "$.measurements.tekton_tekton_chains_controller_workqueue_depth.mean"
+    description: "Mean Tekton Chains controller workqueue depth"
+    filtering: false
+    metrics: true
+    change_detection_group: "chains_workqueue"
+
+  - name: "measurements_tektonChainsControllerWorkqueueDepth_max"
+    jsonpath: "$.measurements.tekton_tekton_chains_controller_workqueue_depth.max"
+    description: "Maximum Tekton Chains controller workqueue depth"
+    filtering: false
+    metrics: true
+    change_detection_group: "chains_workqueue"
+
+  # Signing metrics — PipelineRuns
+  - name: "results_PipelineRuns_signing_count_signed_true"
+    jsonpath: "$.results.PipelineRuns.signing.count.signed_true"
+    description: "Number of PipelineRuns signed successfully"
+    filtering: false
+    metrics: true
+    change_detection_group: "signing_count"
+
+  - name: "results_PipelineRuns_signing_count_signed_false"
+    jsonpath: "$.results.PipelineRuns.signing.count.signed_false"
+    description: "Number of PipelineRuns with signing failed"
+    filtering: false
+    metrics: true
+    change_detection_group: "signing_unsigned_count"
+
+  - name: "results_PipelineRuns_signing_count_unsigned"
+    jsonpath: "$.results.PipelineRuns.signing.count.unsigned"
+    description: "Number of PipelineRuns that remained unsigned"
+    filtering: false
+    metrics: true
+    change_detection_group: "signing_unsigned_count"
+
+  - name: "results_PipelineRuns_signing_duration"
+    jsonpath: "$.results.PipelineRuns.signing.duration"
+    description: "PipelineRun signing window duration (last_signed - first_signed)"
+    filtering: false
+    metrics: true
+    change_detection_group: "signing_throughput"
+
+  - name: "results_PipelineRuns_signing_throughput"
+    jsonpath: "$.results.PipelineRuns.signing.throughput"
+    description: "PipelineRun signing throughput (signed/duration)"
+    filtering: false
+    metrics: true
+    change_detection_group: "signing_throughput"
+
+  # Signing metrics — TaskRuns
+  - name: "results_TaskRuns_signing_count_signed_true"
+    jsonpath: "$.results.TaskRuns.signing.count.signed_true"
+    description: "Number of TaskRuns signed successfully"
+    filtering: false
+    metrics: true
+    change_detection_group: "signing_count"
+
+  - name: "results_TaskRuns_signing_count_signed_false"
+    jsonpath: "$.results.TaskRuns.signing.count.signed_false"
+    description: "Number of TaskRuns with signing failed"
+    filtering: false
+    metrics: true
+    change_detection_group: "signing_unsigned_count"
+
+  - name: "results_TaskRuns_signing_count_unsigned"
+    jsonpath: "$.results.TaskRuns.signing.count.unsigned"
+    description: "Number of TaskRuns that remained unsigned"
+    filtering: false
+    metrics: true
+    change_detection_group: "signing_unsigned_count"
+
+  - name: "results_TaskRuns_signing_duration"
+    jsonpath: "$.results.TaskRuns.signing.duration"
+    description: "TaskRun signing window duration (last_signed - first_signed)"
+    filtering: false
+    metrics: true
+    change_detection_group: "signing_throughput"
+
+  - name: "results_TaskRuns_signing_throughput"
+    jsonpath: "$.results.TaskRuns.signing.throughput"
+    description: "TaskRun signing throughput (signed/duration)"
+    filtering: false
+    metrics: true
+    change_detection_group: "signing_throughput"
