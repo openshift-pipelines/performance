@@ -19,6 +19,21 @@ for pv in $(seq $PROW_MIN_VERSION $PROW_MAX_VERSION); do
         PROW_JOBS+=( "max-concurrency-downstream-pipelines1-${pv}${sfx}" )
     done
 done
+_PROW_CHAINS_VARIANT_SUFFIXES=("" "-ha-10" "-qbt" "-ha-10-qbt")
+#Chains Signing Nightly Jobs
+for sfx in "${_PROW_CHAINS_VARIANT_SUFFIXES[@]}"; do
+    PROW_JOBS+=( "max-concurrency-downstream-nightly-sign-tkn-bb${sfx}" )
+done
+
+PROW_CHAINS_MIN_VERSION=20
+PROW_CHAINS_MAX_VERSION=22
+#Chains Signing Versioned Jobs
+for pv in $(seq $PROW_CHAINS_MIN_VERSION $PROW_CHAINS_MAX_VERSION); do
+    for sfx in "${_PROW_CHAINS_VARIANT_SUFFIXES[@]}"; do
+        PROW_JOBS+=( "max-concurrency-downstream-1-${pv}-sign-tkn-bb${sfx}" )
+    done
+done
+unset _PROW_CHAINS_VARIANT_SUFFIXES
 unset _PROW_VARIANT_SUFFIXES
 
 [ -e script-mate/ ] || git clone --depth=1 https://github.com/redhat-performance/script-mate.git
