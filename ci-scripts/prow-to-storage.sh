@@ -8,33 +8,38 @@ DRY_RUN=false
 DEBUG=true
 
 _PROW_VARIANT_SUFFIXES=("" "-ha-10" "-ha-10-state" "-qbt" "-ha-10-qbt")
-PROW_JOBS=()
-for sfx in "${_PROW_VARIANT_SUFFIXES[@]}"; do
-    PROW_JOBS+=( "max-concurrency-downstream-nightly${sfx}" )
-done
-PROW_MIN_VERSION=19
-PROW_MAX_VERSION=22
-for pv in $(seq $PROW_MIN_VERSION $PROW_MAX_VERSION); do
-    for sfx in "${_PROW_VARIANT_SUFFIXES[@]}"; do
-        PROW_JOBS+=( "max-concurrency-downstream-pipelines1-${pv}${sfx}" )
-    done
-done
 _PROW_CHAINS_VARIANT_SUFFIXES=("" "-ha-10" "-qbt" "-ha-10-qbt")
-#Chains Signing Nightly Jobs
-for sfx in "${_PROW_CHAINS_VARIANT_SUFFIXES[@]}"; do
-    PROW_JOBS+=( "max-concurrency-downstream-nightly-sign-tkn-bb${sfx}" )
-done
 
-PROW_CHAINS_MIN_VERSION=20
-PROW_CHAINS_MAX_VERSION=22
-#Chains Signing Versioned Jobs
-for pv in $(seq $PROW_CHAINS_MIN_VERSION $PROW_CHAINS_MAX_VERSION); do
-    for sfx in "${_PROW_CHAINS_VARIANT_SUFFIXES[@]}"; do
-        PROW_JOBS+=( "max-concurrency-downstream-1-${pv}-sign-tkn-bb${sfx}" )
+# Append max-concurrency downstream Prow run names to PROW_JOBS.
+#
+# $1 - suffix after "nightly" (e.g. "" or "-sign-tkn-bb")
+# $2 - versioned segment before ${pv} (e.g. "pipelines1-" or "1-")
+# $3 - versioned segment after ${pv} (e.g. "" or "-sign-tkn-bb")
+# $4 - minimum Pipelines version (inclusive)
+# $5 - maximum Pipelines version (inclusive)
+# $6 - nameref to variant suffix array
+register_max_concurrency_jobs() {
+    local nightly_extra="$1"
+    local versioned_prefix="$2"
+    local versioned_suffix="$3"
+    local min_version="$4"
+    local max_version="$5"
+    local -n variant_suffixes=$6
+
+    local sfx pv
+    for sfx in "${variant_suffixes[@]}"; do
+        PROW_JOBS+=( "max-concurrency-downstream-nightly${nightly_extra}${sfx}" )
     done
-done
-unset _PROW_CHAINS_VARIANT_SUFFIXES
-unset _PROW_VARIANT_SUFFIXES
+    for pv in $(seq "$min_version" "$max_version"); do
+        for sfx in "${variant_suffixes[@]}"; do
+            PROW_JOBS+=( "max-concurrency-downstream-${versioned_prefix}${pv}${versioned_suffix}${sfx}" )
+        done
+    done
+}
+
+PROW_JOBS=()
+register_max_concurrency_jobs "" "pipelines1-" "" 19 22 _PROW_VARIANT_SUFFIXES
+register_max_concurrency_jobs "-sign-tkn-bb" "1-" "-sign-tkn-bb" 20 22 _PROW_CHAINS_VARIANT_SUFFIXES
 
 [ -e script-mate/ ] || git clone --depth=1 https://github.com/redhat-performance/script-mate.git
 source script-mate/src/opl_shovel.sh
@@ -47,6 +52,7 @@ job_path="openshift-pipelines-max-concurrency/artifacts/"
 subjob_file="benchmark-tekton.json"
 for prow_run in "${PROW_JOBS[@]}"; do
     prow_job="periodic-ci-openshift-pipelines-performance-main-$prow_run"
+    echo "prow_run: $prow_run"
     for i in $( prow_list "$prow_job" ); do
         for subjob in $( prow_subjob_list "$prow_job" "$i" "$prow_run" "$job_path" ); do
             out="$CACHE_DIR/$i-$subjob.benchmark-tekton.json"
