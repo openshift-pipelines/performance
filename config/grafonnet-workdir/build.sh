@@ -13,6 +13,7 @@ function build() {
 mkdir -p generated/
 
 # Dashboards
-build src/first.jsonnet generated/first.json
 build src/pipelines-dashboard.jsonnet generated/pipelines-dashboard.json
 build src/pipelines-comparison-dashboard.jsonnet generated/pipelines-comparison-dashboard.json
+build src/chains-dashboard.jsonnet generated/chains-dashboard.json
+build src/chains-comparison-dashboard.jsonnet generated/chains-comparison-dashboard.json

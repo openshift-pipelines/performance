@@ -297,7 +297,7 @@ local allPanels = [
 dashboard.new('Pipelines Performance Comparison Dashboard')
 + dashboard.withUid('Pipelines_Performance_Comparison')
 + dashboard.withDescription('Side-by-side comparison of OpenShift Pipelines performance metrics across different released versions. Select two versions to compare.')
-+ dashboard.time.withFrom('now-90d')
++ dashboard.time.withFrom('now-30d')
 + dashboard.time.withTo('now')
 + dashboard.withTimezone('utc')
 + dashboard.withRefresh('5m')
