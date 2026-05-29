@@ -353,7 +353,7 @@ local allPanels = [
 dashboard.new('Pipelines Performance Dashboard')
 + dashboard.withUid('Pipelines_Performance')
 + dashboard.withDescription('OpenShift Pipelines nightly build performance. Use the Deployment Configuration variable to switch between Standard, HA, QBT, and HA+QBT setups.')
-+ dashboard.time.withFrom('now-14d')
++ dashboard.time.withFrom('now-30d')
 + dashboard.time.withTo('now')
 + dashboard.withTimezone('utc')
 + dashboard.withRefresh('5m')

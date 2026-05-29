@@ -915,7 +915,7 @@
     ]
   },
   "time": {
-    "from": "now-14d",
+    "from": "now-30d",
     "to": "now"
   },
   "timezone": "utc",
