@@ -112,7 +112,7 @@ change_detection_groups:
       max_inclusive: true
       min_enabled: false
 
-  "workque_depth":
+  "workqueue_depth":
     description: "Workqueue depth metrics"
     model: "fixedThreshold"
     fixed_threshold:
@@ -311,7 +311,7 @@ fields:
     description: "Mean CPU usage for tekton-pipelines-controller"
     filtering: false
     metrics: true
-    change_detection_group: controller_cpu #"cpu"
+    change_detection_group: "controller_cpu" #"cpu"
 
   - name: "measurements_tektonPipelinesController_cpu_max"
     jsonpath: "$.measurements.\"tekton-pipelines-controller\".cpu.max"
@@ -549,7 +549,7 @@ fields:
     description: "Mean Tekton Pipelines controller workqueue depth"
     filtering: false
     metrics: true
-    change_detection_group: "workque_depth" #"cpu"
+    change_detection_group: "workqueue_depth" #"cpu"
 
   - name: "measurements_tektonPipelinesControllerClientLatencyAverage_mean"
     jsonpath: "$.measurements.tekton_pipelines_controller_client_latency_average.mean"
