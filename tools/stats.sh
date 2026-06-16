@@ -210,3 +210,56 @@ if [[ "$signing_json" != "null" ]]; then
 else
     echo "DEBUG: No signed ${type} found. Skipping signing metrics..."
 fi
+
+###############################################################################################
+# Results ingestion metrics
+ingestion_json=$(echo "$data_overall" | jq -s --arg type "$type" '
+    [.[] | select(.result_at != null and .completionTime != null)] as $ingested |
+    ($ingested | length) as $count |
+    if $count > 0 then
+        ($ingested | map(
+            ((.result_at | .[0:19] + "Z" | fromdate) - (.completionTime | fromdate))
+        )) as $latencies |
+        ($ingested | map(.result_at | .[0:19] + "Z") | sort) as $times |
+        ($times | first) as $first |
+        ($times | last) as $last |
+        ($first | fromdate) as $first_epoch |
+        ($last | fromdate) as $last_epoch |
+        ($last_epoch - $first_epoch) as $duration |
+        ([.[] | select(.result_stored == "true")] | length) as $stored_count |
+        ([.[] | select(.result_stored == "false")] | length) as $not_stored_count |
+        {
+            count: {
+                ingested: $count,
+                stored_true: $stored_count,
+                stored_false: $not_stored_count
+            },
+            latency: {
+                min: ($latencies | min),
+                avg: (($latencies | add / length) * 10000 | round / 10000),
+                max: ($latencies | max)
+            },
+            result_at: {
+                first: $first,
+                last: $last
+            },
+            duration: $duration,
+            throughput: (if $duration > 0 then ($count / $duration | . * 10000 | round / 10000) else null end)
+        }
+    else
+        null
+    end
+')
+
+if [[ "$ingestion_json" != "null" ]]; then
+    ingestion_count=$(echo "$ingestion_json" | jq '.count.ingested')
+    echo "DEBUG: Computing ingestion metrics for ${ingestion_count} ingested ${type}..."
+    jq --argjson metrics "$ingestion_json" --arg type "$type" \
+        '.results.[$type].results_ingestion = $metrics' "$output" > "$$.json" && mv -f "$$.json" "$output"
+
+    ingestion_latency_avg=$(echo "$ingestion_json" | jq '.latency.avg')
+    ingestion_throughput=$(echo "$ingestion_json" | jq '.throughput')
+    echo "DEBUG: Ingestion count=${ingestion_count}, avg_latency=${ingestion_latency_avg}s, throughput=${ingestion_throughput}/s"
+else
+    echo "DEBUG: No ingested ${type} found. Skipping ingestion metrics..."
+fi
