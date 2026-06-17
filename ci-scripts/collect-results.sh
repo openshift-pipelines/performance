@@ -171,10 +171,55 @@ if [ "$INSTALL_RESULTS" == "true" ]; then
 
     # Parse and store JSON log lines 
     echo "[" > "$results_api_json"
-    grep -oP '\{.*?\}' "$results_api_logs" \
+    grep -oE '\{[^}]+\}' "$results_api_logs" \
         | jq -e -c "$JQ_FIELDS_TO_EXTRACT" 2>"$results_api_error_logs" \
         | sed '$!s/$/,/' >> "$results_api_json"
     echo "]" >> "$results_api_json"
+
+    info "Parsing Locust summary stats"
+    locust_log="$ARTIFACT_DIR/locust-test.log"
+    if [ -f "$locust_log" ]; then
+        locust_summary=$(python3 -c "
+import json, re, sys
+
+with open('$locust_log') as f:
+    content = f.read()
+
+# Final summary is printed after 'Shutting down' for each scenario
+shutdown_blocks = content.split('Shutting down (exit code 0)')
+
+results = {}
+for block in shutdown_blocks[1:]:
+    lines = block.strip().split('\n')
+    for line in lines:
+        match = re.match(
+            r'\s*GET\s+(\S+)\s+(\d+)\s+(\d+)\([\d.]+%\)\s+\|\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+\|\s+([\d.]+)\s+([\d.]+)',
+            line
+        )
+        if match and match.group(1) != 'fetch_id':
+            name = match.group(1)
+            results[name] = {
+                'count': int(match.group(2)),
+                'failures': int(match.group(3)),
+                'latency_ms': {
+                    'min': int(match.group(5)),
+                    'avg': int(match.group(4)),
+                    'max': int(match.group(6)),
+                },
+                'rps': float(match.group(8))
+            }
+            break
+
+if results:
+    print(json.dumps(results))
+")
+
+        if [ -n "$locust_summary" ]; then
+            jq --argjson locust "$locust_summary" '.results.ResultsAPI = $locust' "$monitoring_collection_data" > "${monitoring_collection_data}.tmp" && mv "${monitoring_collection_data}.tmp" "$monitoring_collection_data"
+        fi
+    else
+        warning "Locust log file not found, skipping Locust summary"
+    fi
 else
     info "Skipping Results-API log data"
 fi
