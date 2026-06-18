@@ -44,6 +44,7 @@ oc -n openshift-pipelines logs --tail=-1 --all-containers=true --max-log-request
 if [ "$INSTALL_RESULTS" == "true" ]; then
     info "Collecting Tekton Results Watcher logs..."
     oc -n openshift-pipelines logs --tail=-1 --all-containers=true --max-log-requests=10 -l app.kubernetes.io/name=tekton-results-watcher >"$tekton_results_watcher_log" || true
+    oc -n tekton-pipelines logs --tail=-1 --all-containers=true --max-log-requests=10 -l app.kubernetes.io/name=tekton-results-watcher >>"$tekton_results_watcher_log" || true
 fi
 
 info "Setting up tool to collect monitoring data..."
@@ -58,15 +59,15 @@ deactivate
 set -u
 
 # track monitoring start time
-mstart=$(date --utc  --iso-8601=seconds)
+mstart=$(date_utc_iso8601_seconds)
 
 info "Collecting monitoring data..."
 if [ -f "$monitoring_collection_data" ]; then
     set +u
     source venv/bin/activate
     set -u
-    mstart=$(date --utc --date "$(status_data.py --status-data-file "$monitoring_collection_data" --get results.started)" --iso-8601=seconds)
-    mend=$(date --utc --date "$(status_data.py --status-data-file "$monitoring_collection_data" --get results.ended)" --iso-8601=seconds)
+    mstart=$(date_utc_parse_iso8601_seconds "$(status_data.py --status-data-file "$monitoring_collection_data" --get results.started)")
+    mend=$(date_utc_parse_iso8601_seconds "$(status_data.py --status-data-file "$monitoring_collection_data" --get results.ended)")
     mhost=$(kubectl -n openshift-monitoring get route -l app.kubernetes.io/name=thanos-query -o json | jq --raw-output '.items[0].spec.host')
     status_data.py \
         --status-data-file "$monitoring_collection_data" \
