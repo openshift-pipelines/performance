@@ -12,6 +12,7 @@ monitoring_collection_log=$ARTIFACT_DIR/monitoring-collection.log
 monitoring_collection_dir=$ARTIFACT_DIR/monitoring-collection-raw-data-dir
 tekton_pipelines_controller_log=$ARTIFACT_DIR/tekton-pipelines-controller.log
 tekton_chains_controller_log=$ARTIFACT_DIR/tekton-chains-controller.log
+tekton_results_watcher_log=$ARTIFACT_DIR/tekton-results-watcher.log
 creationtimestamp_collection_log=$ARTIFACT_DIR/creationtimestamp-collection.log
 results_api_logs="$ARTIFACT_DIR/results-api-logs.txt"
 results_api_json="$ARTIFACT_DIR/results-api-logs.json"
@@ -39,6 +40,11 @@ mkdir -p "${monitoring_collection_dir}"
 info "Collecting logs..."
 oc -n openshift-pipelines logs --tail=-1 --all-containers=true --max-log-requests=10 -l app.kubernetes.io/name=controller,app.kubernetes.io/part-of=tekton-pipelines,app=tekton-pipelines-controller >"$tekton_pipelines_controller_log" || true
 oc -n openshift-pipelines logs --tail=-1 --all-containers=true --max-log-requests=10 -l app.kubernetes.io/name=controller,app.kubernetes.io/part-of=tekton-chains,app=tekton-chains-controller >"$tekton_chains_controller_log" || true
+
+if [ "$INSTALL_RESULTS" == "true" ]; then
+    info "Collecting Tekton Results Watcher logs..."
+    oc -n openshift-pipelines logs --tail=-1 --all-containers=true --max-log-requests=10 -l app.kubernetes.io/name=tekton-results-watcher >"$tekton_results_watcher_log" || true
+fi
 
 info "Setting up tool to collect monitoring data..."
 python3 -m venv venv
