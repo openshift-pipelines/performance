@@ -15,6 +15,38 @@ fi
 
 TEST_NAMESPACE="${TEST_NAMESPACE:-1}"
 
+horreum_test_name() {
+    if [[ "${TEST_SCENARIO:-}" == *signing* ]]; then
+        echo "OpenShift Pipelines Chains signing test"
+        return
+    fi
+
+    local ha_replicas="${DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS:-0}"
+    local ha_enabled=false
+    if [[ -n "${DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS:-}" && "${ha_replicas}" != "0" ]]; then
+        ha_enabled=true
+    fi
+
+    local qbt_enabled=false
+    if [[ -n "${DEPLOYMENT_PIPELINES_KUBE_API_QPS:-}" || -n "${DEPLOYMENT_PIPELINES_KUBE_API_BURST:-}" || -n "${DEPLOYMENT_PIPELINES_THREADS_PER_CONTROLLER:-}" ]]; then
+        qbt_enabled=true
+    fi
+
+    local controller_type="${DEPLOYMENT_PIPELINES_CONTROLLER_TYPE:-deployments}"
+
+    if [[ "$ha_enabled" == false && "$qbt_enabled" == false ]]; then
+        echo "Scaling Pipelines test-standard"
+    elif [[ "$ha_enabled" == false && "$qbt_enabled" == true ]]; then
+        echo "Scaling Pipelines test-qbt_deployement"
+    elif [[ "$ha_enabled" == true && "$qbt_enabled" == false && "$controller_type" == "statefulSets" ]]; then
+        echo "Scaling Pipelines test-ha_statefulsets"
+    elif [[ "$ha_enabled" == true && "$qbt_enabled" == false ]]; then
+        echo "Scaling Pipelines test-ha_deployement"
+    elif [[ "$ha_enabled" == true && "$qbt_enabled" == true ]]; then
+        echo "Scaling Pipelines test-ha_qbt"
+    fi
+}
+
 echo "$(date -Ins --utc) dumping basic results to data files"
 
 # Update if file already exists 
@@ -22,7 +54,7 @@ if [ ! -f $output ]; then
 
 cat <<EOF >$output
 {
-    "name": "$(if [[ "${TEST_SCENARIO:-}" == *signing* ]]; then echo "OpenShift Pipelines Chains signing test"; else echo "OpenShift Pipelines scalingPipelines test"; fi)",
+    "name": "$(horreum_test_name)",
     "results": {
         "started": "$started",
         "ended": "$ended"

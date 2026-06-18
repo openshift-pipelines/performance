@@ -7,7 +7,7 @@ This directory (`tools/horreum/`) contains configuration and tooling for managin
 | File | Purpose |
 |---|---|
 | `run_horreum_integration.sh` | Wrapper script that invokes `horreum_api.py` with env validation and defaults |
-| `horreum_pipeline_fields.yaml` | Horreum config for the **Pipelines** test (`OpenShift Pipelines scalingPipelines test`) |
+| `horreum_pipeline/` | Five scenario-specific Horreum configs under `tools/horreum/horreum_pipeline/` |
 | `horreum_chains_fields.yaml` | Horreum config for the **Chains** test (`OpenShift Pipelines Chains signing test`) |
 
 ## Architecture
@@ -147,8 +147,22 @@ Chains omits `parameters_test_concurrent` (always 20) and `deployment_haConfig_c
 
 The `name` field in `benchmark-tekton.json` determines which Horreum test receives the data:
 
-- `stats.sh` sets the name based on `TEST_SCENARIO`:
+- `stats.sh` sets the name from deployment env vars (HA / QBT / controller type):
   - `*signing*` → `"OpenShift Pipelines Chains signing test"`
-  - Otherwise → `"OpenShift Pipelines scalingPipelines test"`
-- `prow-to-storage.sh` uploads the JSON to Horreum, which routes it by matching `@name`
-- The Horreum test name in the YAML must match exactly
+  - standard → `"Scaling Pipelines test-standard"`
+  - QBT only → `"Scaling Pipelines test-qbt_deployement"`
+  - HA deployments → `"Scaling Pipelines test-ha_deployement"`
+  - HA statefulSets → `"Scaling Pipelines test-ha_statefulsets"`
+  - HA + QBT → `"Scaling Pipelines test-ha_qbt"`
+- `prow-to-storage.sh` patches `.name` from the Prow job suffix before upload
+- The Horreum `test.name` in each scenario YAML must match exactly
+
+Scenario YAML files:
+
+| File | Horreum test name |
+|---|---|
+| `horreum_pipeline_standard.yaml` | `Scaling Pipelines test-standard` |
+| `horreum_pipeline_qbt_deployement.yaml` | `Scaling Pipelines test-qbt_deployement` |
+| `horreum_pipeline_ha_deployement.yaml` | `Scaling Pipelines test-ha_deployement` |
+| `horreum_pipeline_ha_statefulsets.yaml` | `Scaling Pipelines test-ha_statefulsets` |
+| `horreum_pipeline_ha_qbt.yaml` | `Scaling Pipelines test-ha_qbt` |
