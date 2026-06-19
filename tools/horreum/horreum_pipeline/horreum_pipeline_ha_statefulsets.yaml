@@ -3,11 +3,6 @@
 # and grouping information for comprehensive monitoring
 
 
-#ha_deployement
-#ha_statefulsets
-#qbt_enabled=>qbt
-#ha_abt
-#standard=>noha_nonqbt
 # Global configuration
 global:
   owner: "Openshift-pipelines-team"
