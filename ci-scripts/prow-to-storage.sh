@@ -71,16 +71,6 @@ for prow_run in "${PROW_JOBS[@]}"; do
             json_complete "$out" || continue
             # shellcheck disable=SC2016  # $schema is a jq field name, not a shell variable
             enritch_stuff "$out" '."$schema"' "urn:openshift-pipelines-perfscale-scalingPipelines:0.2"
-
-            case "$prow_run" in
-                *-ha-10-qbt*)   test_name="Scaling Pipelines test-ha_qbt" ;;
-                *-ha-10-state*) test_name="Scaling Pipelines test-ha_statefulsets" ;;
-                *-ha-10*)       test_name="Scaling Pipelines test-ha_deployement" ;;
-                *-qbt*)         test_name="Scaling Pipelines test-qbt_deployement" ;;
-                *)             test_name="Scaling Pipelines test-standard" ;;
-            esac
-
-            enritch_stuff "$out" '.name' "$test_name"
             horreum_upload "$out" "metadata.env.SUBJOB_BUILD_ID" "__metadata_env_SUBJOB_BUILD_ID" "Openshift-pipelines-team" "PUBLIC" || ((errors_count+=1))
             resultsdashboard_upload "$out" "Developer" "OpenShift Pipelines" "$( date --utc -Idate )" "@metadata.env.SUBJOB_BUILD_ID" || ((errors_count+=1))
         done
