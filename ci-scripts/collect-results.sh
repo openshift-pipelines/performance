@@ -59,15 +59,15 @@ deactivate
 set -u
 
 # track monitoring start time
-mstart=$(date_utc_iso8601_seconds)
+mstart=$(date --utc --iso-8601=seconds)
 
 info "Collecting monitoring data..."
 if [ -f "$monitoring_collection_data" ]; then
     set +u
     source venv/bin/activate
     set -u
-    mstart=$(date_utc_parse_iso8601_seconds "$(status_data.py --status-data-file "$monitoring_collection_data" --get results.started)")
-    mend=$(date_utc_parse_iso8601_seconds "$(status_data.py --status-data-file "$monitoring_collection_data" --get results.ended)")
+    mstart=$(date --utc --date "$(status_data.py --status-data-file "$monitoring_collection_data" --get results.started)" --iso-8601=seconds)
+    mend=$(date --utc --date "$(status_data.py --status-data-file "$monitoring_collection_data" --get results.ended)" --iso-8601=seconds)
     mhost=$(kubectl -n openshift-monitoring get route -l app.kubernetes.io/name=thanos-query -o json | jq --raw-output '.items[0].spec.host')
     status_data.py \
         --status-data-file "$monitoring_collection_data" \
