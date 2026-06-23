@@ -42,9 +42,7 @@ change_detection_groups:
       min_enabled: true
       min_value: 1000
       min_inclusive: true
-      max_enabled: true
-      max_value: 1000
-      max_inclusive: true
+      max_enabled: false
 
   "TaskRuns_Succeeded_count":
     description: "Number of successful TaskRuns"
@@ -53,18 +51,7 @@ change_detection_groups:
       min_enabled: true
       min_value: 4000
       min_inclusive: true
-      max_enabled: true
-      max_value: 4000
-      max_inclusive: true
-
-  "PipelineRuns_TaskRuns_Failed_count":
-    description: "Number of failing PipelineRuns and TaskRuns"
-    model: "fixedThreshold"
-    fixed_threshold:
-      max_enabled: true
-      max_value: 0
-      max_inclusive: true
-      min_enabled: false
+      max_enabled: false
 
   "PipelineRuns_TaskRuns_duration":
     description: "PLRs/TRs duration metrics"
@@ -89,6 +76,77 @@ change_detection_groups:
     min_previous: 5
     model: "relativeDifference"
 
+  "controller_cpu":
+    description: "Controller CPU metrics"
+    model: "fixedThreshold"
+    fixed_threshold:
+      max_enabled: true
+      max_value: 1.16
+      max_inclusive: true
+      min_enabled: false
+  
+  "controller_memory":
+    description: "Controller memory metrics"
+    model: "fixedThreshold"
+    fixed_threshold:
+      max_enabled: true
+      max_value: 7059328204
+      max_inclusive: true
+      min_enabled: false
+  
+  "webhook_cpu":
+    description: "Webhook CPU metrics"
+    model: "fixedThreshold"
+    fixed_threshold:
+      max_enabled: true
+      max_value: 0.35
+      max_inclusive: true
+      min_enabled: false
+  
+  "webhook_memory":
+    description: "Webhook memory metrics"
+    model: "fixedThreshold"
+    fixed_threshold:
+      max_enabled: true
+      max_value: 365953024
+      max_inclusive: true
+      min_enabled: false
+
+  "workqueue_depth":
+    description: "Workqueue depth metrics"
+    model: "fixedThreshold"
+    fixed_threshold:
+      max_enabled: true
+      max_value: 505
+      max_inclusive: true
+      min_enabled: false
+
+  "etcd_database_size":
+    description: "Etcd database size metrics"
+    model: "fixedThreshold"
+    fixed_threshold:
+      max_enabled: true
+      max_value: 1025507328
+      max_inclusive: true
+      min_enabled: false
+  
+  "etcd_request_duration":
+    description: "Etcd request duration metrics"
+    model: "fixedThreshold"
+    fixed_threshold:
+      max_enabled: true
+      max_value: 0.036
+      max_inclusive: true
+      min_enabled: false
+
+  "cluster_cpu_usage_seconds_total_rate":
+    description: "Cluster CPU usage seconds total rate metrics"
+    model: "fixedThreshold"
+    fixed_threshold:
+      max_enabled: true
+      max_value: 21.4
+      max_inclusive: true
+      min_enabled: false
 # Test definition
 test:
   access: "PUBLIC"
@@ -253,7 +311,7 @@ fields:
     description: "Mean CPU usage for tekton-pipelines-controller"
     filtering: false
     metrics: true
-    change_detection_group: null #"cpu"
+    change_detection_group: "controller_cpu" #"cpu"
 
   - name: "measurements_tektonPipelinesController_cpu_max"
     jsonpath: "$.measurements.\"tekton-pipelines-controller\".cpu.max"
@@ -267,7 +325,7 @@ fields:
     description: "Mean memory usage for tekton-pipelines-controller"
     filtering: false
     metrics: true
-    change_detection_group: null #"memory"
+    change_detection_group: "controller_memory" #"memory"
 
   - name: "measurements_tektonPipelinesController_memory_max"
     jsonpath: "$.measurements.\"tekton-pipelines-controller\".memory.max"
@@ -282,7 +340,7 @@ fields:
     description: "Mean CPU usage for tekton-pipelines-webhook"
     filtering: false
     metrics: true
-    change_detection_group: null #"cpu"
+    change_detection_group: "webhook_cpu" #"cpu"
 
   - name: "measurements_tektonPipelinesWebhook_cpu_max"
     jsonpath: "$.measurements.\"tekton-pipelines-webhook\".cpu.max"
@@ -296,7 +354,7 @@ fields:
     description: "Mean memory usage for tekton-pipelines-webhook"
     filtering: false
     metrics: true
-    change_detection_group: null #"memory"
+    change_detection_group: "webhook_memory" #"memory"
 
   - name: "measurements_tektonPipelinesWebhook_memory_max"
     jsonpath: "$.measurements.\"tekton-pipelines-webhook\".memory.max"
@@ -398,7 +456,7 @@ fields:
     description: "Mean total CPU usage rate across all cluster nodes"
     filtering: false
     metrics: true
-    change_detection_group: null #"cpu"
+    change_detection_group: "cluster_cpu_usage_seconds_total_rate" #"cpu"
 
   - name: "measurements_clusterCpuUsageSecondsTotalRate_max"
     jsonpath: "$.measurements.cluster_cpu_usage_seconds_total_rate.max"
@@ -448,7 +506,7 @@ fields:
     description: "Mean etcd database total size"
     filtering: false
     metrics: true
-    change_detection_group: null #"etcdMvccDb"
+    change_detection_group: "etcd_database_size" #"etcdMvccDb"
 
   - name: "measurements_etcdMvccDbTotalSizeInBytesAverage_max"
     jsonpath: "$.measurements.etcd_mvcc_db_total_size_in_bytes_average.max"
@@ -476,7 +534,7 @@ fields:
     description: "Mean etcd request duration"
     filtering: false
     metrics: true
-    change_detection_group: null #"etcdMvccDb"
+    change_detection_group: "etcd_request_duration" #"etcdMvccDb"
 
   - name: "measurements_etcdRequestDurationSecondsAverage_max"
     jsonpath: "$.measurements.etcd_request_duration_seconds_average.max"
@@ -491,7 +549,7 @@ fields:
     description: "Mean Tekton Pipelines controller workqueue depth"
     filtering: false
     metrics: true
-    change_detection_group: null #"cpu"
+    change_detection_group: "workqueue_depth" #"cpu"
 
   - name: "measurements_tektonPipelinesControllerClientLatencyAverage_mean"
     jsonpath: "$.measurements.tekton_pipelines_controller_client_latency_average.mean"
@@ -520,7 +578,7 @@ fields:
     description: "Number of failed PipelineRuns"
     filtering: false
     metrics: true
-    change_detection_group: "PipelineRuns_TaskRuns_Failed_count"
+    change_detection_group: null #"PipelineRuns_TaskRuns_Failed_count"
 
   - name: "results_TaskRuns_count_succeeded"
     jsonpath: "$.results.TaskRuns.count.succeeded"
@@ -534,7 +592,7 @@ fields:
     description: "Number of failed TaskRuns"
     filtering: false
     metrics: true
-    change_detection_group: "PipelineRuns_TaskRuns_Failed_count"
+    change_detection_group: null #"PipelineRuns_TaskRuns_Failed_count"
 
   # PipelineRuns_TaskRuns_duration
   - name: "results_PipelineRuns_duration_avg"
