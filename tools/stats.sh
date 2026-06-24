@@ -16,6 +16,11 @@ fi
 TEST_NAMESPACE="${TEST_NAMESPACE:-1}"
 
 horreum_test_name() {
+    if [[ "${INSTALL_RESULTS:-false}" == "true" ]]; then
+        echo "Results Performance test-standard"
+        return
+    fi
+
     if [[ "${TEST_SCENARIO:-}" == *signing* ]]; then
         echo "OpenShift Pipelines Chains signing test"
         return
