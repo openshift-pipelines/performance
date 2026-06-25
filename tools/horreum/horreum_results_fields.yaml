@@ -1,0 +1,579 @@
+# Horreum Fields Configuration — Results Performance Test
+# Shares the same schema as Pipelines (same URI), but has its own test definition
+# and change detection variables for Results-specific metrics.
+#
+# IMPORTANT: Run with CLEANUP_LABELS=false to avoid deleting Pipelines/Chains labels
+# from the shared schema.
+
+# Global configuration
+global:
+  owner: "Openshift-pipelines-team"
+  access: "PUBLIC"
+
+# Global change detection defaults
+change_detection_defaults:
+  model: "relativeDifference"
+  window: 10
+  min_previous: 5
+  threshold: 0.10
+
+# Change detection groups for Results test
+change_detection_groups:
+  "ingestion_latency":
+    description: "Results watcher ingestion latency (result_at - completionTime)"
+    threshold: 0.20
+    window: 10
+    min_previous: 5
+    model: "relativeDifference"
+
+  "ingestion_throughput":
+    description: "Results watcher ingestion throughput (records/sec)"
+    threshold: 0.20
+    window: 10
+    min_previous: 5
+    model: "relativeDifference"
+
+  "api_latency":
+    description: "Results API endpoint latency"
+    threshold: 0.20
+    window: 10
+    min_previous: 5
+    model: "relativeDifference"
+
+  "api_throughput":
+    description: "Results API requests per second"
+    threshold: 0.20
+    window: 10
+    min_previous: 5
+    model: "relativeDifference"
+
+  "api_failures":
+    description: "Results API failure count (should be zero)"
+    model: "fixedThreshold"
+    fixed_threshold:
+      max_enabled: true
+      max_value: 0
+      max_inclusive: true
+      min_enabled: false
+
+  "results_watcher_cpu":
+    description: "Results watcher CPU metrics"
+    threshold: 0.10
+    window: 5
+    min_previous: 5
+    model: "relativeDifference"
+
+  "results_watcher_memory":
+    description: "Results watcher memory metrics"
+    threshold: 0.10
+    window: 5
+    min_previous: 5
+
+  "results_api_cpu":
+    description: "Results API server CPU metrics"
+    threshold: 0.10
+    window: 5
+    min_previous: 5
+    model: "relativeDifference"
+
+  "results_api_memory":
+    description: "Results API server memory metrics"
+    threshold: 0.10
+    window: 5
+    min_previous: 5
+
+  "PipelineRuns_Succeeded_count":
+    description: "Number of successful PipelineRuns (varies with TEST_TOTAL)"
+    model: "relativeDifference"
+    threshold: 0.01
+    window: 5
+    min_previous: 3
+
+  "TaskRuns_Succeeded_count":
+    description: "Number of successful TaskRuns (varies with TEST_TOTAL)"
+    model: "relativeDifference"
+    threshold: 0.01
+    window: 5
+    min_previous: 3
+
+  "PipelineRuns_TaskRuns_Failed_count":
+    description: "Number of failing PipelineRuns and TaskRuns"
+    model: "fixedThreshold"
+    fixed_threshold:
+      max_enabled: true
+      max_value: 0
+      max_inclusive: true
+      min_enabled: false
+
+  "restarts":
+    description: "Pod and container restart counts"
+    model: "fixedThreshold"
+    fixed_threshold:
+      max_enabled: true
+      max_value: 0
+      max_inclusive: true
+      min_enabled: false
+
+# Test definition — Results-specific
+test:
+  access: "PUBLIC"
+  owner: "Openshift-pipelines-team"
+  name: "Results Performance test-standard"
+  folder: "Openshift-pipelines"
+  description: "Tekton Results performance test — watcher ingestion latency and API load testing"
+  datastoreId: 1
+  timelineLabels: ["started"]
+  timelineFunction: "value => new Date(value).getTime()"
+  fingerprintLabels:
+    - deployment_version
+    - parameters_test_concurrent
+    - metadata_env_TEST_SCENARIO
+  fingerprintFilter: "value => value !== null"
+  notificationsEnabled: true
+
+schema:
+  access: "PUBLIC"
+  owner: "Openshift-pipelines-team"
+  uri: "urn:openshift-pipelines-perfscale-scalingPipelines:0.2"
+  name: "openshift-pipelines-perfscale-scalingPipelines-0.2"
+  description: "Schema for OpenShift Pipelines scalingPipelines performance test data"
+  json_schema:
+    $schema: "https://json-schema.org/draft/2020-12/schema"
+    $id: "urn:openshift-pipelines-perfscale-scalingPipelines:0.2"
+    title: "openshift-pipelines-perfscale-scalingPipelines-0.2"
+    description: "Schema for OpenShift Pipelines performance benchmark data generated from field configuration"
+
+# Field definitions
+fields:
+
+  # Metadata & identifiers
+  - name: "started"
+    jsonpath: "$.started"
+    description: "Run start timestamp"
+    filtering: false
+    metrics: true
+    change_detection_group: null
+
+  - name: "metadata_env_BUILD_ID"
+    jsonpath: "$.metadata.env.BUILD_ID"
+    description: "Prow build ID"
+    filtering: true
+    metrics: false
+    change_detection_group: null
+
+  - name: "metadata_env_SUBJOB_BUILD_ID"
+    jsonpath: "$.metadata.env.SUBJOB_BUILD_ID"
+    description: "Sub-job build ID (unique per concurrency level)"
+    filtering: true
+    metrics: false
+    change_detection_group: null
+
+  - name: "metadata_env_TEST_SCENARIO"
+    jsonpath: "$.metadata.env.TEST_SCENARIO"
+    description: "Test scenario name (e.g. timebased-sign-pruner)"
+    filtering: true
+    metrics: false
+    change_detection_group: null
+
+  # Test parameters
+  - name: "parameters_test_concurrent"
+    jsonpath: "$.parameters.test.concurrent"
+    description: "Test concurrency level"
+    filtering: true
+    metrics: false
+    change_detection_group: null
+
+  - name: "parameters_test_total"
+    jsonpath: "$.parameters.test.total"
+    description: "Total PipelineRuns per concurrency level"
+    filtering: true
+    metrics: false
+    change_detection_group: null
+
+  - name: "metadata_env_LOCUST_USERS"
+    jsonpath: "$.metadata.env.LOCUST_USERS"
+    description: "Number of concurrent Locust users"
+    filtering: true
+    metrics: false
+    change_detection_group: null
+
+  - name: "metadata_env_LOCUST_WORKERS"
+    jsonpath: "$.metadata.env.LOCUST_WORKERS"
+    description: "Number of Locust worker pods"
+    filtering: true
+    metrics: false
+    change_detection_group: null
+
+  # Deployment configuration
+  - name: "deployment_version"
+    jsonpath: "$.deployment.version"
+    description: "Deployment version"
+    filtering: true
+    metrics: false
+    change_detection_group: null
+
+  - name: "deployment_nightly"
+    jsonpath: "$.deployment.is_nightly_build"
+    description: "Whether this is a nightly build"
+    filtering: true
+    metrics: false
+    change_detection_group: null
+
+  - name: "deployment_ocpVersion"
+    jsonpath: "$.deployment.ocp_version"
+    description: "OpenShift cluster version"
+    filtering: true
+    metrics: false
+    change_detection_group: null
+
+  # apiserver
+  - name: "measurements_apiserver_cpu_mean"
+    jsonpath: "$.measurements.apiserver.cpu.mean"
+    description: "Mean CPU usage for API server"
+    filtering: false
+    metrics: true
+    change_detection_group: null
+
+  - name: "measurements_apiserver_memory_mean"
+    jsonpath: "$.measurements.apiserver.memory.mean"
+    description: "Mean memory usage for API server"
+    filtering: false
+    metrics: true
+    change_detection_group: null
+
+  # kube-apiserver
+  - name: "measurements_kubeApiserver_cpu_mean"
+    jsonpath: "$.measurements.\"kube-apiserver\".cpu.mean"
+    description: "Mean CPU usage for kube-apiserver"
+    filtering: false
+    metrics: true
+    change_detection_group: null
+
+  - name: "measurements_kubeApiserver_memory_mean"
+    jsonpath: "$.measurements.\"kube-apiserver\".memory.mean"
+    description: "Mean memory usage for kube-apiserver"
+    filtering: false
+    metrics: true
+    change_detection_group: null
+
+  # Cluster-level resource metrics
+  - name: "measurements_clusterCpuUsageSecondsTotalRate_mean"
+    jsonpath: "$.measurements.cluster_cpu_usage_seconds_total_rate.mean"
+    description: "Mean total CPU usage rate across all cluster nodes"
+    filtering: false
+    metrics: true
+    change_detection_group: null
+
+  - name: "measurements_clusterMemoryUsageRssTotal_mean"
+    jsonpath: "$.measurements.cluster_memory_usage_rss_total.mean"
+    description: "Mean total RSS memory usage across all cluster nodes"
+    filtering: false
+    metrics: true
+    change_detection_group: null
+
+  # etcd metrics
+  - name: "measurements_etcdMvccDbTotalSizeInBytesAverage_mean"
+    jsonpath: "$.measurements.etcd_mvcc_db_total_size_in_bytes_average.mean"
+    description: "Mean etcd database total size"
+    filtering: false
+    metrics: true
+    change_detection_group: null
+
+  - name: "measurements_etcdRequestDurationSecondsAverage_mean"
+    jsonpath: "$.measurements.etcd_request_duration_seconds_average.mean"
+    description: "Mean etcd request duration"
+    filtering: false
+    metrics: true
+    change_detection_group: null
+
+  # PipelineRuns and TaskRuns counts
+  - name: "results_PipelineRuns_count_succeeded"
+    jsonpath: "$.results.PipelineRuns.count.succeeded"
+    description: "Number of successful PipelineRuns"
+    filtering: false
+    metrics: true
+    change_detection_group: "PipelineRuns_Succeeded_count"
+
+  - name: "results_PipelineRuns_count_failed"
+    jsonpath: "$.results.PipelineRuns.count.failed"
+    description: "Number of failed PipelineRuns"
+    filtering: false
+    metrics: true
+    change_detection_group: "PipelineRuns_TaskRuns_Failed_count"
+
+  - name: "results_TaskRuns_count_succeeded"
+    jsonpath: "$.results.TaskRuns.count.succeeded"
+    description: "Number of successful TaskRuns"
+    filtering: false
+    metrics: true
+    change_detection_group: "TaskRuns_Succeeded_count"
+
+  - name: "results_TaskRuns_count_failed"
+    jsonpath: "$.results.TaskRuns.count.failed"
+    description: "Number of failed TaskRuns"
+    filtering: false
+    metrics: true
+    change_detection_group: "PipelineRuns_TaskRuns_Failed_count"
+
+  # =========================================================================
+  # Results-specific labels
+  # =========================================================================
+
+  # Results Watcher — CPU & memory
+  - name: "measurements_tektonResultsWatcher_cpu_mean"
+    jsonpath: "$.measurements.\"tekton-results-watcher\".cpu.mean"
+    description: "Mean CPU usage for tekton-results-watcher"
+    filtering: false
+    metrics: true
+    change_detection_group: "results_watcher_cpu"
+
+  - name: "measurements_tektonResultsWatcher_cpu_max"
+    jsonpath: "$.measurements.\"tekton-results-watcher\".cpu.max"
+    description: "Maximum CPU usage for tekton-results-watcher"
+    filtering: false
+    metrics: true
+    change_detection_group: "results_watcher_cpu"
+
+  - name: "measurements_tektonResultsWatcher_memory_mean"
+    jsonpath: "$.measurements.\"tekton-results-watcher\".memory.mean"
+    description: "Mean memory usage for tekton-results-watcher"
+    filtering: false
+    metrics: true
+    change_detection_group: "results_watcher_memory"
+
+  - name: "measurements_tektonResultsWatcher_memory_max"
+    jsonpath: "$.measurements.\"tekton-results-watcher\".memory.max"
+    description: "Maximum memory usage for tekton-results-watcher"
+    filtering: false
+    metrics: true
+    change_detection_group: "results_watcher_memory"
+
+  - name: "measurements_tektonResultsWatcher_restarts_range"
+    jsonpath: "$.measurements.\"tekton-results-watcher\".restarts.range"
+    description: "tekton-results-watcher restart count"
+    filtering: false
+    metrics: true
+    change_detection_group: "restarts"
+
+  # Results API — CPU & memory
+  - name: "measurements_tektonResultsApi_cpu_mean"
+    jsonpath: "$.measurements.\"tekton-results-api\".cpu.mean"
+    description: "Mean CPU usage for tekton-results-api"
+    filtering: false
+    metrics: true
+    change_detection_group: "results_api_cpu"
+
+  - name: "measurements_tektonResultsApi_cpu_max"
+    jsonpath: "$.measurements.\"tekton-results-api\".cpu.max"
+    description: "Maximum CPU usage for tekton-results-api"
+    filtering: false
+    metrics: true
+    change_detection_group: "results_api_cpu"
+
+  - name: "measurements_tektonResultsApi_memory_mean"
+    jsonpath: "$.measurements.\"tekton-results-api\".memory.mean"
+    description: "Mean memory usage for tekton-results-api"
+    filtering: false
+    metrics: true
+    change_detection_group: "results_api_memory"
+
+  - name: "measurements_tektonResultsApi_memory_max"
+    jsonpath: "$.measurements.\"tekton-results-api\".memory.max"
+    description: "Maximum memory usage for tekton-results-api"
+    filtering: false
+    metrics: true
+    change_detection_group: "results_api_memory"
+
+  - name: "measurements_tektonResultsApi_restarts_range"
+    jsonpath: "$.measurements.\"tekton-results-api\".restarts.range"
+    description: "tekton-results-api restart count"
+    filtering: false
+    metrics: true
+    change_detection_group: "restarts"
+
+  # Ingestion metrics — PipelineRuns
+  - name: "results_PipelineRuns_ingestion_count_ingested"
+    jsonpath: "$.results.PipelineRuns.results_ingestion.count.ingested"
+    description: "Number of PipelineRuns ingested by Results watcher"
+    filtering: false
+    metrics: true
+    change_detection_group: null
+
+  - name: "results_PipelineRuns_ingestion_count_stored_true"
+    jsonpath: "$.results.PipelineRuns.results_ingestion.count.stored_true"
+    description: "Number of PipelineRuns stored successfully"
+    filtering: false
+    metrics: true
+    change_detection_group: null
+
+  - name: "results_PipelineRuns_ingestion_count_stored_false"
+    jsonpath: "$.results.PipelineRuns.results_ingestion.count.stored_false"
+    description: "Number of PipelineRuns that failed to store"
+    filtering: false
+    metrics: true
+    change_detection_group: null
+
+  - name: "results_PipelineRuns_ingestion_latency_avg"
+    jsonpath: "$.results.PipelineRuns.results_ingestion.latency.avg"
+    description: "Average ingestion latency for PipelineRuns (seconds)"
+    filtering: false
+    metrics: true
+    change_detection_group: "ingestion_latency"
+
+  - name: "results_PipelineRuns_ingestion_latency_max"
+    jsonpath: "$.results.PipelineRuns.results_ingestion.latency.max"
+    description: "Maximum ingestion latency for PipelineRuns (seconds)"
+    filtering: false
+    metrics: true
+    change_detection_group: "ingestion_latency"
+
+  - name: "results_PipelineRuns_ingestion_throughput"
+    jsonpath: "$.results.PipelineRuns.results_ingestion.throughput"
+    description: "PipelineRun ingestion throughput (records/sec)"
+    filtering: false
+    metrics: true
+    change_detection_group: "ingestion_throughput"
+
+  - name: "results_PipelineRuns_ingestion_duration"
+    jsonpath: "$.results.PipelineRuns.results_ingestion.duration"
+    description: "PipelineRun ingestion window duration (seconds)"
+    filtering: false
+    metrics: true
+    change_detection_group: null
+
+  # Ingestion metrics — TaskRuns
+  - name: "results_TaskRuns_ingestion_count_ingested"
+    jsonpath: "$.results.TaskRuns.results_ingestion.count.ingested"
+    description: "Number of TaskRuns ingested by Results watcher"
+    filtering: false
+    metrics: true
+    change_detection_group: null
+
+  - name: "results_TaskRuns_ingestion_count_stored_true"
+    jsonpath: "$.results.TaskRuns.results_ingestion.count.stored_true"
+    description: "Number of TaskRuns stored successfully"
+    filtering: false
+    metrics: true
+    change_detection_group: null
+
+  - name: "results_TaskRuns_ingestion_count_stored_false"
+    jsonpath: "$.results.TaskRuns.results_ingestion.count.stored_false"
+    description: "Number of TaskRuns that failed to store"
+    filtering: false
+    metrics: true
+    change_detection_group: null
+
+  - name: "results_TaskRuns_ingestion_latency_avg"
+    jsonpath: "$.results.TaskRuns.results_ingestion.latency.avg"
+    description: "Average ingestion latency for TaskRuns (seconds)"
+    filtering: false
+    metrics: true
+    change_detection_group: "ingestion_latency"
+
+  - name: "results_TaskRuns_ingestion_latency_max"
+    jsonpath: "$.results.TaskRuns.results_ingestion.latency.max"
+    description: "Maximum ingestion latency for TaskRuns (seconds)"
+    filtering: false
+    metrics: true
+    change_detection_group: "ingestion_latency"
+
+  - name: "results_TaskRuns_ingestion_throughput"
+    jsonpath: "$.results.TaskRuns.results_ingestion.throughput"
+    description: "TaskRun ingestion throughput (records/sec)"
+    filtering: false
+    metrics: true
+    change_detection_group: "ingestion_throughput"
+
+  - name: "results_TaskRuns_ingestion_duration"
+    jsonpath: "$.results.TaskRuns.results_ingestion.duration"
+    description: "TaskRun ingestion window duration (seconds)"
+    filtering: false
+    metrics: true
+    change_detection_group: null
+
+  # ResultsDB — Postgres record counts (from pg_dump queries)
+  - name: "results_ResultsDB_records_PipelineRun_count"
+    jsonpath: "$.results.ResultsDB.queries[0].result[?(@.type=='tekton.dev/v1.PipelineRun')].count"
+    description: "Number of PipelineRun records in Results Postgres DB"
+    filtering: false
+    metrics: true
+    change_detection_group: null
+
+  - name: "results_ResultsDB_records_TaskRun_count"
+    jsonpath: "$.results.ResultsDB.queries[0].result[?(@.type=='tekton.dev/v1.TaskRun')].count"
+    description: "Number of TaskRun records in Results Postgres DB"
+    filtering: false
+    metrics: true
+    change_detection_group: null
+
+  # Locust API metrics — /record endpoint
+  - name: "results_ResultsAPI_record_count"
+    jsonpath: "$.results.ResultsAPI.\"/record\".count"
+    description: "Total requests to /record endpoint"
+    filtering: false
+    metrics: true
+    change_detection_group: null
+
+  - name: "results_ResultsAPI_record_failures"
+    jsonpath: "$.results.ResultsAPI.\"/record\".failures"
+    description: "Failed requests to /record endpoint"
+    filtering: false
+    metrics: true
+    change_detection_group: "api_failures"
+
+  - name: "results_ResultsAPI_record_latency_avg"
+    jsonpath: "$.results.ResultsAPI.\"/record\".latency_ms.avg"
+    description: "Average latency for /record endpoint (ms)"
+    filtering: false
+    metrics: true
+    change_detection_group: "api_latency"
+
+  - name: "results_ResultsAPI_record_latency_max"
+    jsonpath: "$.results.ResultsAPI.\"/record\".latency_ms.max"
+    description: "Maximum latency for /record endpoint (ms)"
+    filtering: false
+    metrics: true
+    change_detection_group: "api_latency"
+
+  - name: "results_ResultsAPI_record_rps"
+    jsonpath: "$.results.ResultsAPI.\"/record\".rps"
+    description: "Requests per second for /record endpoint"
+    filtering: false
+    metrics: true
+    change_detection_group: "api_throughput"
+
+  # Locust API metrics — /records endpoint
+  - name: "results_ResultsAPI_records_count"
+    jsonpath: "$.results.ResultsAPI.\"/records\".count"
+    description: "Total requests to /records endpoint"
+    filtering: false
+    metrics: true
+    change_detection_group: null
+
+  - name: "results_ResultsAPI_records_failures"
+    jsonpath: "$.results.ResultsAPI.\"/records\".failures"
+    description: "Failed requests to /records endpoint"
+    filtering: false
+    metrics: true
+    change_detection_group: "api_failures"
+
+  - name: "results_ResultsAPI_records_latency_avg"
+    jsonpath: "$.results.ResultsAPI.\"/records\".latency_ms.avg"
+    description: "Average latency for /records endpoint (ms)"
+    filtering: false
+    metrics: true
+    change_detection_group: "api_latency"
+
+  - name: "results_ResultsAPI_records_latency_max"
+    jsonpath: "$.results.ResultsAPI.\"/records\".latency_ms.max"
+    description: "Maximum latency for /records endpoint (ms)"
+    filtering: false
+    metrics: true
+    change_detection_group: "api_latency"
+
+  - name: "results_ResultsAPI_records_rps"
+    jsonpath: "$.results.ResultsAPI.\"/records\".rps"
+    description: "Requests per second for /records endpoint"
+    filtering: false
+    metrics: true
+    change_detection_group: "api_throughput"

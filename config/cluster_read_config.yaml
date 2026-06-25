@@ -161,6 +161,8 @@
   'TEST_SCENARIO',
   'TEST_TOTAL',
   'TEST_DO_CLEANUP',
+  'LOCUST_USERS',
+  'LOCUST_WORKERS',
 ] %}
 - name: metadata.env.{{ var }}
   env_variable: {{ var }}
