@@ -4,7 +4,14 @@ set -o nounset
 set -o errexit
 set -o pipefail
 
+echo "===== TEST: CI validation - Running from PR branch ====="
+echo "===== TEST: Script started at $(date) ====="
+
 source "$(dirname "$0")/lib.sh"
+
+echo "===== TEST: Script directory is $(dirname "$0") ====="
+echo "===== TEST: Current git branch is $(git branch --show-current 2>/dev/null || echo 'detached HEAD') ====="
+echo "===== TEST: Current git commit is $(git rev-parse HEAD) ====="
 
 DEPLOYMENT_PIPELINES_CONTROLLER_TYPE="${DEPLOYMENT_PIPELINES_CONTROLLER_TYPE:-deployments}" # Types available: deployments / statefulSets 
 DEPLOYMENT_PIPELINES_CONTROLLER_RESOURCES="${DEPLOYMENT_PIPELINES_CONTROLLER_RESOURCES:-1/2Gi/1/2Gi}"   # In form of "requests.cpu/requests.memory/limits.cpu/limits.memory", use "///" to skip this
@@ -91,11 +98,13 @@ if [ "$DEPLOYMENT_TYPE" == "downstream" ]; then
 
     if [ "$DEPLOYMENT_VERSION" == "nightly" ] || [ "$DEPLOYMENT_VERSION" == "custom" ] || version_gte "$DEPLOYMENT_VERSION" "5"; then
         # Set the image tag based on build type
+        echo "===== TEST: Deploying downstream version - DEPLOYMENT_VERSION=${DEPLOYMENT_VERSION} ====="
         if [ "$DEPLOYMENT_VERSION" == "nightly" ]; then
             IMAGE_TAG="next"
             CATALOG_NAME="custom-osp-nightly"
             DISPLAY_NAME="Custom OSP Nightly"
             info "Deploy CatalogSource and Subscription for downstream nightly build"
+            echo "===== TEST: Using nightly build with IMAGE_TAG=${IMAGE_TAG} ====="
         elif [ "$DEPLOYMENT_VERSION" == "custom" ]; then
             IMAGE_TAG="${CUSTOM_BUILD_TAG}"
             CATALOG_NAME="custom-osp-build"
@@ -298,9 +307,11 @@ EOF
 
     info "Deployment finished"
     kubectl -n openshift-pipelines get pods
+    echo "===== TEST: Downstream deployment completed successfully ====="
 
 elif [ "$DEPLOYMENT_TYPE" == "upstream" ]; then
 
+    echo "===== TEST: Starting upstream deployment ====="
     info "Prepare project"
     kubectl create namespace tekton-pipelines
 
@@ -941,3 +952,6 @@ fi
 
 info "Create namespace 'utils' some scenarios use"
 kubectl get ns utils || kubectl create ns utils
+
+echo "===== TEST: Setup cluster script completed at $(date) ====="
+echo "===== TEST: All CI validation test statements executed successfully ====="
