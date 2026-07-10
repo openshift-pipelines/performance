@@ -22,9 +22,8 @@ horreum_test_name() {
     fi
 
     if [[ "${TEST_SCENARIO:-}" == *signing* ]]; then
-        local chains_ha_replicas="${DEPLOYMENT_CHAINS_CONTROLLER_HA_REPLICAS:-0}"
         local chains_ha_enabled=false
-        if [[ -n "${DEPLOYMENT_CHAINS_CONTROLLER_HA_REPLICAS:-}" && "${chains_ha_replicas}" != "0" ]]; then
+        if [[ "${DEPLOYMENT_CHAINS_CONTROLLER_HA_REPLICAS:-0}" != "0" ]]; then
             chains_ha_enabled=true
         fi
 
@@ -32,20 +31,16 @@ horreum_test_name() {
         if [[ -n "${DEPLOYMENT_CHAINS_KUBE_API_QPS:-}" || -n "${DEPLOYMENT_CHAINS_KUBE_API_BURST:-}" || -n "${DEPLOYMENT_CHAINS_THREADS_PER_CONTROLLER:-}" ]]; then
             chains_qbt_enabled=true
         fi
-
-        if [[ "$chains_ha_enabled" == false && "$chains_qbt_enabled" == false ]]; then
-            echo "Chains signing test-standard"
-            return
+        local suffix="standard"
+        if [[ "$chains_ha_enabled" == true && "$chains_qbt_enabled" == true ]]; then
+            suffix="ha_qbt"
         elif [[ "$chains_ha_enabled" == true && "$chains_qbt_enabled" == false ]]; then
-            echo "Chains signing test-ha"
-            return
+            suffix="ha"
         elif [[ "$chains_ha_enabled" == false && "$chains_qbt_enabled" == true ]]; then
-            echo "Chains signing test-qbt"
-            return
-        elif [[ "$chains_ha_enabled" == true && "$chains_qbt_enabled" == true ]]; then
-            echo "Chains signing test-ha_qbt"
-            return
+            suffix="qbt"
         fi
+        echo "Chains signing test-${sufix}"
+        return
     fi
 
     local ha_replicas="${DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS:-0}"
