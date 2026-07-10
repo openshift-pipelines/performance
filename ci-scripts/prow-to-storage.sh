@@ -1,102 +1,154 @@
 #!/bin/bash -eu
+#
+# Download benchmark artifacts from Prow and upload to Horreum + Results Dashboard.
+#
+# Usage:
+#   bash ci-scripts/prow-to-storage.sh                  # upload for real
+#   DRY_RUN=true  bash ci-scripts/prow-to-storage.sh    # preview without uploading
+
+# ── Configuration ─────────────────────────────────────────────────────────────
 
 CACHE_DIR="prow-to-es-cache-dir"
-# Used by sourced opl_shovel.sh
+PROW_JOB_PREFIX="periodic-ci-openshift-pipelines-performance-main-"
+SCHEMA_URI="urn:openshift-pipelines-perfscale-scalingPipelines:0.2"
+
 # shellcheck disable=SC2034
-DRY_RUN=false
+DRY_RUN="${DRY_RUN:-false}"
 # shellcheck disable=SC2034
-DEBUG=true
+DEBUG="${DEBUG:-true}"
 
-_PROW_VARIANT_SUFFIXES=("" "-ha-10" "-ha-10-state" "-qbt" "-ha-10-qbt")
-_PROW_CHAINS_VARIANT_SUFFIXES=("" "-ha-10" "-qbt" "-ha-10-qbt")
+_MIN_VER=20
+_MAX_VER=22
 
-# Append max-concurrency downstream Prow run names to PROW_JOBS.
-#
-# $1 - suffix after "nightly" (e.g. "" or "-sign-tkn-bb")
-# $2 - versioned segment before ${pv} (e.g. "pipelines1-" or "1-")
-# $3 - versioned segment after ${pv} (e.g. "" or "-sign-tkn-bb")
-# $4 - minimum Pipelines version (inclusive)
-# $5 - maximum Pipelines version (inclusive)
-# $6 - nameref to variant suffix array
-register_max_concurrency_jobs() {
-    local nightly_extra="$1"
-    local versioned_prefix="$2"
-    local versioned_suffix="$3"
-    local min_version="$4"
-    local max_version="$5"
-    local -n variant_suffixes=$6
+_PIPELINES_SUFFIXES=("" "-ha-10" "-ha-10-state" "-qbt" "-ha-10-qbt")
+_CHAINS_SUFFIXES=("" "-ha-10" "-qbt" "-ha-10-qbt")
 
-    local sfx pv
-    for sfx in "${variant_suffixes[@]}"; do
-        PROW_JOBS+=( "max-concurrency-downstream-nightly${nightly_extra}${sfx}" )
-    done
-    for pv in $(seq "$min_version" "$max_version"); do
-        for sfx in "${variant_suffixes[@]}"; do
-            PROW_JOBS+=( "max-concurrency-downstream-${versioned_prefix}${pv}${versioned_suffix}${sfx}" )
-        done
-    done
-}
-
-# Download, enrich, and upload benchmark results from Prow to Horreum.
-#
-# $1 - nameref to job name array
-# $2 - artifact path under the Prow run (e.g. "openshift-pipelines-max-concurrency/artifacts/")
-process_prow_jobs() {
-    local -n jobs=$1
-    local job_path="$2"
-    local subjob_file="benchmark-tekton.json"
-
-    for prow_run in "${jobs[@]}"; do
-    prow_job="periodic-ci-openshift-pipelines-performance-main-$prow_run"
-    echo "prow_run: $prow_run"
-    for i in $( prow_list "$prow_job" ); do
-        for subjob in $( prow_subjob_list "$prow_job" "$i" "$prow_run" "$job_path" ); do
-            out="$CACHE_DIR/$i-$subjob.benchmark-tekton.json"
-            prow_download "$prow_job" "$i" "$prow_run" "$job_path/$subjob/$subjob_file" "$out" "jobLink"
-            check_json "$out" || continue
-            if jq --arg sj "$subjob" \
-                '.started = .results.started
-                | .ended = .results.ended
-                | .metadata.env.SUBJOB_BUILD_ID = .metadata.env.BUILD_ID + $sj' \
-                "$out" >"${out}.tmp"; then
-                mv -f "${out}.tmp" "$out"
-            else
-                rm -f "${out}.tmp"
-                false
-            fi
-                # Fix .name for early Results runs that were incorrectly labeled as Pipelines
-                if [[ "$prow_run" == tkn-res-* ]] && jq -e '.name == "Scaling Pipelines test-standard"' "$out" >/dev/null 2>&1; then
-                    jq '.name = "Results Performance test-standard"' "$out" > "${out}.tmp" && mv -f "${out}.tmp" "$out"
-                    info "Patched .name for Results job: $out"
-                fi
-            json_complete "$out" || continue
-            # shellcheck disable=SC2016  # $schema is a jq field name, not a shell variable
-            enritch_stuff "$out" '."$schema"' "urn:openshift-pipelines-perfscale-scalingPipelines:0.2"
-            horreum_upload "$out" "metadata.env.SUBJOB_BUILD_ID" "__metadata_env_SUBJOB_BUILD_ID" "Openshift-pipelines-team" "PUBLIC" || ((errors_count+=1))
-            resultsdashboard_upload "$out" "Developer" "OpenShift Pipelines" "$( date --utc -Idate )" "@metadata.env.SUBJOB_BUILD_ID" || ((errors_count+=1))
-            done
-        done
-    done
-}
-
-PROW_JOBS=()
-register_max_concurrency_jobs "" "pipelines1-" "" 19 22 _PROW_VARIANT_SUFFIXES
-register_max_concurrency_jobs "-sign-tkn-bb" "1-" "-sign-tkn-bb" 20 22 _PROW_CHAINS_VARIANT_SUFFIXES
-
-_PROW_RESULTS_JOBS=(
-    "tkn-res-downstream-nightly"
-    "tkn-res-downstream-pipelines1-20"
-    "tkn-res-downstream-pipelines1-21"
-    "tkn-res-downstream-pipelines1-22"
-)
+# ── Dependencies ──────────────────────────────────────────────────────────────
 
 [ -e script-mate/ ] || git clone --depth=1 https://github.com/redhat-performance/script-mate.git
 source script-mate/src/opl_shovel.sh
 
+# ── Functions ─────────────────────────────────────────────────────────────────
+
+# Build the list of Prow job names: one nightly + one per version in
+# [min, max], each crossed with every variant suffix.
+#
+# $1 - nameref to target array
+# $2 - base prefix    (e.g. "max-concurrency-downstream-")
+# $3 - tag            (e.g. "" or "-sign-tkn-bb")
+# $4 - version prefix (e.g. "pipelines1-" or "1-")
+# $5 - min version    $6 - max version
+# $7 - nameref to suffix array (optional — omit for no variants)
+register_prow_jobs() {
+    local -n _target=$1
+    local prefix="$2" tag="$3" ver_prefix="$4"
+    local min_ver="$5" max_ver="$6"
+    local _none=("")
+    local -n _suffixes="${7:-_none}"
+
+    local sfx pv
+    for sfx in "${_suffixes[@]}"; do
+        _target+=("${prefix}nightly${tag}${sfx}")
+    done
+    for pv in $(seq "$min_ver" "$max_ver"); do
+        for sfx in "${_suffixes[@]}"; do
+            _target+=("${prefix}${ver_prefix}${pv}${tag}${sfx}")
+        done
+    done
+}
+
+# Map a job name to its artifact directory within the Prow run.
+artifact_path_for() {
+    case "$1" in
+        tkn-res-*) echo "openshift-pipelines-scaling-pipelines/artifacts/" ;;
+        *)         echo "openshift-pipelines-max-concurrency/artifacts/"   ;;
+    esac
+}
+
+# jq expressions for setting timestamps and SUBJOB_BUILD_ID
+_JQ_ENRICH='.started = .results.started | .ended = .results.ended'
+_JQ_NO_SUBJOB="$_JQ_ENRICH"' | .metadata.env.SUBJOB_BUILD_ID = .metadata.env.BUILD_ID'
+_JQ_WITH_SUBJOB="$_JQ_ENRICH"' | .metadata.env.SUBJOB_BUILD_ID = .metadata.env.BUILD_ID + $sj'
+
+# Download a single artifact, validate, enrich, and upload.
+#
+# $1 - output file   $2 - prow job   $3 - run ID   $4 - prow_run short name
+# $5 - artifact path $6 - jq expr    $7 - subjob name (optional)
+download_and_upload() {
+    local out="$1" prow_job="$2" run_id="$3" prow_run="$4"
+    local artifact_path="$5" jq_expr="$6" subjob="${7:-}"
+    local label="${run_id}${subjob:+/$subjob}"
+
+    [[ -f "$out" ]] && jq empty "$out" 2>/dev/null && { debug "Cached: $out"; return 0; }
+
+    prow_download "$prow_job" "$run_id" "$prow_run" "$artifact_path" "$out" "jobLink" 2>/dev/null
+    if ! jq empty "$out" 2>/dev/null; then
+        info "No valid artifact for $label, skipping"
+        rm -f "$out"
+        return 1
+    fi
+
+    jq --arg sj "$subjob" "$jq_expr" "$out" > "${out}.tmp" && mv -f "${out}.tmp" "$out"
+    json_complete "$out" || return 1
+
+    # shellcheck disable=SC2016
+    enritch_stuff "$out" '."$schema"' "$SCHEMA_URI"
+    horreum_upload "$out" "metadata.env.SUBJOB_BUILD_ID" "__metadata_env_SUBJOB_BUILD_ID" \
+        "Openshift-pipelines-team" "PUBLIC" || ((errors+=1))
+    resultsdashboard_upload "$out" "Developer" "OpenShift Pipelines" "$TODAY" \
+        "@metadata.env.SUBJOB_BUILD_ID" || ((errors+=1))
+}
+
+# Iterate all registered jobs: list Prow runs, download artifacts, upload.
+process_prow_jobs() {
+    local -n _jobs=$1
+
+    for prow_run in "${_jobs[@]}"; do
+        local job_path prow_job
+        job_path="$(artifact_path_for "$prow_run")"
+        prow_job="${PROW_JOB_PREFIX}${prow_run}"
+        info "Processing: $prow_run"
+
+        for run_id in $(prow_list "$prow_job"); do
+            local subjobs
+            subjobs=$(prow_subjob_list "$prow_job" "$run_id" "$prow_run" "$job_path") || true
+
+            if [[ -z "$subjobs" ]]; then
+                download_and_upload \
+                    "$CACHE_DIR/${run_id}.benchmark-tekton.json" \
+                    "$prow_job" "$run_id" "$prow_run" \
+                    "$job_path/benchmark-tekton.json" \
+                    "$_JQ_NO_SUBJOB" || continue
+            else
+                for subjob in $subjobs; do
+                    download_and_upload \
+                        "$CACHE_DIR/${run_id}-${subjob}.benchmark-tekton.json" \
+                        "$prow_job" "$run_id" "$prow_run" \
+                        "$job_path/$subjob/benchmark-tekton.json" \
+                        "$_JQ_WITH_SUBJOB" "$subjob" || continue
+                done
+            fi
+        done
+    done
+}
+
+# ── Job Registration ──────────────────────────────────────────────────────────
+#
+# Pipelines:  nightly + 1.{20..22}, each × 5 variants
+# Chains:     nightly + 1.{20..22}, each × 4 variants (no statefulSets)
+# Results:    nightly + 1.{20..22}, no variants
+
+PROW_JOBS=()
+register_prow_jobs PROW_JOBS "max-concurrency-downstream-" ""             "pipelines1-" $_MIN_VER $_MAX_VER _PIPELINES_SUFFIXES
+register_prow_jobs PROW_JOBS "max-concurrency-downstream-" "-sign-tkn-bb" "1-"          $_MIN_VER $_MAX_VER _CHAINS_SUFFIXES
+register_prow_jobs PROW_JOBS "tkn-res-downstream-"         ""             "pipelines1-" $_MIN_VER $_MAX_VER
+
+# ── Main ──────────────────────────────────────────────────────────────────────
+
 mkdir -p "$CACHE_DIR"
+TODAY="$(date --utc -Idate)"
+errors=0
 
-errors_count=0
-process_prow_jobs PROW_JOBS "openshift-pipelines-max-concurrency/artifacts/"
-process_prow_jobs _PROW_RESULTS_JOBS "openshift-pipelines-scaling-pipelines/artifacts/"
+process_prow_jobs PROW_JOBS
 
-exit $errors_count
+exit $errors
