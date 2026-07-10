@@ -78,25 +78,43 @@ download_and_upload() {
     local out="$1" prow_job="$2" run_id="$3" prow_run="$4"
     local artifact_path="$5" jq_expr="$6" subjob="${7:-}"
     local label="${run_id}${subjob:+/$subjob}"
+    local tmp_out="${out}.tmp"
 
     [[ -f "$out" ]] && jq empty "$out" 2>/dev/null && { debug "Cached: $out"; return 0; }
 
-    prow_download "$prow_job" "$run_id" "$prow_run" "$artifact_path" "$out" "jobLink" 2>/dev/null
-    if ! jq empty "$out" 2>/dev/null; then
+    rm -f "$tmp_out"
+
+    prow_download "$prow_job" "$run_id" "$prow_run" "$artifact_path" "$tmp_out" "jobLink" 2>/dev/null
+    if ! jq empty "$tmp_out" 2>/dev/null; then
         info "No valid artifact for $label, skipping"
-        rm -f "$out"
+        rm -f "$tmp_out"
         return 1
     fi
 
-    jq --arg sj "$subjob" "$jq_expr" "$out" > "${out}.tmp" && mv -f "${out}.tmp" "$out"
-    json_complete "$out" || return 1
+    if ! jq --arg sj "$subjob" "$jq_expr" "$tmp_out" > "${tmp_out}.enriched"; then
+        rm -f "$tmp_out" "${tmp_out}.enriched"
+        return 1
+    fi
+    mv -f "${tmp_out}.enriched" "$tmp_out"
+
+    json_complete "$tmp_out" || { rm -f "$tmp_out"; return 1; }
 
     # shellcheck disable=SC2016
-    enritch_stuff "$out" '."$schema"' "$SCHEMA_URI"
-    horreum_upload "$out" "metadata.env.SUBJOB_BUILD_ID" "__metadata_env_SUBJOB_BUILD_ID" \
-        "Openshift-pipelines-team" "PUBLIC" || ((errors+=1))
-    resultsdashboard_upload "$out" "Developer" "OpenShift Pipelines" "$TODAY" \
-        "@metadata.env.SUBJOB_BUILD_ID" || ((errors+=1))
+    enritch_stuff "$tmp_out" '."$schema"' "$SCHEMA_URI"
+
+    local upload_errors=0
+    horreum_upload "$tmp_out" "metadata.env.SUBJOB_BUILD_ID" "__metadata_env_SUBJOB_BUILD_ID" \
+        "Openshift-pipelines-team" "PUBLIC" || ((upload_errors+=1))
+    resultsdashboard_upload "$tmp_out" "Developer" "OpenShift Pipelines" "$( date --utc -Idate )" \
+        "@metadata.env.SUBJOB_BUILD_ID" || ((upload_errors+=1))
+
+    if [[ $upload_errors -eq 0 ]]; then
+        mv -f "$tmp_out" "$out"
+    else
+        errors=$((errors + upload_errors))
+        rm -f "$tmp_out"
+        return 1
+    fi
 }
 
 # Iterate all registered jobs: list Prow runs, download artifacts, upload.
@@ -146,7 +164,6 @@ register_prow_jobs PROW_JOBS "tkn-res-downstream-"         ""             "pipel
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 mkdir -p "$CACHE_DIR"
-TODAY="$(date --utc -Idate)"
 errors=0
 
 process_prow_jobs PROW_JOBS
