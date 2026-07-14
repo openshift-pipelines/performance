@@ -22,7 +22,24 @@ horreum_test_name() {
     fi
 
     if [[ "${TEST_SCENARIO:-}" == *signing* ]]; then
-        echo "OpenShift Pipelines Chains signing test"
+        local chains_ha_enabled=false
+        if [[ "${DEPLOYMENT_CHAINS_CONTROLLER_HA_REPLICAS:-0}" != "0" ]]; then
+            chains_ha_enabled=true
+        fi
+
+        local chains_qbt_enabled=false
+        if [[ -n "${DEPLOYMENT_CHAINS_KUBE_API_QPS:-}" || -n "${DEPLOYMENT_CHAINS_KUBE_API_BURST:-}" || -n "${DEPLOYMENT_CHAINS_THREADS_PER_CONTROLLER:-}" ]]; then
+            chains_qbt_enabled=true
+        fi
+        local suffix="standard"
+        if [[ "$chains_ha_enabled" == true && "$chains_qbt_enabled" == true ]]; then
+            suffix="ha_qbt"
+        elif [[ "$chains_ha_enabled" == true && "$chains_qbt_enabled" == false ]]; then
+            suffix="ha"
+        elif [[ "$chains_ha_enabled" == false && "$chains_qbt_enabled" == true ]]; then
+            suffix="qbt"
+        fi
+        echo "Chains signing test-${sufix}"
         return
     fi
 
