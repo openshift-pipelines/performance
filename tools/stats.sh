@@ -39,7 +39,7 @@ horreum_test_name() {
         elif [[ "$chains_ha_enabled" == false && "$chains_qbt_enabled" == true ]]; then
             suffix="qbt"
         fi
-        echo "Chains signing test-${sufix}"
+        echo "Chains signing test-${suffix}"
         return
     fi
 
