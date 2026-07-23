@@ -18,7 +18,7 @@ DRY_RUN="${DRY_RUN:-false}"
 DEBUG="${DEBUG:-true}"
 
 _MIN_VER=20
-_MAX_VER=22
+_MAX_VER=23
 
 _PIPELINES_SUFFIXES=("" "-ha-10" "-ha-10-state" "-qbt" "-ha-10-qbt")
 _CHAINS_SUFFIXES=("" "-ha-10" "-qbt" "-ha-10-qbt")
