@@ -1,38 +1,26 @@
 local grafonnet = import 'github.com/grafana/grafonnet/gen/grafonnet-latest/main.libsonnet';
+local common = import 'lib/pipelines-common.libsonnet';
 
 local dashboard = grafonnet.dashboard;
 local timeSeries = grafonnet.panel.timeSeries;
 
-// ─── Constants ───────────────────────────────────────────────────────────────
-local testId = 391;
+local versionExpr = common.versionExpr;
+local testIdPredicate = common.testIdPredicate;
+local datasourceVar = common.datasourceVar;
+local variantVar = common.variantVar;
 
-// ─── Template variables ─────────────────────────────────────────────────────
-local datasourceVar =
-  grafonnet.dashboard.variable.datasource.new(
-    'datasource',
-    'grafana-postgresql-datasource',
-  )
-  + grafonnet.dashboard.variable.datasource.withRegex('.*grafana-postgresql-datasource.*')
-  + grafonnet.dashboard.variable.custom.generalOptions.withLabel('Datasource')
-  + grafonnet.dashboard.variable.custom.generalOptions.withDescription('PostgreSQL datasource for pipeline metrics')
-  + grafonnet.dashboard.variable.custom.generalOptions.withCurrent('grafana-postgresql-datasource');
-
-local deployConfigVar = {
-  type: 'custom',
-  name: 'deploy_config',
-  label: 'Deployment Configuration',
-  description: 'Standard, HA (no QBT), QBT (non-HA), or HA+QBT (deployments only). Dashboard shows nightly builds only.',
-  query: 'Standard : standard,HA - Deployments : ha-deployments,HA - StatefulSets : ha-statefulsets,QBT (non-HA) : qbt,HA + QBT - Deployments : ha-qbt-deployments',
+local versionVar = {
+  type: 'query',
+  name: 'version',
+  label: 'Version',
+  description: 'Filter to a specific version to track its trend over time.',
+  datasource: { type: 'grafana-postgresql-datasource', uid: '${datasource}' },
+  query: "SELECT DISTINCT %s AS version FROM data WHERE %s AND $__timeFilter(start) AND label_values ? '__deployment_version' ORDER BY version DESC" % [versionExpr, testIdPredicate],
   multi: false,
   includeAll: false,
-  current: { text: 'Standard', value: 'standard' },
-  options: [
-    { text: 'Standard', value: 'standard', selected: true },
-    { text: 'HA - Deployments', value: 'ha-deployments', selected: false },
-    { text: 'HA - StatefulSets', value: 'ha-statefulsets', selected: false },
-    { text: 'QBT (non-HA)', value: 'qbt', selected: false },
-    { text: 'HA + QBT - Deployments', value: 'ha-qbt-deployments', selected: false },
-  ],
+  current: { text: 'nightly', value: 'nightly' },
+  refresh: 2,
+  sort: 0,
 };
 
 local concurrencyVar = {
@@ -41,7 +29,7 @@ local concurrencyVar = {
   label: 'Concurrency',
   description: 'Filter by concurrency level. Select one or more, or All.',
   datasource: { type: 'grafana-postgresql-datasource', uid: '${datasource}' },
-  query: "SELECT DISTINCT (label_values->>'__parameters_test_concurrent')::INTEGER AS concurrency FROM data WHERE horreum_testid = %g AND label_values ? '__parameters_test_concurrent' ORDER BY concurrency" % testId,
+  query: "SELECT DISTINCT (label_values->>'__parameters_test_concurrent')::INTEGER AS concurrency FROM data WHERE %s AND $__timeFilter(start) AND label_values ? '__parameters_test_concurrent' ORDER BY concurrency" % testIdPredicate,
   multi: true,
   includeAll: true,
   current: { text: 'All', value: '$__all' },
@@ -49,30 +37,14 @@ local concurrencyVar = {
   sort: 3,
 };
 
-// ─── SQL predicates (injected into every query) ─────────────────────────────
-
-local nightlyOnlyPredicate = |||
-        AND (label_values ? '__deployment_nightly')
-        AND (label_values->>'__deployment_nightly')::BOOLEAN = true
-|||;
-
-local deployConfigPredicate = |||
-        AND (
-          ('$deploy_config' = 'standard' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))
-          OR ('$deploy_config' = 'ha-deployments' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments' AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))
-          OR ('$deploy_config' = 'ha-statefulsets' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values->>'__deployment_haConfig_controllerType') = 'statefulSets' AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))
-          OR ('$deploy_config' = 'qbt' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)
-          OR ('$deploy_config' = 'ha-qbt-deployments' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments' AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)
-        )
-|||;
+local versionPredicate = |||
+        AND %s = '${version}'
+||| % versionExpr;
 
 local concurrencyPredicate = |||
         AND (label_values->>'__parameters_test_concurrent')::INTEGER IN ($concurrency)
 |||;
 
-// ─── Query builders ─────────────────────────────────────────────────────────
-
-// Daily-aggregated query with automatic UNION ALL for multi-field panels
 local createComplexQuery(fieldName, metricLabel, additionalFields={}) =
   local baseFields = { [metricLabel]: fieldName };
   local allFields = baseFields + additionalFields;
@@ -88,7 +60,7 @@ local createComplexQuery(fieldName, metricLabel, additionalFields={}) =
     |||
       SELECT
         EXTRACT(EPOCH FROM day) AS time,
-        '%s @ ' || concurrency AS metric,
+        '%s @ c' || concurrency AS metric,
         %s AS value
       FROM daily_agg
     ||| % [key, key]
@@ -103,9 +75,8 @@ local createComplexQuery(fieldName, metricLabel, additionalFields={}) =
           (label_values->>'__parameters_test_concurrent')::INTEGER AS concurrency,
           %s
         FROM data
-        WHERE horreum_testid = %g
+        WHERE %s
           AND $__timeFilter(start)
-          %s
           %s
           %s
           AND %s
@@ -115,14 +86,12 @@ local createComplexQuery(fieldName, metricLabel, additionalFields={}) =
       %s
 
       ORDER BY time, metric;
-    ||| % [fieldSelections, testId, concurrencyPredicate, deployConfigPredicate, nightlyOnlyPredicate, fieldConditions, selectStatements],
+    ||| % [fieldSelections, testIdPredicate, concurrencyPredicate, versionPredicate, fieldConditions, selectStatements],
     format: 'time_series',
     refId: 'A',
   };
 
-// ─── Panel builders ─────────────────────────────────────────────────────────
-
-local createComplexPanel(title, fieldName, metricLabel, unit='short', gridX=0, gridY=0, gridW=12, gridH=8, additionalFields={}, description='') =
+local trendPanel(title, fieldName, metricLabel, unit='short', gridX=0, gridY=0, gridW=12, gridH=8, additionalFields={}, description='', axisSoftMax=null) =
   timeSeries.new(title)
   + timeSeries.queryOptions.withDatasource(type='grafana-postgresql-datasource', uid='${datasource}')
   + (if description != '' then timeSeries.panelOptions.withDescription(description) else {})
@@ -131,233 +100,242 @@ local createComplexPanel(title, fieldName, metricLabel, unit='short', gridX=0, g
   + timeSeries.gridPos.withW(gridW)
   + timeSeries.gridPos.withH(gridH)
   + timeSeries.fieldConfig.defaults.custom.withDrawStyle('line')
-  + timeSeries.fieldConfig.defaults.custom.withFillOpacity(0)
+  + timeSeries.fieldConfig.defaults.custom.withLineWidth(2)
+  + timeSeries.fieldConfig.defaults.custom.withFillOpacity(8)
+  + timeSeries.fieldConfig.defaults.custom.withGradientMode('opacity')
   + timeSeries.fieldConfig.defaults.custom.withSpanNulls(false)
   + timeSeries.fieldConfig.defaults.custom.withShowPoints('always')
-  + timeSeries.fieldConfig.defaults.custom.withPointSize(7)
+  + timeSeries.fieldConfig.defaults.custom.withPointSize(6)
   + timeSeries.standardOptions.withUnit(unit)
   + timeSeries.standardOptions.withMin(0)
+  + timeSeries.options.withTooltip({ mode: 'multi', sort: 'desc' })
+  + timeSeries.options.withLegend({ displayMode: 'list', placement: 'bottom', calcs: [] })
+  + (if axisSoftMax != null then { fieldConfig+: { defaults+: { custom+: { axisSoftMax: axisSoftMax } } } } else {})
   + timeSeries.queryOptions.withTargets([
     createComplexQuery(fieldName, metricLabel, additionalFields),
   ]);
 
-local createRow(title, y) = {
+local row(title, y) = {
   type: 'row',
   title: title,
   gridPos: { h: 1, w: 24, x: 0, y: y },
 };
 
-// ─── Dashboard panels ───────────────────────────────────────────────────────
-
 local allPanels = [
   // ── Pipeline Results ─────────────────────────────────────────
-  createRow('Pipeline Results', 0),
-  createComplexPanel(
+  row('Pipeline Results', 0),
+  trendPanel(
+    'PipelineRun Duration (avg)',
+    '__results_PipelineRuns_duration_avg',
+    'pr_duration',
+    's',
+    0, 1, 12, 8,
+    description='Average wall-clock duration of all PipelineRuns (creationTimestamp → completionTime), per day per concurrency level. Rising trend indicates a regression.'
+  ),
+  trendPanel(
+    'PipelineRun Phases (pending / running)',
+    '__results_PipelineRuns_Success_pending_avg',
+    'pending',
+    's',
+    12, 1, 12, 8,
+    { running: '__results_PipelineRuns_Success_running_avg' },
+    description='Breakdown of successful PipelineRun duration into two phases:\n- **pending**: time from creation to start (waiting for scheduling)\n- **running**: time from start to completion (actual execution)\n\nHigh pending → scheduling pressure. High running → slow task execution.'
+  ),
+  trendPanel(
     'PipelineRun Succeeded',
     '__results_PipelineRuns_count_succeeded',
     'pr_succeeded',
     'short',
-    0, 1, 12, 8,
+    0, 9, 12, 8,
     description='Total number of PipelineRuns that completed successfully, averaged per day per concurrency level.'
   ),
-  createComplexPanel(
+  trendPanel(
     'PipelineRun Failed',
     '__results_PipelineRuns_count_failed',
     'pr_failed',
     'short',
-    12, 1, 12, 8,
-    description='Total number of PipelineRuns that failed, averaged per day per concurrency level. A value of 0 means all runs succeeded.'
-  ),
-  createComplexPanel(
-    'PR Mean Duration',
-    '__results_PipelineRuns_duration_avg',
-    'pr_duration',
-    's',
-    0, 9, 12, 8,
-    description='Average wall-clock duration of all PipelineRuns (creationTimestamp to completionTime), per day per concurrency level.'
-  ),
-  createComplexPanel(
-    'Succeeded PR Metrics (pending / running)',
-    '__results_PipelineRuns_Success_pending_avg',
-    'pending',
-    's',
     12, 9, 12, 8,
-    { running: '__results_PipelineRuns_Success_running_avg' },
-    description='Breakdown of successful PipelineRun duration into two phases:\n- **pending**: time from creation to start (waiting for scheduling)\n- **running**: time from start to completion (actual execution)\n\nHigh pending time indicates scheduling pressure; high running time indicates slow task execution.'
+    description='PipelineRuns that failed. Should be 0. Any non-zero value indicates test failures worth investigating.',
+    axisSoftMax=5,
   ),
 
   // ── TaskRun Results ──────────────────────────────────────────
-  createRow('TaskRun Results', 17),
-  createComplexPanel(
+  row('TaskRun Results', 17),
+  trendPanel(
+    'TaskRun Duration (avg)',
+    '__results_TaskRuns_duration_avg',
+    'tr_duration',
+    's',
+    0, 18, 12, 8,
+    description='Average wall-clock duration of successful TaskRuns (creationTimestamp → completionTime), per day per concurrency level.'
+  ),
+  trendPanel(
+    'TaskRun Phases (pending / running)',
+    '__results_TaskRuns_Success_pending_avg',
+    'pending',
+    's',
+    12, 18, 12, 8,
+    { running: '__results_TaskRuns_Success_running_avg' },
+    description='Breakdown of successful TaskRun duration into two phases:\n- **pending**: time from creation to start (waiting for Pod scheduling)\n- **running**: time from start to completion (actual container execution)\n\nHigh pending → Pod scheduling delays or resource pressure.'
+  ),
+  trendPanel(
     'TaskRun Succeeded',
     '__results_TaskRuns_count_succeeded',
     'tr_succeeded',
     'short',
-    0, 18, 12, 8,
+    0, 26, 12, 8,
     description='Total number of TaskRuns that completed successfully, averaged per day per concurrency level. Each PipelineRun creates multiple TaskRuns.'
   ),
-  createComplexPanel(
+  trendPanel(
     'TaskRun Failed',
     '__results_TaskRuns_count_failed',
     'tr_failed',
     'short',
-    12, 18, 12, 8,
-    description='Total number of TaskRuns that failed, averaged per day per concurrency level.'
-  ),
-  createComplexPanel(
-    'TR Mean Success Duration',
-    '__results_TaskRuns_duration_avg',
-    'tr_duration',
-    's',
-    0, 26, 12, 8,
-    description='Average wall-clock duration of successful TaskRuns (creationTimestamp to completionTime), per day per concurrency level.'
-  ),
-  createComplexPanel(
-    'Succeeded TR Metrics (pending / running)',
-    '__results_TaskRuns_Success_pending_avg',
-    'pending',
-    's',
     12, 26, 12, 8,
-    { running: '__results_TaskRuns_Success_running_avg' },
-    description='Breakdown of successful TaskRun duration into two phases:\n- **pending**: time from creation to start (waiting for Pod scheduling)\n- **running**: time from start to completion (actual container execution)\n\nHigh pending time indicates Pod scheduling delays or resource pressure.'
+    description='TaskRuns that failed. Should be 0.',
+    axisSoftMax=5,
   ),
 
-  // ── Controller Metrics ───────────────────────────────────────
-  createRow('Controller Metrics', 34),
-  createComplexPanel(
-    'TaskRun to Pod Creation Duration',
+  // ── Controller Health ──────────────────────────────────────────
+  row('Controller Health', 34),
+  trendPanel(
+    'TaskRun → Pod Creation Lag',
     '__results_TaskRunsToPods_creationTimestampDiff_mean',
     'pod_creation_lag',
     's',
     0, 35, 12, 8,
     description='Mean time between TaskRun creation and its corresponding Pod creation. Measures how long the Tekton controller takes to reconcile a TaskRun and create the Pod. High values indicate controller backlog.'
   ),
-  createComplexPanel(
-    'Controllers CPU Usage (Mean)',
-    '__measurements_tektonPipelinesController_cpu_mean',
-    'controller_cpu',
-    'short',
-    12, 35, 12, 8,
-    {
-      webhook_cpu: '__measurements_tektonPipelinesWebhook_cpu_mean',
-      proxy_webhook_cpu: '__measurements_tektonOperatorProxyWebhook_cpu_mean',
-    },
-    description='Mean CPU usage of Tekton Pipelines components during the test run, in CPU cores (e.g. 0.06 = 60 millicores).\n- **controller_cpu**: main reconciliation controller\n- **webhook_cpu**: admission webhook\n- **proxy_webhook_cpu**: operator proxy webhook'
-  ),
-  createComplexPanel(
-    'Controllers Memory Usage (Mean)',
-    '__measurements_tektonPipelinesController_memory_mean',
-    'controller_mem',
-    'bytes',
-    0, 43, 12, 8,
-    {
-      webhook_mem: '__measurements_tektonPipelinesWebhook_memory_mean',
-      proxy_webhook_mem: '__measurements_tektonOperatorProxyWebhook_memory_mean',
-    },
-    description='Mean memory (RSS) usage of Tekton Pipelines components during the test run.\n- **controller_mem**: main reconciliation controller\n- **webhook_mem**: admission webhook\n- **proxy_webhook_mem**: operator proxy webhook'
-  ),
-  createComplexPanel(
-    'Pipelines Controller Workqueue Depth',
+  trendPanel(
+    'Controller Workqueue Depth',
     '__measurements_tektonTektonPipelinesControllerWorkqueueDepth_mean',
     'workqueue_depth',
     'short',
-    12, 43, 12, 8,
-    description='Mean depth of the Tekton Pipelines controller workqueue during the test. A growing workqueue indicates the controller cannot reconcile objects fast enough. Consistently high values suggest the controller is a bottleneck.\n\nNote: Nightly builds using Tekton >= v1.10 report this as kn_workqueue_depth (OpenTelemetry).'
+    12, 35, 12, 8,
+    description='Mean depth of the Tekton Pipelines controller work queue. A growing queue means the controller cannot reconcile objects fast enough.\n\nNote: Tekton >= v1.10 reports this as kn_workqueue_depth (OpenTelemetry).'
   ),
-  createComplexPanel(
-    'Pipelines Controller Client Latency',
+  trendPanel(
+    'Controller Client Latency',
     '__measurements_tektonPipelinesControllerClientLatencyAverage_mean',
     'client_latency',
     's',
-    0, 51, 12, 8,
-    description='Mean HTTP client latency (p50) of the Tekton Pipelines controller when communicating with the Kubernetes API server. High latency indicates API server pressure or network issues.\n\nNote: Nightly builds using Tekton >= v1.10 report this as http_client_request_duration_seconds (OpenTelemetry).'
+    0, 43, 12, 8,
+    description='Mean HTTP client latency of the Tekton Pipelines controller when communicating with the Kubernetes API server. High latency indicates API server pressure or network issues.\n\nNote: Tekton >= v1.10 reports this as http_client_request_duration_seconds (OpenTelemetry).'
   ),
 
-  // ── Cluster & API Server Metrics ─────────────────────────────
-  createRow('Cluster & API Server Metrics', 59),
-  createComplexPanel(
-    'Cluster CPU Usage',
+  // ── Component Resources ────────────────────────────────────────
+  row('Component Resources', 51),
+  trendPanel(
+    'Tekton CPU (controller / webhook / proxy)',
+    '__measurements_tektonPipelinesController_cpu_mean',
+    'controller_cpu',
+    'short',
+    0, 52, 12, 8,
+    {
+      webhook_cpu: '__measurements_tektonPipelinesWebhook_cpu_mean',
+      proxy_cpu: '__measurements_tektonOperatorProxyWebhook_cpu_mean',
+    },
+    description='Mean CPU usage of Tekton Pipelines components (in CPU cores, e.g. 0.06 = 60 millicores).\n- **controller_cpu**: main reconciliation loop\n- **webhook_cpu**: admission webhook\n- **proxy_cpu**: operator proxy webhook'
+  ),
+  trendPanel(
+    'Tekton Memory (controller / webhook / proxy)',
+    '__measurements_tektonPipelinesController_memory_mean',
+    'controller_mem',
+    'bytes',
+    12, 52, 12, 8,
+    {
+      webhook_mem: '__measurements_tektonPipelinesWebhook_memory_mean',
+      proxy_mem: '__measurements_tektonOperatorProxyWebhook_memory_mean',
+    },
+    description='Mean memory (RSS) usage of Tekton Pipelines components.\n- **controller_mem**: main reconciliation loop\n- **webhook_mem**: admission webhook\n- **proxy_mem**: operator proxy webhook'
+  ),
+
+  // ── Cluster & API Server ───────────────────────────────────────
+  row('Cluster & API Server', 60),
+  trendPanel(
+    'Cluster CPU',
     '__measurements_clusterCpuUsageSecondsTotalRate_mean',
     'cluster_cpu',
     'short',
-    0, 60, 12, 8,
-    description='Mean total CPU usage rate across all cluster nodes during the test run, in CPU cores (e.g. 6.5 = 6.5 cores used across the cluster).'
+    0, 61, 12, 8,
+    description='Mean total CPU usage rate across all cluster nodes during the test, in CPU cores.'
   ),
-  createComplexPanel(
-    'Cluster Memory Usage',
+  trendPanel(
+    'Cluster Memory',
     '__measurements_clusterMemoryUsageRssTotal_mean',
     'cluster_mem',
     'bytes',
-    12, 60, 12, 8,
-    description='Mean total RSS memory usage across all cluster nodes during the test run.'
+    12, 61, 12, 8,
+    description='Mean total RSS memory usage across all cluster nodes during the test.'
   ),
-  createComplexPanel(
-    'OpenShift and Kube API Server CPU Usage (Mean)',
+  trendPanel(
+    'API Server CPU (OpenShift / Kube)',
     '__measurements_apiserver_cpu_mean',
-    'apiserver_cpu',
+    'ocp_apiserver_cpu',
     'short',
-    0, 68, 12, 8,
+    0, 69, 12, 8,
     { kube_apiserver_cpu: '__measurements_kubeApiserver_cpu_mean' },
-    description='Mean CPU usage of the OpenShift API server and Kubernetes API server during the test run, in CPU cores. High values may indicate excessive API calls from the Tekton controller or other components.'
+    description='Mean CPU usage of the OpenShift and Kubernetes API servers (in CPU cores). High values may indicate excessive API calls from Tekton or other components.'
   ),
-  createComplexPanel(
-    'OpenShift and Kube API Server Memory Usage (Mean)',
+  trendPanel(
+    'API Server Memory (OpenShift / Kube)',
     '__measurements_apiserver_memory_mean',
-    'apiserver_mem',
+    'ocp_apiserver_mem',
     'bytes',
-    12, 68, 12, 8,
+    12, 69, 12, 8,
     { kube_apiserver_mem: '__measurements_kubeApiserver_memory_mean' },
-    description='Mean memory usage of the OpenShift API server and Kubernetes API server during the test run.'
+    description='Mean memory usage of the OpenShift and Kubernetes API servers.'
   ),
 
-  // ── etcd Metrics ──────────────────────────────────────────────
-  createRow('etcd Metrics', 76),
-  createComplexPanel(
-    'etcd MVCC DB Size (Mean)',
+  // ── etcd ──────────────────────────────────────────────────────
+  row('etcd', 77),
+  trendPanel(
+    'etcd DB Size (total / in-use)',
     '__measurements_etcdMvccDbTotalSizeInBytesAverage_mean',
     'db_total',
     'bytes',
-    0, 77, 12, 8,
+    0, 78, 12, 8,
     { db_in_use: '__measurements_etcdMvccDbTotalSizeInUseInBytesAverage_mean' },
-    description='Mean etcd MVCC database size during the test run.\n- **db_total**: total allocated DB size on disk\n- **db_in_use**: portion of the DB actively in use\n\nA large gap between total and in-use may indicate fragmentation or the need for defragmentation.'
+    description='Mean etcd MVCC database size.\n- **db_total**: total allocated DB size on disk\n- **db_in_use**: portion actively in use\n\nA large gap between the two may indicate fragmentation.'
   ),
-  createComplexPanel(
-    'etcd Request Duration (Mean)',
+  trendPanel(
+    'etcd Request Duration (mean / max)',
     '__measurements_etcdRequestDurationSecondsAverage_mean',
-    'req_duration_mean',
+    'mean',
     's',
-    12, 77, 12, 8,
-    { req_duration_max: '__measurements_etcdRequestDurationSecondsAverage_max' },
-    description='Average and maximum etcd request duration during the test run.\n- **req_duration_mean**: average latency across all etcd requests\n- **req_duration_max**: worst-case (peak) etcd request latency\n\nHigh values indicate etcd is under pressure, which can cause slow reconciliation and API server latency.'
+    12, 78, 12, 8,
+    { max: '__measurements_etcdRequestDurationSecondsAverage_max' },
+    description='etcd request latency.\n- **mean**: average across all requests\n- **max**: worst-case peak latency\n\nHigh values indicate etcd pressure, causing slow reconciliation and API latency.'
   ),
-  createComplexPanel(
+  trendPanel(
     'etcd Restarts',
     '__measurements_etcd_restarts_range',
     'etcd_restarts',
     'short',
-    0, 85, 12, 8,
-    description='Number of etcd Pod restarts during the test run. Should be 0 under normal conditions. Any restarts indicate instability that likely affected test results.'
+    0, 86, 12, 8,
+    description='etcd Pod restarts during the test. Should be 0. Any restarts indicate instability that likely affected results.',
+    axisSoftMax=5,
   ),
-  createComplexPanel(
+  trendPanel(
     'Scheduler Pending Pods',
     '__measurements_schedulerPendingPodsCount_range',
     'pending_pods',
     'short',
-    12, 85, 12, 8,
-    description='Range of pending pods count in the Kubernetes scheduler during the test run. High values indicate scheduling pressure — pods are waiting for resources or node availability.'
+    12, 86, 12, 8,
+    description='Range of pending pods in the kube-scheduler queue. High values indicate scheduling pressure — pods waiting for resources or node availability.',
+    axisSoftMax=5,
   ),
 ];
 
-// ─── Dashboard ──────────────────────────────────────────────────────────────
-
 dashboard.new('Pipelines Performance Dashboard')
 + dashboard.withUid('Pipelines_Performance')
-+ dashboard.withDescription('OpenShift Pipelines nightly build performance. Use the Deployment Configuration variable to switch between Standard, HA, QBT, and HA+QBT setups.')
++ dashboard.withDescription('OpenShift Pipelines performance trends per variant and version. Includes historical data from legacy test 391 and new per-variant tests (419-423). Select a variant, version, and concurrency level to track regressions over time.')
 + dashboard.time.withFrom('now-30d')
 + dashboard.time.withTo('now')
 + dashboard.withTimezone('utc')
 + dashboard.withRefresh('5m')
-+ dashboard.withVariables([datasourceVar, deployConfigVar, concurrencyVar])
++ dashboard.withVariables([datasourceVar, variantVar, versionVar, concurrencyVar])
 + dashboard.withPanels(allPanels)
 + dashboard.withEditable(true)
-+ dashboard.graphTooltip.withSharedCrosshair()
++ dashboard.withTags(['pipelines', 'trend', 'performance'])
++ dashboard.graphTooltip.withSharedTooltip()
