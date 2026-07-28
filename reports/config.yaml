@@ -1,0 +1,700 @@
+# Performance Comparison Report Generator — Configuration
+# Metric definitions, test IDs, and analysis thresholds.
+#
+# Metric keys match the JSONB label_values field names in Horreum PostgreSQL
+# (without the leading `__` prefix that Horreum adds).
+
+thresholds:
+  significant_change_pct: 5     # below this = "stable"
+  major_change_pct: 15          # above this = "major improvement/regression"
+  mad_threshold: 2.5            # MAD multiplier for outlier detection
+  outlier_metric_ratio: 0.5     # if >50% of metrics flagged, exclude the run
+  min_runs_after_exclusion: 2   # warn if fewer than 2 runs survive
+  default_runs: 3               # how many recent runs to fetch per version
+
+components:
+  pipelines:
+    display_name: "Pipelines Controller"
+    group_by: "parameters_test_concurrent"
+    group_label: "concurrent"
+    variants:
+      standard:
+        display_name: "Standard (Default)"
+        new_test_id: 423
+        legacy_test_id: 391
+        legacy_filter:
+          ha_enabled: false
+          qbt_enabled: false
+      ha_deployments:
+        display_name: "HA - Deployments"
+        new_test_id: 419
+        legacy_test_id: 391
+        legacy_filter:
+          ha_enabled: true
+          controller_type: "deployments"
+          qbt_enabled: false
+      ha_statefulsets:
+        display_name: "HA - StatefulSets"
+        new_test_id: 421
+        legacy_test_id: 391
+        legacy_filter:
+          ha_enabled: true
+          controller_type: "statefulSets"
+          qbt_enabled: false
+      qbt:
+        display_name: "QBT (non-HA)"
+        new_test_id: 422
+        legacy_test_id: 391
+        legacy_filter:
+          ha_enabled: false
+          qbt_enabled: true
+      ha_qbt:
+        display_name: "HA + QBT"
+        new_test_id: 420
+        legacy_test_id: 391
+        legacy_filter:
+          ha_enabled: true
+          controller_type: "deployments"
+          qbt_enabled: true
+    metrics:
+      # --- Pipeline Execution ---
+      - key: results_PipelineRuns_count_succeeded
+        display: "PipelineRun Succeeded"
+        unit: "count"
+        lower_is_better: false
+        category: pipeline_performance
+      - key: results_PipelineRuns_count_failed
+        display: "PipelineRun Failed"
+        unit: "count"
+        lower_is_better: true
+        category: pipeline_performance
+      - key: results_PipelineRuns_duration_avg
+        display: "PipelineRun Duration (avg)"
+        unit: "s"
+        lower_is_better: true
+        category: pipeline_performance
+      - key: results_PipelineRuns_Success_duration_avg
+        display: "Succeeded PR Duration (avg)"
+        unit: "s"
+        lower_is_better: true
+        category: pipeline_performance
+      - key: results_PipelineRuns_Success_pending_avg
+        display: "Succeeded PR Pending (avg)"
+        unit: "s"
+        lower_is_better: true
+        category: pipeline_performance
+      - key: results_PipelineRuns_Success_running_avg
+        display: "Succeeded PR Running (avg)"
+        unit: "s"
+        lower_is_better: true
+        category: pipeline_performance
+      # --- TaskRun Execution ---
+      - key: results_TaskRuns_count_succeeded
+        display: "TaskRun Succeeded"
+        unit: "count"
+        lower_is_better: false
+        category: pipeline_performance
+      - key: results_TaskRuns_count_failed
+        display: "TaskRun Failed"
+        unit: "count"
+        lower_is_better: true
+        category: pipeline_performance
+      - key: results_TaskRuns_duration_avg
+        display: "TaskRun Duration (avg)"
+        unit: "s"
+        lower_is_better: true
+        category: pipeline_performance
+      - key: results_TaskRuns_Success_duration_avg
+        display: "Succeeded TR Duration (avg)"
+        unit: "s"
+        lower_is_better: true
+        category: pipeline_performance
+      - key: results_TaskRuns_Success_pending_avg
+        display: "Succeeded TR Pending (avg)"
+        unit: "s"
+        lower_is_better: true
+        category: pipeline_performance
+      - key: results_TaskRuns_Success_running_avg
+        display: "Succeeded TR Running (avg)"
+        unit: "s"
+        lower_is_better: true
+        category: pipeline_performance
+      # --- TaskRun-to-Pod Scheduling ---
+      - key: results_TaskRunsToPods_creationTimestampDiff_mean
+        display: "TaskRun→Pod Creation Lag (mean)"
+        unit: "s"
+        lower_is_better: true
+        category: controller_health
+      - key: results_TaskRunsToPods_creationTimestampDiff_max
+        display: "TaskRun→Pod Creation Lag (max)"
+        unit: "s"
+        lower_is_better: true
+        category: controller_health
+      # --- Pipelines Controller ---
+      - key: measurements_tektonPipelinesController_cpu_mean
+        display: "Controller CPU (mean)"
+        unit: "cores"
+        lower_is_better: true
+        category: controller_health
+      - key: measurements_tektonPipelinesController_cpu_max
+        display: "Controller CPU (max)"
+        unit: "cores"
+        lower_is_better: true
+        category: controller_health
+      - key: measurements_tektonPipelinesController_memory_mean
+        display: "Controller Memory (mean)"
+        unit: "bytes"
+        lower_is_better: true
+        category: controller_health
+      - key: measurements_tektonPipelinesController_memory_max
+        display: "Controller Memory (max)"
+        unit: "bytes"
+        lower_is_better: true
+        category: controller_health
+      - key: measurements_tektonTektonPipelinesControllerWorkqueueDepth_mean
+        display: "Workqueue Depth (mean)"
+        unit: "count"
+        lower_is_better: true
+        category: controller_health
+      - key: measurements_tektonPipelinesControllerClientLatencyAverage_mean
+        display: "Client Latency (mean)"
+        unit: "s"
+        lower_is_better: true
+        category: controller_health
+      - key: measurements_tektonPipelinesControllerClientLatencyAverage_max
+        display: "Client Latency (max)"
+        unit: "s"
+        lower_is_better: true
+        category: controller_health
+      # --- Webhook ---
+      - key: measurements_tektonPipelinesWebhook_cpu_mean
+        display: "Webhook CPU (mean)"
+        unit: "cores"
+        lower_is_better: true
+        category: controller_health
+      - key: measurements_tektonPipelinesWebhook_memory_mean
+        display: "Webhook Memory (mean)"
+        unit: "bytes"
+        lower_is_better: true
+        category: controller_health
+      # --- Cluster & API Server ---
+      - key: measurements_clusterCpuUsageSecondsTotalRate_mean
+        display: "Cluster CPU (mean)"
+        unit: "cores"
+        lower_is_better: true
+        category: cluster_infra
+      - key: measurements_clusterMemoryUsageRssTotal_mean
+        display: "Cluster Memory (mean)"
+        unit: "bytes"
+        lower_is_better: true
+        category: cluster_infra
+      - key: measurements_apiserver_cpu_mean
+        display: "API Server CPU (mean)"
+        unit: "cores"
+        lower_is_better: true
+        category: cluster_infra
+      - key: measurements_apiserver_memory_mean
+        display: "API Server Memory (mean)"
+        unit: "bytes"
+        lower_is_better: true
+        category: cluster_infra
+      - key: measurements_kubeApiserver_cpu_mean
+        display: "Kube API Server CPU (mean)"
+        unit: "cores"
+        lower_is_better: true
+        category: cluster_infra
+      - key: measurements_kubeApiserver_memory_mean
+        display: "Kube API Server Memory (mean)"
+        unit: "bytes"
+        lower_is_better: true
+        category: cluster_infra
+      # --- etcd ---
+      - key: measurements_etcdMvccDbTotalSizeInBytesAverage_mean
+        display: "etcd DB Size (mean)"
+        unit: "bytes"
+        lower_is_better: true
+        category: etcd
+      - key: measurements_etcdMvccDbTotalSizeInUseInBytesAverage_mean
+        display: "etcd DB In Use (mean)"
+        unit: "bytes"
+        lower_is_better: true
+        category: etcd
+      - key: measurements_etcdRequestDurationSecondsAverage_mean
+        display: "etcd Request Duration (mean)"
+        unit: "s"
+        lower_is_better: true
+        category: etcd
+      - key: measurements_etcdRequestDurationSecondsAverage_max
+        display: "etcd Request Duration (max)"
+        unit: "s"
+        lower_is_better: true
+        category: etcd
+      # --- Restarts ---
+      - key: measurements_etcd_restarts_range
+        display: "etcd Restarts"
+        unit: "count"
+        lower_is_better: true
+        category: stability
+      - key: measurements_tektonPipelinesController_restarts_range
+        display: "Controller Restarts"
+        unit: "count"
+        lower_is_better: true
+        category: stability
+      - key: measurements_tektonPipelinesWebhook_restarts_range
+        display: "Webhook Restarts"
+        unit: "count"
+        lower_is_better: true
+        category: stability
+      - key: measurements_apiserver_restarts_range
+        display: "API Server Restarts"
+        unit: "count"
+        lower_is_better: true
+        category: stability
+      - key: measurements_kubeApiserver_restarts_range
+        display: "Kube API Server Restarts"
+        unit: "count"
+        lower_is_better: true
+        category: stability
+      # --- Scheduler ---
+      - key: measurements_schedulerPendingPodsCount_range
+        display: "Scheduler Pending Pods"
+        unit: "count"
+        lower_is_better: true
+        category: cluster_infra
+
+  chains:
+    display_name: "Chains Controller"
+    group_by: "parameters_test_total"
+    group_label: "total PipelineRuns"
+    variants:
+      standard:
+        display_name: "Standard (Default)"
+        new_test_id: 427
+        legacy_test_id: 418
+        legacy_filter:
+          ha_enabled: false
+          qbt_enabled: false
+      ha:
+        display_name: "HA"
+        new_test_id: 428
+        legacy_test_id: 418
+        legacy_filter:
+          ha_enabled: true
+          qbt_enabled: false
+      qbt:
+        display_name: "QBT (non-HA)"
+        new_test_id: 429
+        legacy_test_id: 418
+        legacy_filter:
+          ha_enabled: false
+          qbt_enabled: true
+      ha_qbt:
+        display_name: "HA + QBT"
+        new_test_id: 430
+        legacy_test_id: 418
+        legacy_filter:
+          ha_enabled: true
+          qbt_enabled: true
+    metrics:
+      # --- Signing Performance ---
+      - key: results_PipelineRuns_signing_throughput
+        display: "PR Signing Throughput"
+        unit: "runs/s"
+        lower_is_better: false
+        category: signing
+      - key: results_PipelineRuns_signing_duration
+        display: "PR Signing Duration"
+        unit: "s"
+        lower_is_better: true
+        category: signing
+      - key: results_PipelineRuns_signing_count_signed_true
+        display: "PR Signed Successfully"
+        unit: "count"
+        lower_is_better: false
+        category: signing
+      - key: results_PipelineRuns_signing_count_signed_false
+        display: "PR Signing Failed"
+        unit: "count"
+        lower_is_better: true
+        category: signing
+      - key: results_PipelineRuns_signing_count_unsigned
+        display: "PR Unsigned"
+        unit: "count"
+        lower_is_better: true
+        category: signing
+      - key: results_TaskRuns_signing_throughput
+        display: "TR Signing Throughput"
+        unit: "runs/s"
+        lower_is_better: false
+        category: signing
+      - key: results_TaskRuns_signing_duration
+        display: "TR Signing Duration"
+        unit: "s"
+        lower_is_better: true
+        category: signing
+      - key: results_TaskRuns_signing_count_signed_true
+        display: "TR Signed Successfully"
+        unit: "count"
+        lower_is_better: false
+        category: signing
+      - key: results_TaskRuns_signing_count_signed_false
+        display: "TR Signing Failed"
+        unit: "count"
+        lower_is_better: true
+        category: signing
+      - key: results_TaskRuns_signing_count_unsigned
+        display: "TR Unsigned"
+        unit: "count"
+        lower_is_better: true
+        category: signing
+      # --- Pipeline/TaskRun Counts ---
+      - key: results_PipelineRuns_count_succeeded
+        display: "PipelineRun Succeeded"
+        unit: "count"
+        lower_is_better: false
+        category: pipeline_performance
+      - key: results_PipelineRuns_count_failed
+        display: "PipelineRun Failed"
+        unit: "count"
+        lower_is_better: true
+        category: pipeline_performance
+      - key: results_TaskRuns_count_succeeded
+        display: "TaskRun Succeeded"
+        unit: "count"
+        lower_is_better: false
+        category: pipeline_performance
+      - key: results_TaskRuns_count_failed
+        display: "TaskRun Failed"
+        unit: "count"
+        lower_is_better: true
+        category: pipeline_performance
+      # --- Chains Controller ---
+      - key: measurements_tektonChainsController_cpu_mean
+        display: "Chains Controller CPU (mean)"
+        unit: "cores"
+        lower_is_better: true
+        category: controller_health
+      - key: measurements_tektonChainsController_cpu_max
+        display: "Chains Controller CPU (max)"
+        unit: "cores"
+        lower_is_better: true
+        category: controller_health
+      - key: measurements_tektonChainsController_memory_mean
+        display: "Chains Controller Memory (mean)"
+        unit: "bytes"
+        lower_is_better: true
+        category: controller_health
+      - key: measurements_tektonChainsController_memory_max
+        display: "Chains Controller Memory (max)"
+        unit: "bytes"
+        lower_is_better: true
+        category: controller_health
+      - key: measurements_tektonChainsControllerWorkqueueDepth_mean
+        display: "Chains Workqueue Depth (mean)"
+        unit: "count"
+        lower_is_better: true
+        category: controller_health
+      - key: measurements_tektonChainsControllerWorkqueueDepth_max
+        display: "Chains Workqueue Depth (max)"
+        unit: "count"
+        lower_is_better: true
+        category: controller_health
+      - key: measurements_tektonChainsController_restarts_range
+        display: "Chains Controller Restarts"
+        unit: "count"
+        lower_is_better: true
+        category: stability
+      # --- Cluster & Infrastructure (shared) ---
+      - key: measurements_clusterCpuUsageSecondsTotalRate_mean
+        display: "Cluster CPU (mean)"
+        unit: "cores"
+        lower_is_better: true
+        category: cluster_infra
+      - key: measurements_clusterMemoryUsageRssTotal_mean
+        display: "Cluster Memory (mean)"
+        unit: "bytes"
+        lower_is_better: true
+        category: cluster_infra
+      - key: measurements_apiserver_cpu_mean
+        display: "API Server CPU (mean)"
+        unit: "cores"
+        lower_is_better: true
+        category: cluster_infra
+      - key: measurements_apiserver_memory_mean
+        display: "API Server Memory (mean)"
+        unit: "bytes"
+        lower_is_better: true
+        category: cluster_infra
+      # --- etcd ---
+      - key: measurements_etcdMvccDbTotalSizeInBytesAverage_mean
+        display: "etcd DB Size (mean)"
+        unit: "bytes"
+        lower_is_better: true
+        category: etcd
+      - key: measurements_etcdRequestDurationSecondsAverage_mean
+        display: "etcd Request Duration (mean)"
+        unit: "s"
+        lower_is_better: true
+        category: etcd
+      - key: measurements_etcd_restarts_range
+        display: "etcd Restarts"
+        unit: "count"
+        lower_is_better: true
+        category: stability
+      - key: measurements_schedulerPendingPodsCount_range
+        display: "Scheduler Pending Pods"
+        unit: "count"
+        lower_is_better: true
+        category: cluster_infra
+      # --- Pipelines Controller (shared, present in chains tests) ---
+      - key: measurements_tektonPipelinesController_restarts_range
+        display: "Pipelines Controller Restarts"
+        unit: "count"
+        lower_is_better: true
+        category: stability
+      - key: measurements_tektonPipelinesWebhook_restarts_range
+        display: "Pipelines Webhook Restarts"
+        unit: "count"
+        lower_is_better: true
+        category: stability
+
+  results:
+    display_name: "Tekton Results"
+    group_by: null
+    group_label: null
+    variants:
+      standard:
+        display_name: "Standard"
+        new_test_id: 425
+        legacy_test_id: null
+        legacy_filter: null
+    metrics:
+      # --- PipelineRun Ingestion ---
+      - key: results_PipelineRuns_ingestion_throughput
+        display: "PR Ingestion Throughput"
+        unit: "records/s"
+        lower_is_better: false
+        category: ingestion
+      - key: results_PipelineRuns_ingestion_duration
+        display: "PR Ingestion Duration"
+        unit: "s"
+        lower_is_better: true
+        category: ingestion
+      - key: results_PipelineRuns_ingestion_latency_avg
+        display: "PR Ingestion Latency (avg)"
+        unit: "s"
+        lower_is_better: true
+        category: ingestion
+      - key: results_PipelineRuns_ingestion_latency_max
+        display: "PR Ingestion Latency (max)"
+        unit: "s"
+        lower_is_better: true
+        category: ingestion
+      - key: results_PipelineRuns_ingestion_count_stored_true
+        display: "PR Stored Successfully"
+        unit: "count"
+        lower_is_better: false
+        category: ingestion
+      - key: results_PipelineRuns_ingestion_count_stored_false
+        display: "PR Store Failures"
+        unit: "count"
+        lower_is_better: true
+        category: ingestion
+      # --- TaskRun Ingestion ---
+      - key: results_TaskRuns_ingestion_throughput
+        display: "TR Ingestion Throughput"
+        unit: "records/s"
+        lower_is_better: false
+        category: ingestion
+      - key: results_TaskRuns_ingestion_duration
+        display: "TR Ingestion Duration"
+        unit: "s"
+        lower_is_better: true
+        category: ingestion
+      - key: results_TaskRuns_ingestion_latency_avg
+        display: "TR Ingestion Latency (avg)"
+        unit: "s"
+        lower_is_better: true
+        category: ingestion
+      - key: results_TaskRuns_ingestion_latency_max
+        display: "TR Ingestion Latency (max)"
+        unit: "s"
+        lower_is_better: true
+        category: ingestion
+      - key: results_TaskRuns_ingestion_count_stored_true
+        display: "TR Stored Successfully"
+        unit: "count"
+        lower_is_better: false
+        category: ingestion
+      - key: results_TaskRuns_ingestion_count_stored_false
+        display: "TR Store Failures"
+        unit: "count"
+        lower_is_better: true
+        category: ingestion
+      # --- Results API (Locust) ---
+      - key: results_ResultsAPI_record_latency_avg
+        display: "/record Latency (avg)"
+        unit: "ms"
+        lower_is_better: true
+        category: api_load
+      - key: results_ResultsAPI_record_latency_max
+        display: "/record Latency (max)"
+        unit: "ms"
+        lower_is_better: true
+        category: api_load
+      - key: results_ResultsAPI_record_rps
+        display: "/record RPS"
+        unit: "req/s"
+        lower_is_better: false
+        category: api_load
+      - key: results_ResultsAPI_record_failures
+        display: "/record Failures"
+        unit: "count"
+        lower_is_better: true
+        category: api_load
+      - key: results_ResultsAPI_records_latency_avg
+        display: "/records Latency (avg)"
+        unit: "ms"
+        lower_is_better: true
+        category: api_load
+      - key: results_ResultsAPI_records_latency_max
+        display: "/records Latency (max)"
+        unit: "ms"
+        lower_is_better: true
+        category: api_load
+      - key: results_ResultsAPI_records_rps
+        display: "/records RPS"
+        unit: "req/s"
+        lower_is_better: false
+        category: api_load
+      - key: results_ResultsAPI_records_failures
+        display: "/records Failures"
+        unit: "count"
+        lower_is_better: true
+        category: api_load
+      # --- Results Components ---
+      - key: measurements_tektonResultsWatcher_cpu_mean
+        display: "Watcher CPU (mean)"
+        unit: "cores"
+        lower_is_better: true
+        category: controller_health
+      - key: measurements_tektonResultsWatcher_cpu_max
+        display: "Watcher CPU (max)"
+        unit: "cores"
+        lower_is_better: true
+        category: controller_health
+      - key: measurements_tektonResultsWatcher_memory_mean
+        display: "Watcher Memory (mean)"
+        unit: "bytes"
+        lower_is_better: true
+        category: controller_health
+      - key: measurements_tektonResultsWatcher_memory_max
+        display: "Watcher Memory (max)"
+        unit: "bytes"
+        lower_is_better: true
+        category: controller_health
+      - key: measurements_tektonResultsApi_cpu_mean
+        display: "API Server CPU (mean)"
+        unit: "cores"
+        lower_is_better: true
+        category: controller_health
+      - key: measurements_tektonResultsApi_cpu_max
+        display: "API Server CPU (max)"
+        unit: "cores"
+        lower_is_better: true
+        category: controller_health
+      - key: measurements_tektonResultsApi_memory_mean
+        display: "API Server Memory (mean)"
+        unit: "bytes"
+        lower_is_better: true
+        category: controller_health
+      - key: measurements_tektonResultsApi_memory_max
+        display: "API Server Memory (max)"
+        unit: "bytes"
+        lower_is_better: true
+        category: controller_health
+      - key: measurements_tektonResultsWatcher_restarts_range
+        display: "Watcher Restarts"
+        unit: "count"
+        lower_is_better: true
+        category: stability
+      - key: measurements_tektonResultsApi_restarts_range
+        display: "API Server Restarts"
+        unit: "count"
+        lower_is_better: true
+        category: stability
+      # --- Pipeline Performance (shared) ---
+      - key: results_PipelineRuns_duration_avg
+        display: "PipelineRun Duration (avg)"
+        unit: "s"
+        lower_is_better: true
+        category: pipeline_performance
+      - key: results_PipelineRuns_count_succeeded
+        display: "PipelineRun Succeeded"
+        unit: "count"
+        lower_is_better: false
+        category: pipeline_performance
+      - key: results_PipelineRuns_count_failed
+        display: "PipelineRun Failed"
+        unit: "count"
+        lower_is_better: true
+        category: pipeline_performance
+      - key: results_TaskRuns_count_succeeded
+        display: "TaskRun Succeeded"
+        unit: "count"
+        lower_is_better: false
+        category: pipeline_performance
+      - key: results_TaskRuns_count_failed
+        display: "TaskRun Failed"
+        unit: "count"
+        lower_is_better: true
+        category: pipeline_performance
+      # --- Cluster & Infrastructure ---
+      - key: measurements_clusterCpuUsageSecondsTotalRate_mean
+        display: "Cluster CPU (mean)"
+        unit: "cores"
+        lower_is_better: true
+        category: cluster_infra
+      - key: measurements_clusterMemoryUsageRssTotal_mean
+        display: "Cluster Memory (mean)"
+        unit: "bytes"
+        lower_is_better: true
+        category: cluster_infra
+      # --- etcd ---
+      - key: measurements_etcdMvccDbTotalSizeInBytesAverage_mean
+        display: "etcd DB Size (mean)"
+        unit: "bytes"
+        lower_is_better: true
+        category: etcd
+      - key: measurements_etcdRequestDurationSecondsAverage_mean
+        display: "etcd Request Duration (mean)"
+        unit: "s"
+        lower_is_better: true
+        category: etcd
+
+# Category display names for the output JSON
+categories:
+  pipeline_performance:
+    display_name: "Pipeline Execution"
+    description: "PipelineRun and TaskRun throughput, duration, and scheduling"
+  signing:
+    display_name: "Signing Performance"
+    description: "Tekton Chains signing throughput, duration, and completeness"
+  ingestion:
+    display_name: "Results Ingestion"
+    description: "Results watcher ingestion throughput, latency, and reliability"
+  api_load:
+    display_name: "Results API (Load Test)"
+    description: "Locust load test results for Results API endpoints"
+  controller_health:
+    display_name: "Controller Health"
+    description: "Controller CPU, memory, workqueue depth, and latency"
+  cluster_infra:
+    display_name: "Cluster & Infrastructure"
+    description: "Cluster-wide CPU, memory, API server, and scheduler metrics"
+  etcd:
+    display_name: "etcd"
+    description: "etcd database size, request latency, and stability"
+  stability:
+    display_name: "Stability"
+    description: "Component restarts — all values should be 0"
