@@ -1,0 +1,1352 @@
+{
+  "description": "Tekton Results performance — watcher ingestion latency, API load testing, and component resource usage across versions. Test ID 425.",
+  "editable": true,
+  "graphTooltip": 2,
+  "panels": [
+    {
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "title": "PipelineRun Ingestion",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "Rate at which the Results watcher ingests completed PipelineRuns into the Results API (records/sec). Higher indicates faster ingestion. Measured during the signing+ingestion phase of the test.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 8,
+            "gradientMode": "opacity",
+            "lineWidth": 2,
+            "pointSize": 6,
+            "showPoints": "always",
+            "spanNulls": false
+          },
+          "min": 0,
+          "unit": "short"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 1
+      },
+      "id": 2,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "time_series",
+          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END AS version,\n    (label_values->>'__parameters_test_concurrent')::INTEGER AS concurrency,\n    AVG((label_values->>'__results_PipelineRuns_ingestion_throughput')::DOUBLE PRECISION) AS throughput\n  FROM data\n  WHERE horreum_testid = 425\n    AND $__timeFilter(start)\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END = '${version}'\n    AND (label_values->>'__parameters_test_concurrent')::INTEGER IN ($concurrency)\n\n    AND label_values ? '__results_PipelineRuns_ingestion_throughput'\n  GROUP BY day, version, concurrency\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'throughput @ ' || version || ' / c' || concurrency AS metric,\n  throughput AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
+          "refId": "A"
+        }
+      ],
+      "title": "PR Ingestion Throughput",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "Total wall-clock time for the Results watcher to ingest all completed PipelineRuns. Lower means the watcher kept up with the pipeline creation rate.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 8,
+            "gradientMode": "opacity",
+            "lineWidth": 2,
+            "pointSize": 6,
+            "showPoints": "always",
+            "spanNulls": false
+          },
+          "min": 0,
+          "unit": "s"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 1
+      },
+      "id": 3,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "time_series",
+          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END AS version,\n    (label_values->>'__parameters_test_concurrent')::INTEGER AS concurrency,\n    AVG((label_values->>'__results_PipelineRuns_ingestion_duration')::DOUBLE PRECISION) AS duration\n  FROM data\n  WHERE horreum_testid = 425\n    AND $__timeFilter(start)\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END = '${version}'\n    AND (label_values->>'__parameters_test_concurrent')::INTEGER IN ($concurrency)\n\n    AND label_values ? '__results_PipelineRuns_ingestion_duration'\n  GROUP BY day, version, concurrency\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'duration @ ' || version || ' / c' || concurrency AS metric,\n  duration AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
+          "refId": "A"
+        }
+      ],
+      "title": "PR Ingestion Duration",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "Number of PipelineRun records the Results watcher successfully persisted to the Results API database.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 8,
+            "gradientMode": "opacity",
+            "lineWidth": 2,
+            "pointSize": 6,
+            "showPoints": "always",
+            "spanNulls": false
+          },
+          "min": 0,
+          "unit": "short"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 9
+      },
+      "id": 4,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "time_series",
+          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END AS version,\n    (label_values->>'__parameters_test_concurrent')::INTEGER AS concurrency,\n    AVG((label_values->>'__results_PipelineRuns_ingestion_count_stored_true')::DOUBLE PRECISION) AS stored_ok\n  FROM data\n  WHERE horreum_testid = 425\n    AND $__timeFilter(start)\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END = '${version}'\n    AND (label_values->>'__parameters_test_concurrent')::INTEGER IN ($concurrency)\n\n    AND label_values ? '__results_PipelineRuns_ingestion_count_stored_true'\n  GROUP BY day, version, concurrency\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'stored_ok @ ' || version || ' / c' || concurrency AS metric,\n  stored_ok AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
+          "refId": "A"
+        }
+      ],
+      "title": "PR Stored Successfully",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "Number of PipelineRun records the Results watcher failed to persist. Non-zero values indicate API errors, DB write failures, or resource exhaustion.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 8,
+            "gradientMode": "opacity",
+            "lineWidth": 2,
+            "pointSize": 6,
+            "showPoints": "always",
+            "spanNulls": false
+          },
+          "min": 0,
+          "unit": "short"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 9
+      },
+      "id": 5,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "time_series",
+          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END AS version,\n    (label_values->>'__parameters_test_concurrent')::INTEGER AS concurrency,\n    AVG((label_values->>'__results_PipelineRuns_ingestion_count_stored_false')::DOUBLE PRECISION) AS stored_fail\n  FROM data\n  WHERE horreum_testid = 425\n    AND $__timeFilter(start)\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END = '${version}'\n    AND (label_values->>'__parameters_test_concurrent')::INTEGER IN ($concurrency)\n\n    AND label_values ? '__results_PipelineRuns_ingestion_count_stored_false'\n  GROUP BY day, version, concurrency\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'stored_fail @ ' || version || ' / c' || concurrency AS metric,\n  stored_fail AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
+          "refId": "A"
+        }
+      ],
+      "title": "PR Store Failures",
+      "type": "timeseries"
+    },
+    {
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 17
+      },
+      "id": 6,
+      "title": "TaskRun Ingestion",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "Rate at which the Results watcher ingests completed TaskRuns into the Results API (records/sec). Each PipelineRun contains multiple TaskRuns (5 tasks × steps).",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 8,
+            "gradientMode": "opacity",
+            "lineWidth": 2,
+            "pointSize": 6,
+            "showPoints": "always",
+            "spanNulls": false
+          },
+          "min": 0,
+          "unit": "short"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 18
+      },
+      "id": 7,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "time_series",
+          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END AS version,\n    (label_values->>'__parameters_test_concurrent')::INTEGER AS concurrency,\n    AVG((label_values->>'__results_TaskRuns_ingestion_throughput')::DOUBLE PRECISION) AS throughput\n  FROM data\n  WHERE horreum_testid = 425\n    AND $__timeFilter(start)\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END = '${version}'\n    AND (label_values->>'__parameters_test_concurrent')::INTEGER IN ($concurrency)\n\n    AND label_values ? '__results_TaskRuns_ingestion_throughput'\n  GROUP BY day, version, concurrency\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'throughput @ ' || version || ' / c' || concurrency AS metric,\n  throughput AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
+          "refId": "A"
+        }
+      ],
+      "title": "TR Ingestion Throughput",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "Total wall-clock time for the Results watcher to ingest all completed TaskRuns.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 8,
+            "gradientMode": "opacity",
+            "lineWidth": 2,
+            "pointSize": 6,
+            "showPoints": "always",
+            "spanNulls": false
+          },
+          "min": 0,
+          "unit": "s"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 18
+      },
+      "id": 8,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "time_series",
+          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END AS version,\n    (label_values->>'__parameters_test_concurrent')::INTEGER AS concurrency,\n    AVG((label_values->>'__results_TaskRuns_ingestion_duration')::DOUBLE PRECISION) AS duration\n  FROM data\n  WHERE horreum_testid = 425\n    AND $__timeFilter(start)\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END = '${version}'\n    AND (label_values->>'__parameters_test_concurrent')::INTEGER IN ($concurrency)\n\n    AND label_values ? '__results_TaskRuns_ingestion_duration'\n  GROUP BY day, version, concurrency\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'duration @ ' || version || ' / c' || concurrency AS metric,\n  duration AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
+          "refId": "A"
+        }
+      ],
+      "title": "TR Ingestion Duration",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "Number of TaskRun records the Results watcher successfully persisted to the Results API database.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 8,
+            "gradientMode": "opacity",
+            "lineWidth": 2,
+            "pointSize": 6,
+            "showPoints": "always",
+            "spanNulls": false
+          },
+          "min": 0,
+          "unit": "short"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 26
+      },
+      "id": 9,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "time_series",
+          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END AS version,\n    (label_values->>'__parameters_test_concurrent')::INTEGER AS concurrency,\n    AVG((label_values->>'__results_TaskRuns_ingestion_count_stored_true')::DOUBLE PRECISION) AS stored_ok\n  FROM data\n  WHERE horreum_testid = 425\n    AND $__timeFilter(start)\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END = '${version}'\n    AND (label_values->>'__parameters_test_concurrent')::INTEGER IN ($concurrency)\n\n    AND label_values ? '__results_TaskRuns_ingestion_count_stored_true'\n  GROUP BY day, version, concurrency\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'stored_ok @ ' || version || ' / c' || concurrency AS metric,\n  stored_ok AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
+          "refId": "A"
+        }
+      ],
+      "title": "TR Stored Successfully",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "Number of TaskRun records the Results watcher failed to persist. Non-zero values indicate API errors, DB write failures, or resource exhaustion.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 8,
+            "gradientMode": "opacity",
+            "lineWidth": 2,
+            "pointSize": 6,
+            "showPoints": "always",
+            "spanNulls": false
+          },
+          "min": 0,
+          "unit": "short"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 26
+      },
+      "id": 10,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "time_series",
+          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END AS version,\n    (label_values->>'__parameters_test_concurrent')::INTEGER AS concurrency,\n    AVG((label_values->>'__results_TaskRuns_ingestion_count_stored_false')::DOUBLE PRECISION) AS stored_fail\n  FROM data\n  WHERE horreum_testid = 425\n    AND $__timeFilter(start)\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END = '${version}'\n    AND (label_values->>'__parameters_test_concurrent')::INTEGER IN ($concurrency)\n\n    AND label_values ? '__results_TaskRuns_ingestion_count_stored_false'\n  GROUP BY day, version, concurrency\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'stored_fail @ ' || version || ' / c' || concurrency AS metric,\n  stored_fail AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
+          "refId": "A"
+        }
+      ],
+      "title": "TR Store Failures",
+      "type": "timeseries"
+    },
+    {
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 34
+      },
+      "id": 11,
+      "title": "Results API",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "Latency of the Results API /record endpoint under Locust load test (100 users, 10 spawn/sec, 15 min).\n- **latency_avg**: mean response time\n- **latency_max**: worst-case response time",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 8,
+            "gradientMode": "opacity",
+            "lineWidth": 2,
+            "pointSize": 6,
+            "showPoints": "always",
+            "spanNulls": false
+          },
+          "min": 0,
+          "unit": "ms"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 35
+      },
+      "id": 12,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "time_series",
+          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END AS version,\n    (label_values->>'__parameters_test_concurrent')::INTEGER AS concurrency,\n    AVG((label_values->>'__results_ResultsAPI_record_latency_avg')::DOUBLE PRECISION) AS latency_avg,\n    AVG((label_values->>'__results_ResultsAPI_record_latency_max')::DOUBLE PRECISION) AS latency_max\n  FROM data\n  WHERE horreum_testid = 425\n    AND $__timeFilter(start)\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END = '${version}'\n    AND (label_values->>'__parameters_test_concurrent')::INTEGER IN ($concurrency)\n\n    AND label_values ? '__results_ResultsAPI_record_latency_avg'\n    AND label_values ? '__results_ResultsAPI_record_latency_max'\n  GROUP BY day, version, concurrency\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'latency_avg @ ' || version || ' / c' || concurrency AS metric,\n  latency_avg AS value\nFROM daily_agg\n\n\nUNION ALL\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'latency_max @ ' || version || ' / c' || concurrency AS metric,\n  latency_max AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
+          "refId": "A"
+        }
+      ],
+      "title": "/record Latency",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "Sustained requests per second to the Results API /record endpoint during the Locust load test. Measures single-record fetch throughput.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 8,
+            "gradientMode": "opacity",
+            "lineWidth": 2,
+            "pointSize": 6,
+            "showPoints": "always",
+            "spanNulls": false
+          },
+          "min": 0,
+          "unit": "reqps"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 35
+      },
+      "id": 13,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "time_series",
+          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END AS version,\n    (label_values->>'__parameters_test_concurrent')::INTEGER AS concurrency,\n    AVG((label_values->>'__results_ResultsAPI_record_rps')::DOUBLE PRECISION) AS rps\n  FROM data\n  WHERE horreum_testid = 425\n    AND $__timeFilter(start)\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END = '${version}'\n    AND (label_values->>'__parameters_test_concurrent')::INTEGER IN ($concurrency)\n\n    AND label_values ? '__results_ResultsAPI_record_rps'\n  GROUP BY day, version, concurrency\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'rps @ ' || version || ' / c' || concurrency AS metric,\n  rps AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
+          "refId": "A"
+        }
+      ],
+      "title": "/record RPS",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "Latency of the Results API /records (list) endpoint under Locust load test.\n- **latency_avg**: mean response time\n- **latency_max**: worst-case response time",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 8,
+            "gradientMode": "opacity",
+            "lineWidth": 2,
+            "pointSize": 6,
+            "showPoints": "always",
+            "spanNulls": false
+          },
+          "min": 0,
+          "unit": "ms"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 43
+      },
+      "id": 14,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "time_series",
+          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END AS version,\n    (label_values->>'__parameters_test_concurrent')::INTEGER AS concurrency,\n    AVG((label_values->>'__results_ResultsAPI_records_latency_avg')::DOUBLE PRECISION) AS latency_avg,\n    AVG((label_values->>'__results_ResultsAPI_records_latency_max')::DOUBLE PRECISION) AS latency_max\n  FROM data\n  WHERE horreum_testid = 425\n    AND $__timeFilter(start)\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END = '${version}'\n    AND (label_values->>'__parameters_test_concurrent')::INTEGER IN ($concurrency)\n\n    AND label_values ? '__results_ResultsAPI_records_latency_avg'\n    AND label_values ? '__results_ResultsAPI_records_latency_max'\n  GROUP BY day, version, concurrency\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'latency_avg @ ' || version || ' / c' || concurrency AS metric,\n  latency_avg AS value\nFROM daily_agg\n\n\nUNION ALL\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'latency_max @ ' || version || ' / c' || concurrency AS metric,\n  latency_max AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
+          "refId": "A"
+        }
+      ],
+      "title": "/records Latency",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "Sustained requests per second to the Results API /records (list) endpoint during the Locust load test. Measures bulk-fetch throughput.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 8,
+            "gradientMode": "opacity",
+            "lineWidth": 2,
+            "pointSize": 6,
+            "showPoints": "always",
+            "spanNulls": false
+          },
+          "min": 0,
+          "unit": "reqps"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 43
+      },
+      "id": 15,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "time_series",
+          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END AS version,\n    (label_values->>'__parameters_test_concurrent')::INTEGER AS concurrency,\n    AVG((label_values->>'__results_ResultsAPI_records_rps')::DOUBLE PRECISION) AS rps\n  FROM data\n  WHERE horreum_testid = 425\n    AND $__timeFilter(start)\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END = '${version}'\n    AND (label_values->>'__parameters_test_concurrent')::INTEGER IN ($concurrency)\n\n    AND label_values ? '__results_ResultsAPI_records_rps'\n  GROUP BY day, version, concurrency\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'rps @ ' || version || ' / c' || concurrency AS metric,\n  rps AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
+          "refId": "A"
+        }
+      ],
+      "title": "/records RPS",
+      "type": "timeseries"
+    },
+    {
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 51
+      },
+      "id": 16,
+      "title": "Results Watcher & API Server",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "CPU usage of the tekton-results-watcher Pod (cores). The watcher watches for completed PipelineRuns/TaskRuns and persists them to the Results API.\n- **cpu_mean**: average over test duration\n- **cpu_max**: peak usage",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 8,
+            "gradientMode": "opacity",
+            "lineWidth": 2,
+            "pointSize": 6,
+            "showPoints": "always",
+            "spanNulls": false
+          },
+          "min": 0,
+          "unit": "short"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 52
+      },
+      "id": 17,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "time_series",
+          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END AS version,\n    (label_values->>'__parameters_test_concurrent')::INTEGER AS concurrency,\n    AVG((label_values->>'__measurements_tektonResultsWatcher_cpu_max')::DOUBLE PRECISION) AS cpu_max,\n    AVG((label_values->>'__measurements_tektonResultsWatcher_cpu_mean')::DOUBLE PRECISION) AS cpu_mean\n  FROM data\n  WHERE horreum_testid = 425\n    AND $__timeFilter(start)\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END = '${version}'\n    AND (label_values->>'__parameters_test_concurrent')::INTEGER IN ($concurrency)\n\n    AND label_values ? '__measurements_tektonResultsWatcher_cpu_max'\n    AND label_values ? '__measurements_tektonResultsWatcher_cpu_mean'\n  GROUP BY day, version, concurrency\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'cpu_max @ ' || version || ' / c' || concurrency AS metric,\n  cpu_max AS value\nFROM daily_agg\n\n\nUNION ALL\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'cpu_mean @ ' || version || ' / c' || concurrency AS metric,\n  cpu_mean AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
+          "refId": "A"
+        }
+      ],
+      "title": "Watcher CPU",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "Memory (RSS) of the tekton-results-watcher Pod. High memory may indicate large watch caches or slow GC under high ingestion load.\n- **mem_mean**: average over test duration\n- **mem_max**: peak usage",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 8,
+            "gradientMode": "opacity",
+            "lineWidth": 2,
+            "pointSize": 6,
+            "showPoints": "always",
+            "spanNulls": false
+          },
+          "min": 0,
+          "unit": "bytes"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 52
+      },
+      "id": 18,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "time_series",
+          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END AS version,\n    (label_values->>'__parameters_test_concurrent')::INTEGER AS concurrency,\n    AVG((label_values->>'__measurements_tektonResultsWatcher_memory_max')::DOUBLE PRECISION) AS mem_max,\n    AVG((label_values->>'__measurements_tektonResultsWatcher_memory_mean')::DOUBLE PRECISION) AS mem_mean\n  FROM data\n  WHERE horreum_testid = 425\n    AND $__timeFilter(start)\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END = '${version}'\n    AND (label_values->>'__parameters_test_concurrent')::INTEGER IN ($concurrency)\n\n    AND label_values ? '__measurements_tektonResultsWatcher_memory_max'\n    AND label_values ? '__measurements_tektonResultsWatcher_memory_mean'\n  GROUP BY day, version, concurrency\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'mem_max @ ' || version || ' / c' || concurrency AS metric,\n  mem_max AS value\nFROM daily_agg\n\n\nUNION ALL\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'mem_mean @ ' || version || ' / c' || concurrency AS metric,\n  mem_mean AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
+          "refId": "A"
+        }
+      ],
+      "title": "Watcher Memory",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "CPU usage of the tekton-results-api Pod (cores). Serves the Results REST API hit by the Locust load test (/record, /records endpoints).\n- **cpu_mean**: average over test duration\n- **cpu_max**: peak usage",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 8,
+            "gradientMode": "opacity",
+            "lineWidth": 2,
+            "pointSize": 6,
+            "showPoints": "always",
+            "spanNulls": false
+          },
+          "min": 0,
+          "unit": "short"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 60
+      },
+      "id": 19,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "time_series",
+          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END AS version,\n    (label_values->>'__parameters_test_concurrent')::INTEGER AS concurrency,\n    AVG((label_values->>'__measurements_tektonResultsApi_cpu_max')::DOUBLE PRECISION) AS cpu_max,\n    AVG((label_values->>'__measurements_tektonResultsApi_cpu_mean')::DOUBLE PRECISION) AS cpu_mean\n  FROM data\n  WHERE horreum_testid = 425\n    AND $__timeFilter(start)\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END = '${version}'\n    AND (label_values->>'__parameters_test_concurrent')::INTEGER IN ($concurrency)\n\n    AND label_values ? '__measurements_tektonResultsApi_cpu_max'\n    AND label_values ? '__measurements_tektonResultsApi_cpu_mean'\n  GROUP BY day, version, concurrency\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'cpu_max @ ' || version || ' / c' || concurrency AS metric,\n  cpu_max AS value\nFROM daily_agg\n\n\nUNION ALL\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'cpu_mean @ ' || version || ' / c' || concurrency AS metric,\n  cpu_mean AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
+          "refId": "A"
+        }
+      ],
+      "title": "API Server CPU",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "Memory (RSS) of the tekton-results-api Pod. High memory may indicate query result caching or connection pool growth under Locust load.\n- **mem_mean**: average over test duration\n- **mem_max**: peak usage",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 8,
+            "gradientMode": "opacity",
+            "lineWidth": 2,
+            "pointSize": 6,
+            "showPoints": "always",
+            "spanNulls": false
+          },
+          "min": 0,
+          "unit": "bytes"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 60
+      },
+      "id": 20,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "time_series",
+          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END AS version,\n    (label_values->>'__parameters_test_concurrent')::INTEGER AS concurrency,\n    AVG((label_values->>'__measurements_tektonResultsApi_memory_max')::DOUBLE PRECISION) AS mem_max,\n    AVG((label_values->>'__measurements_tektonResultsApi_memory_mean')::DOUBLE PRECISION) AS mem_mean\n  FROM data\n  WHERE horreum_testid = 425\n    AND $__timeFilter(start)\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END = '${version}'\n    AND (label_values->>'__parameters_test_concurrent')::INTEGER IN ($concurrency)\n\n    AND label_values ? '__measurements_tektonResultsApi_memory_max'\n    AND label_values ? '__measurements_tektonResultsApi_memory_mean'\n  GROUP BY day, version, concurrency\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'mem_max @ ' || version || ' / c' || concurrency AS metric,\n  mem_max AS value\nFROM daily_agg\n\n\nUNION ALL\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'mem_mean @ ' || version || ' / c' || concurrency AS metric,\n  mem_mean AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
+          "refId": "A"
+        }
+      ],
+      "title": "API Server Memory",
+      "type": "timeseries"
+    },
+    {
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 68
+      },
+      "id": 21,
+      "title": "Pipeline Performance",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "Average wall-clock time from PipelineRun creation to completion. Each pipeline has 5 tasks × 10 steps × 15 log lines. Includes scheduling, execution, and signing overhead.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 8,
+            "gradientMode": "opacity",
+            "lineWidth": 2,
+            "pointSize": 6,
+            "showPoints": "always",
+            "spanNulls": false
+          },
+          "min": 0,
+          "unit": "s"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 69
+      },
+      "id": 22,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "time_series",
+          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END AS version,\n    (label_values->>'__parameters_test_concurrent')::INTEGER AS concurrency,\n    AVG((label_values->>'__results_PipelineRuns_duration_avg')::DOUBLE PRECISION) AS pr_duration\n  FROM data\n  WHERE horreum_testid = 425\n    AND $__timeFilter(start)\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END = '${version}'\n    AND (label_values->>'__parameters_test_concurrent')::INTEGER IN ($concurrency)\n\n    AND label_values ? '__results_PipelineRuns_duration_avg'\n  GROUP BY day, version, concurrency\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'pr_duration @ ' || version || ' / c' || concurrency AS metric,\n  pr_duration AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
+          "refId": "A"
+        }
+      ],
+      "title": "PipelineRun Duration (avg)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "Total PipelineRuns that completed successfully. The test creates PRs at a constant rate with 30 concurrent; all should succeed.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 8,
+            "gradientMode": "opacity",
+            "lineWidth": 2,
+            "pointSize": 6,
+            "showPoints": "always",
+            "spanNulls": false
+          },
+          "min": 0,
+          "unit": "short"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 69
+      },
+      "id": 23,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "time_series",
+          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END AS version,\n    (label_values->>'__parameters_test_concurrent')::INTEGER AS concurrency,\n    AVG((label_values->>'__results_PipelineRuns_count_succeeded')::DOUBLE PRECISION) AS pr_succeeded\n  FROM data\n  WHERE horreum_testid = 425\n    AND $__timeFilter(start)\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END = '${version}'\n    AND (label_values->>'__parameters_test_concurrent')::INTEGER IN ($concurrency)\n\n    AND label_values ? '__results_PipelineRuns_count_succeeded'\n  GROUP BY day, version, concurrency\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'pr_succeeded @ ' || version || ' / c' || concurrency AS metric,\n  pr_succeeded AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
+          "refId": "A"
+        }
+      ],
+      "title": "PipelineRun Succeeded",
+      "type": "timeseries"
+    },
+    {
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 85
+      },
+      "id": 24,
+      "title": "Cluster & Infrastructure",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "Mean total cluster CPU usage rate (cores) across all nodes during the test. Reflects the combined load of pipelines execution, signing, ingestion, and Locust testing.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 8,
+            "gradientMode": "opacity",
+            "lineWidth": 2,
+            "pointSize": 6,
+            "showPoints": "always",
+            "spanNulls": false
+          },
+          "min": 0,
+          "unit": "short"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 86
+      },
+      "id": 25,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "time_series",
+          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END AS version,\n    (label_values->>'__parameters_test_concurrent')::INTEGER AS concurrency,\n    AVG((label_values->>'__measurements_clusterCpuUsageSecondsTotalRate_mean')::DOUBLE PRECISION) AS cluster_cpu\n  FROM data\n  WHERE horreum_testid = 425\n    AND $__timeFilter(start)\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END = '${version}'\n    AND (label_values->>'__parameters_test_concurrent')::INTEGER IN ($concurrency)\n\n    AND label_values ? '__measurements_clusterCpuUsageSecondsTotalRate_mean'\n  GROUP BY day, version, concurrency\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'cluster_cpu @ ' || version || ' / c' || concurrency AS metric,\n  cluster_cpu AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
+          "refId": "A"
+        }
+      ],
+      "title": "Cluster CPU",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "Mean total cluster RSS memory across all nodes during the test.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 8,
+            "gradientMode": "opacity",
+            "lineWidth": 2,
+            "pointSize": 6,
+            "showPoints": "always",
+            "spanNulls": false
+          },
+          "min": 0,
+          "unit": "bytes"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 86
+      },
+      "id": 26,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "time_series",
+          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END AS version,\n    (label_values->>'__parameters_test_concurrent')::INTEGER AS concurrency,\n    AVG((label_values->>'__measurements_clusterMemoryUsageRssTotal_mean')::DOUBLE PRECISION) AS cluster_mem\n  FROM data\n  WHERE horreum_testid = 425\n    AND $__timeFilter(start)\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END = '${version}'\n    AND (label_values->>'__parameters_test_concurrent')::INTEGER IN ($concurrency)\n\n    AND label_values ? '__measurements_clusterMemoryUsageRssTotal_mean'\n  GROUP BY day, version, concurrency\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'cluster_mem @ ' || version || ' / c' || concurrency AS metric,\n  cluster_mem AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
+          "refId": "A"
+        }
+      ],
+      "title": "Cluster Memory",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "Mean CPU of the Tekton Pipelines controller. Handles PipelineRun/TaskRun reconciliation. Higher values indicate more reconciliation overhead.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 8,
+            "gradientMode": "opacity",
+            "lineWidth": 2,
+            "pointSize": 6,
+            "showPoints": "always",
+            "spanNulls": false
+          },
+          "min": 0,
+          "unit": "short"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 94
+      },
+      "id": 27,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "time_series",
+          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END AS version,\n    (label_values->>'__parameters_test_concurrent')::INTEGER AS concurrency,\n    AVG((label_values->>'__measurements_tektonPipelinesController_cpu_mean')::DOUBLE PRECISION) AS ctrl_cpu\n  FROM data\n  WHERE horreum_testid = 425\n    AND $__timeFilter(start)\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END = '${version}'\n    AND (label_values->>'__parameters_test_concurrent')::INTEGER IN ($concurrency)\n\n    AND label_values ? '__measurements_tektonPipelinesController_cpu_mean'\n  GROUP BY day, version, concurrency\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'ctrl_cpu @ ' || version || ' / c' || concurrency AS metric,\n  ctrl_cpu AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
+          "refId": "A"
+        }
+      ],
+      "title": "Pipelines Controller CPU",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "Mean memory (RSS) of the Tekton Pipelines controller. Growth may indicate large informer caches from many concurrent PipelineRuns.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 8,
+            "gradientMode": "opacity",
+            "lineWidth": 2,
+            "pointSize": 6,
+            "showPoints": "always",
+            "spanNulls": false
+          },
+          "min": 0,
+          "unit": "bytes"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 94
+      },
+      "id": 28,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "time_series",
+          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END AS version,\n    (label_values->>'__parameters_test_concurrent')::INTEGER AS concurrency,\n    AVG((label_values->>'__measurements_tektonPipelinesController_memory_mean')::DOUBLE PRECISION) AS ctrl_mem\n  FROM data\n  WHERE horreum_testid = 425\n    AND $__timeFilter(start)\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END = '${version}'\n    AND (label_values->>'__parameters_test_concurrent')::INTEGER IN ($concurrency)\n\n    AND label_values ? '__measurements_tektonPipelinesController_memory_mean'\n  GROUP BY day, version, concurrency\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'ctrl_mem @ ' || version || ' / c' || concurrency AS metric,\n  ctrl_mem AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
+          "refId": "A"
+        }
+      ],
+      "title": "Pipelines Controller Memory",
+      "type": "timeseries"
+    },
+    {
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 102
+      },
+      "id": 29,
+      "title": "etcd",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "Mean etcd MVCC database total size. Reflects the cumulative Kubernetes object storage. Rapid growth during the test indicates high PipelineRun/TaskRun creation rate.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 8,
+            "gradientMode": "opacity",
+            "lineWidth": 2,
+            "pointSize": 6,
+            "showPoints": "always",
+            "spanNulls": false
+          },
+          "min": 0,
+          "unit": "bytes"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 103
+      },
+      "id": 30,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "time_series",
+          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END AS version,\n    (label_values->>'__parameters_test_concurrent')::INTEGER AS concurrency,\n    AVG((label_values->>'__measurements_etcdMvccDbTotalSizeInBytesAverage_mean')::DOUBLE PRECISION) AS db_total\n  FROM data\n  WHERE horreum_testid = 425\n    AND $__timeFilter(start)\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END = '${version}'\n    AND (label_values->>'__parameters_test_concurrent')::INTEGER IN ($concurrency)\n\n    AND label_values ? '__measurements_etcdMvccDbTotalSizeInBytesAverage_mean'\n  GROUP BY day, version, concurrency\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'db_total @ ' || version || ' / c' || concurrency AS metric,\n  db_total AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
+          "refId": "A"
+        }
+      ],
+      "title": "etcd DB Size",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "Mean etcd request latency. High latency indicates etcd is under pressure from the volume of Kubernetes API operations (PR/TR CRUD + status updates).",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 8,
+            "gradientMode": "opacity",
+            "lineWidth": 2,
+            "pointSize": 6,
+            "showPoints": "always",
+            "spanNulls": false
+          },
+          "min": 0,
+          "unit": "s"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 103
+      },
+      "id": 31,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "time_series",
+          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END AS version,\n    (label_values->>'__parameters_test_concurrent')::INTEGER AS concurrency,\n    AVG((label_values->>'__measurements_etcdRequestDurationSecondsAverage_mean')::DOUBLE PRECISION) AS req_duration\n  FROM data\n  WHERE horreum_testid = 425\n    AND $__timeFilter(start)\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END = '${version}'\n    AND (label_values->>'__parameters_test_concurrent')::INTEGER IN ($concurrency)\n\n    AND label_values ? '__measurements_etcdRequestDurationSecondsAverage_mean'\n  GROUP BY day, version, concurrency\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'req_duration @ ' || version || ' / c' || concurrency AS metric,\n  req_duration AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
+          "refId": "A"
+        }
+      ],
+      "title": "etcd Request Duration",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "5m",
+  "schemaVersion": 39,
+  "tags": [
+    "results",
+    "performance"
+  ],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "selected": false,
+          "text": "grafana-postgresql-datasource",
+          "value": "grafana-postgresql-datasource"
+        },
+        "description": "PostgreSQL datasource for Results metrics",
+        "label": "Datasource",
+        "name": "datasource",
+        "query": "grafana-postgresql-datasource",
+        "regex": ".*grafana-postgresql-datasource.*",
+        "type": "datasource"
+      },
+      {
+        "current": {
+          "text": "nightly",
+          "value": "nightly"
+        },
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "${datasource}"
+        },
+        "description": "Filter by deployment version.",
+        "includeAll": false,
+        "label": "Version",
+        "multi": false,
+        "name": "version",
+        "query": "SELECT DISTINCT CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END AS version FROM data WHERE horreum_testid = 425 AND $__timeFilter(start) AND label_values ? '__deployment_version' ORDER BY version DESC",
+        "refresh": 2,
+        "sort": 0,
+        "type": "query"
+      },
+      {
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "${datasource}"
+        },
+        "description": "Filter by concurrency level.",
+        "includeAll": true,
+        "label": "Concurrency",
+        "multi": true,
+        "name": "concurrency",
+        "query": "SELECT DISTINCT (label_values->>'__parameters_test_concurrent')::INTEGER AS concurrency FROM data WHERE horreum_testid = 425 AND $__timeFilter(start) AND label_values ? '__parameters_test_concurrent' ORDER BY concurrency",
+        "refresh": 2,
+        "sort": 3,
+        "type": "query"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-30d",
+    "to": "now"
+  },
+  "timezone": "utc",
+  "title": "Results Performance Dashboard",
+  "uid": "Results_Performance"
+}

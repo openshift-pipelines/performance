@@ -1,0 +1,3267 @@
+{
+  "description": "Daily side-by-side version comparison of OpenShift Pipelines performance.",
+  "editable": true,
+  "graphTooltip": 2,
+  "panels": [
+    {
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "title": "Pipeline Performance",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "Average PipelineRun wall-clock duration per version per day. Lower is better.",
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "unit": "s"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 1
+      },
+      "id": 2,
+      "options": {
+        "barWidth": 0.84999999999999998,
+        "groupWidth": 0.55000000000000004,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "showValue": "never",
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "WITH daily AS (\n  SELECT\n    TO_CHAR(DATE_TRUNC('day', start), 'MM/DD') AS day,\n    DATE_TRUNC('day', start) AS day_date,\n    CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END AS version,\n    (label_values->>'__results_PipelineRuns_duration_avg')::DOUBLE PRECISION AS val\n  FROM data\n  WHERE (\n  horreum_testid = ${variant}::INTEGER\n  OR (\n    horreum_testid = 391\n    AND (\n      (${variant}::INTEGER = 423\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 419\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments'\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 421\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'statefulSets'\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 422\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n      OR (${variant}::INTEGER = 420\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments'\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n    )\n  )\n)\n\n    AND $__timeFilter(start)\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END IN ($version)\n    AND (label_values->>'__parameters_test_concurrent')::INTEGER = ${concurrency}::INTEGER\n    AND label_values ? '__results_PipelineRuns_duration_avg'\n)\nSELECT day, version, AVG(val) AS value\nFROM daily\nGROUP BY day, version\nORDER BY MIN(day_date),\n  CASE WHEN version = 'nightly' THEN 0 ELSE 1 END,\n  version ASC\n",
+          "refId": "A"
+        }
+      ],
+      "title": "PipelineRun Duration (avg)",
+      "transformations": [
+        {
+          "id": "groupingToMatrix",
+          "options": {
+            "columnField": "version",
+            "rowField": "day",
+            "valueField": "value"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "1.0": 2,
+              "1.1": 3,
+              "1.10": 12,
+              "1.11": 13,
+              "1.12": 14,
+              "1.13": 15,
+              "1.14": 16,
+              "1.15": 17,
+              "1.16": 18,
+              "1.17": 19,
+              "1.18": 20,
+              "1.19": 21,
+              "1.2": 4,
+              "1.20": 22,
+              "1.21": 23,
+              "1.22": 24,
+              "1.23": 25,
+              "1.24": 26,
+              "1.25": 27,
+              "1.26": 28,
+              "1.27": 29,
+              "1.28": 30,
+              "1.29": 31,
+              "1.3": 5,
+              "1.30": 32,
+              "1.31": 33,
+              "1.32": 34,
+              "1.33": 35,
+              "1.34": 36,
+              "1.35": 37,
+              "1.36": 38,
+              "1.37": 39,
+              "1.38": 40,
+              "1.39": 41,
+              "1.4": 6,
+              "1.40": 42,
+              "1.41": 43,
+              "1.42": 44,
+              "1.43": 45,
+              "1.44": 46,
+              "1.45": 47,
+              "1.46": 48,
+              "1.47": 49,
+              "1.48": 50,
+              "1.49": 51,
+              "1.5": 7,
+              "1.50": 52,
+              "1.6": 8,
+              "1.7": 9,
+              "1.8": 10,
+              "1.9": 11,
+              "day\\version": 0,
+              "nightly": 1
+            }
+          }
+        }
+      ],
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "Total successful PipelineRuns per version per day.",
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "min": 0,
+          "unit": "short"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 9
+      },
+      "id": 3,
+      "options": {
+        "barWidth": 0.84999999999999998,
+        "groupWidth": 0.55000000000000004,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "showValue": "never",
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "WITH daily AS (\n  SELECT\n    TO_CHAR(DATE_TRUNC('day', start), 'MM/DD') AS day,\n    DATE_TRUNC('day', start) AS day_date,\n    CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END AS version,\n    (label_values->>'__results_PipelineRuns_count_succeeded')::DOUBLE PRECISION AS val\n  FROM data\n  WHERE (\n  horreum_testid = ${variant}::INTEGER\n  OR (\n    horreum_testid = 391\n    AND (\n      (${variant}::INTEGER = 423\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 419\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments'\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 421\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'statefulSets'\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 422\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n      OR (${variant}::INTEGER = 420\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments'\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n    )\n  )\n)\n\n    AND $__timeFilter(start)\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END IN ($version)\n    AND (label_values->>'__parameters_test_concurrent')::INTEGER = ${concurrency}::INTEGER\n    AND label_values ? '__results_PipelineRuns_count_succeeded'\n)\nSELECT day, version, SUM(val) AS value\nFROM daily\nGROUP BY day, version\nORDER BY MIN(day_date),\n  CASE WHEN version = 'nightly' THEN 0 ELSE 1 END,\n  version ASC\n",
+          "refId": "A"
+        }
+      ],
+      "title": "PipelineRun Succeeded",
+      "transformations": [
+        {
+          "id": "groupingToMatrix",
+          "options": {
+            "columnField": "version",
+            "rowField": "day",
+            "valueField": "value"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "1.0": 2,
+              "1.1": 3,
+              "1.10": 12,
+              "1.11": 13,
+              "1.12": 14,
+              "1.13": 15,
+              "1.14": 16,
+              "1.15": 17,
+              "1.16": 18,
+              "1.17": 19,
+              "1.18": 20,
+              "1.19": 21,
+              "1.2": 4,
+              "1.20": 22,
+              "1.21": 23,
+              "1.22": 24,
+              "1.23": 25,
+              "1.24": 26,
+              "1.25": 27,
+              "1.26": 28,
+              "1.27": 29,
+              "1.28": 30,
+              "1.29": 31,
+              "1.3": 5,
+              "1.30": 32,
+              "1.31": 33,
+              "1.32": 34,
+              "1.33": 35,
+              "1.34": 36,
+              "1.35": 37,
+              "1.36": 38,
+              "1.37": 39,
+              "1.38": 40,
+              "1.39": 41,
+              "1.4": 6,
+              "1.40": 42,
+              "1.41": 43,
+              "1.42": 44,
+              "1.43": 45,
+              "1.44": 46,
+              "1.45": 47,
+              "1.46": 48,
+              "1.47": 49,
+              "1.48": 50,
+              "1.49": 51,
+              "1.5": 7,
+              "1.50": 52,
+              "1.6": 8,
+              "1.7": 9,
+              "1.8": 10,
+              "1.9": 11,
+              "day\\version": 0,
+              "nightly": 1
+            }
+          }
+        }
+      ],
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "Total failed PipelineRuns per version per day. Should be 0.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "axisSoftMax": 5
+          },
+          "decimals": 0,
+          "min": 0,
+          "unit": "short"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 17
+      },
+      "id": 4,
+      "options": {
+        "barWidth": 0.84999999999999998,
+        "groupWidth": 0.55000000000000004,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "showValue": "never",
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "WITH daily AS (\n  SELECT\n    TO_CHAR(DATE_TRUNC('day', start), 'MM/DD') AS day,\n    DATE_TRUNC('day', start) AS day_date,\n    CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END AS version,\n    (label_values->>'__results_PipelineRuns_count_failed')::DOUBLE PRECISION AS val\n  FROM data\n  WHERE (\n  horreum_testid = ${variant}::INTEGER\n  OR (\n    horreum_testid = 391\n    AND (\n      (${variant}::INTEGER = 423\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 419\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments'\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 421\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'statefulSets'\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 422\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n      OR (${variant}::INTEGER = 420\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments'\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n    )\n  )\n)\n\n    AND $__timeFilter(start)\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END IN ($version)\n    AND (label_values->>'__parameters_test_concurrent')::INTEGER = ${concurrency}::INTEGER\n    AND label_values ? '__results_PipelineRuns_count_failed'\n)\nSELECT day, version, SUM(val) AS value\nFROM daily\nGROUP BY day, version\nORDER BY MIN(day_date),\n  CASE WHEN version = 'nightly' THEN 0 ELSE 1 END,\n  version ASC\n",
+          "refId": "A"
+        }
+      ],
+      "title": "PipelineRun Failed",
+      "transformations": [
+        {
+          "id": "groupingToMatrix",
+          "options": {
+            "columnField": "version",
+            "rowField": "day",
+            "valueField": "value"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "1.0": 2,
+              "1.1": 3,
+              "1.10": 12,
+              "1.11": 13,
+              "1.12": 14,
+              "1.13": 15,
+              "1.14": 16,
+              "1.15": 17,
+              "1.16": 18,
+              "1.17": 19,
+              "1.18": 20,
+              "1.19": 21,
+              "1.2": 4,
+              "1.20": 22,
+              "1.21": 23,
+              "1.22": 24,
+              "1.23": 25,
+              "1.24": 26,
+              "1.25": 27,
+              "1.26": 28,
+              "1.27": 29,
+              "1.28": 30,
+              "1.29": 31,
+              "1.3": 5,
+              "1.30": 32,
+              "1.31": 33,
+              "1.32": 34,
+              "1.33": 35,
+              "1.34": 36,
+              "1.35": 37,
+              "1.36": 38,
+              "1.37": 39,
+              "1.38": 40,
+              "1.39": 41,
+              "1.4": 6,
+              "1.40": 42,
+              "1.41": 43,
+              "1.42": 44,
+              "1.43": 45,
+              "1.44": 46,
+              "1.45": 47,
+              "1.46": 48,
+              "1.47": 49,
+              "1.48": 50,
+              "1.49": 51,
+              "1.5": 7,
+              "1.50": 52,
+              "1.6": 8,
+              "1.7": 9,
+              "1.8": 10,
+              "1.9": 11,
+              "day\\version": 0,
+              "nightly": 1
+            }
+          }
+        }
+      ],
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "Average time a successful PipelineRun waited to be scheduled.",
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "unit": "s"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 25
+      },
+      "id": 5,
+      "options": {
+        "barWidth": 0.84999999999999998,
+        "groupWidth": 0.55000000000000004,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "showValue": "never",
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "WITH daily AS (\n  SELECT\n    TO_CHAR(DATE_TRUNC('day', start), 'MM/DD') AS day,\n    DATE_TRUNC('day', start) AS day_date,\n    CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END AS version,\n    (label_values->>'__results_PipelineRuns_Success_pending_avg')::DOUBLE PRECISION AS val\n  FROM data\n  WHERE (\n  horreum_testid = ${variant}::INTEGER\n  OR (\n    horreum_testid = 391\n    AND (\n      (${variant}::INTEGER = 423\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 419\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments'\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 421\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'statefulSets'\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 422\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n      OR (${variant}::INTEGER = 420\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments'\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n    )\n  )\n)\n\n    AND $__timeFilter(start)\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END IN ($version)\n    AND (label_values->>'__parameters_test_concurrent')::INTEGER = ${concurrency}::INTEGER\n    AND label_values ? '__results_PipelineRuns_Success_pending_avg'\n)\nSELECT day, version, AVG(val) AS value\nFROM daily\nGROUP BY day, version\nORDER BY MIN(day_date),\n  CASE WHEN version = 'nightly' THEN 0 ELSE 1 END,\n  version ASC\n",
+          "refId": "A"
+        }
+      ],
+      "title": "PR Pending Time (avg)",
+      "transformations": [
+        {
+          "id": "groupingToMatrix",
+          "options": {
+            "columnField": "version",
+            "rowField": "day",
+            "valueField": "value"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "1.0": 2,
+              "1.1": 3,
+              "1.10": 12,
+              "1.11": 13,
+              "1.12": 14,
+              "1.13": 15,
+              "1.14": 16,
+              "1.15": 17,
+              "1.16": 18,
+              "1.17": 19,
+              "1.18": 20,
+              "1.19": 21,
+              "1.2": 4,
+              "1.20": 22,
+              "1.21": 23,
+              "1.22": 24,
+              "1.23": 25,
+              "1.24": 26,
+              "1.25": 27,
+              "1.26": 28,
+              "1.27": 29,
+              "1.28": 30,
+              "1.29": 31,
+              "1.3": 5,
+              "1.30": 32,
+              "1.31": 33,
+              "1.32": 34,
+              "1.33": 35,
+              "1.34": 36,
+              "1.35": 37,
+              "1.36": 38,
+              "1.37": 39,
+              "1.38": 40,
+              "1.39": 41,
+              "1.4": 6,
+              "1.40": 42,
+              "1.41": 43,
+              "1.42": 44,
+              "1.43": 45,
+              "1.44": 46,
+              "1.45": 47,
+              "1.46": 48,
+              "1.47": 49,
+              "1.48": 50,
+              "1.49": 51,
+              "1.5": 7,
+              "1.50": 52,
+              "1.6": 8,
+              "1.7": 9,
+              "1.8": 10,
+              "1.9": 11,
+              "day\\version": 0,
+              "nightly": 1
+            }
+          }
+        }
+      ],
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "Average time a successful PipelineRun spent executing.",
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "unit": "s"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 33
+      },
+      "id": 6,
+      "options": {
+        "barWidth": 0.84999999999999998,
+        "groupWidth": 0.55000000000000004,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "showValue": "never",
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "WITH daily AS (\n  SELECT\n    TO_CHAR(DATE_TRUNC('day', start), 'MM/DD') AS day,\n    DATE_TRUNC('day', start) AS day_date,\n    CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END AS version,\n    (label_values->>'__results_PipelineRuns_Success_running_avg')::DOUBLE PRECISION AS val\n  FROM data\n  WHERE (\n  horreum_testid = ${variant}::INTEGER\n  OR (\n    horreum_testid = 391\n    AND (\n      (${variant}::INTEGER = 423\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 419\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments'\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 421\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'statefulSets'\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 422\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n      OR (${variant}::INTEGER = 420\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments'\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n    )\n  )\n)\n\n    AND $__timeFilter(start)\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END IN ($version)\n    AND (label_values->>'__parameters_test_concurrent')::INTEGER = ${concurrency}::INTEGER\n    AND label_values ? '__results_PipelineRuns_Success_running_avg'\n)\nSELECT day, version, AVG(val) AS value\nFROM daily\nGROUP BY day, version\nORDER BY MIN(day_date),\n  CASE WHEN version = 'nightly' THEN 0 ELSE 1 END,\n  version ASC\n",
+          "refId": "A"
+        }
+      ],
+      "title": "PR Running Time (avg)",
+      "transformations": [
+        {
+          "id": "groupingToMatrix",
+          "options": {
+            "columnField": "version",
+            "rowField": "day",
+            "valueField": "value"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "1.0": 2,
+              "1.1": 3,
+              "1.10": 12,
+              "1.11": 13,
+              "1.12": 14,
+              "1.13": 15,
+              "1.14": 16,
+              "1.15": 17,
+              "1.16": 18,
+              "1.17": 19,
+              "1.18": 20,
+              "1.19": 21,
+              "1.2": 4,
+              "1.20": 22,
+              "1.21": 23,
+              "1.22": 24,
+              "1.23": 25,
+              "1.24": 26,
+              "1.25": 27,
+              "1.26": 28,
+              "1.27": 29,
+              "1.28": 30,
+              "1.29": 31,
+              "1.3": 5,
+              "1.30": 32,
+              "1.31": 33,
+              "1.32": 34,
+              "1.33": 35,
+              "1.34": 36,
+              "1.35": 37,
+              "1.36": 38,
+              "1.37": 39,
+              "1.38": 40,
+              "1.39": 41,
+              "1.4": 6,
+              "1.40": 42,
+              "1.41": 43,
+              "1.42": 44,
+              "1.43": 45,
+              "1.44": 46,
+              "1.45": 47,
+              "1.46": 48,
+              "1.47": 49,
+              "1.48": 50,
+              "1.49": 51,
+              "1.5": 7,
+              "1.50": 52,
+              "1.6": 8,
+              "1.7": 9,
+              "1.8": 10,
+              "1.9": 11,
+              "day\\version": 0,
+              "nightly": 1
+            }
+          }
+        }
+      ],
+      "type": "barchart"
+    },
+    {
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 41
+      },
+      "id": 7,
+      "title": "TaskRun Performance",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "Average successful TaskRun duration per version per day. Lower is better.",
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "unit": "s"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 42
+      },
+      "id": 8,
+      "options": {
+        "barWidth": 0.84999999999999998,
+        "groupWidth": 0.55000000000000004,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "showValue": "never",
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "WITH daily AS (\n  SELECT\n    TO_CHAR(DATE_TRUNC('day', start), 'MM/DD') AS day,\n    DATE_TRUNC('day', start) AS day_date,\n    CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END AS version,\n    (label_values->>'__results_TaskRuns_duration_avg')::DOUBLE PRECISION AS val\n  FROM data\n  WHERE (\n  horreum_testid = ${variant}::INTEGER\n  OR (\n    horreum_testid = 391\n    AND (\n      (${variant}::INTEGER = 423\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 419\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments'\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 421\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'statefulSets'\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 422\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n      OR (${variant}::INTEGER = 420\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments'\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n    )\n  )\n)\n\n    AND $__timeFilter(start)\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END IN ($version)\n    AND (label_values->>'__parameters_test_concurrent')::INTEGER = ${concurrency}::INTEGER\n    AND label_values ? '__results_TaskRuns_duration_avg'\n)\nSELECT day, version, AVG(val) AS value\nFROM daily\nGROUP BY day, version\nORDER BY MIN(day_date),\n  CASE WHEN version = 'nightly' THEN 0 ELSE 1 END,\n  version ASC\n",
+          "refId": "A"
+        }
+      ],
+      "title": "TaskRun Duration (avg)",
+      "transformations": [
+        {
+          "id": "groupingToMatrix",
+          "options": {
+            "columnField": "version",
+            "rowField": "day",
+            "valueField": "value"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "1.0": 2,
+              "1.1": 3,
+              "1.10": 12,
+              "1.11": 13,
+              "1.12": 14,
+              "1.13": 15,
+              "1.14": 16,
+              "1.15": 17,
+              "1.16": 18,
+              "1.17": 19,
+              "1.18": 20,
+              "1.19": 21,
+              "1.2": 4,
+              "1.20": 22,
+              "1.21": 23,
+              "1.22": 24,
+              "1.23": 25,
+              "1.24": 26,
+              "1.25": 27,
+              "1.26": 28,
+              "1.27": 29,
+              "1.28": 30,
+              "1.29": 31,
+              "1.3": 5,
+              "1.30": 32,
+              "1.31": 33,
+              "1.32": 34,
+              "1.33": 35,
+              "1.34": 36,
+              "1.35": 37,
+              "1.36": 38,
+              "1.37": 39,
+              "1.38": 40,
+              "1.39": 41,
+              "1.4": 6,
+              "1.40": 42,
+              "1.41": 43,
+              "1.42": 44,
+              "1.43": 45,
+              "1.44": 46,
+              "1.45": 47,
+              "1.46": 48,
+              "1.47": 49,
+              "1.48": 50,
+              "1.49": 51,
+              "1.5": 7,
+              "1.50": 52,
+              "1.6": 8,
+              "1.7": 9,
+              "1.8": 10,
+              "1.9": 11,
+              "day\\version": 0,
+              "nightly": 1
+            }
+          }
+        }
+      ],
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "Total successful TaskRuns per version per day.",
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "min": 0,
+          "unit": "short"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 50
+      },
+      "id": 9,
+      "options": {
+        "barWidth": 0.84999999999999998,
+        "groupWidth": 0.55000000000000004,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "showValue": "never",
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "WITH daily AS (\n  SELECT\n    TO_CHAR(DATE_TRUNC('day', start), 'MM/DD') AS day,\n    DATE_TRUNC('day', start) AS day_date,\n    CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END AS version,\n    (label_values->>'__results_TaskRuns_count_succeeded')::DOUBLE PRECISION AS val\n  FROM data\n  WHERE (\n  horreum_testid = ${variant}::INTEGER\n  OR (\n    horreum_testid = 391\n    AND (\n      (${variant}::INTEGER = 423\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 419\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments'\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 421\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'statefulSets'\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 422\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n      OR (${variant}::INTEGER = 420\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments'\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n    )\n  )\n)\n\n    AND $__timeFilter(start)\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END IN ($version)\n    AND (label_values->>'__parameters_test_concurrent')::INTEGER = ${concurrency}::INTEGER\n    AND label_values ? '__results_TaskRuns_count_succeeded'\n)\nSELECT day, version, SUM(val) AS value\nFROM daily\nGROUP BY day, version\nORDER BY MIN(day_date),\n  CASE WHEN version = 'nightly' THEN 0 ELSE 1 END,\n  version ASC\n",
+          "refId": "A"
+        }
+      ],
+      "title": "TaskRun Succeeded",
+      "transformations": [
+        {
+          "id": "groupingToMatrix",
+          "options": {
+            "columnField": "version",
+            "rowField": "day",
+            "valueField": "value"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "1.0": 2,
+              "1.1": 3,
+              "1.10": 12,
+              "1.11": 13,
+              "1.12": 14,
+              "1.13": 15,
+              "1.14": 16,
+              "1.15": 17,
+              "1.16": 18,
+              "1.17": 19,
+              "1.18": 20,
+              "1.19": 21,
+              "1.2": 4,
+              "1.20": 22,
+              "1.21": 23,
+              "1.22": 24,
+              "1.23": 25,
+              "1.24": 26,
+              "1.25": 27,
+              "1.26": 28,
+              "1.27": 29,
+              "1.28": 30,
+              "1.29": 31,
+              "1.3": 5,
+              "1.30": 32,
+              "1.31": 33,
+              "1.32": 34,
+              "1.33": 35,
+              "1.34": 36,
+              "1.35": 37,
+              "1.36": 38,
+              "1.37": 39,
+              "1.38": 40,
+              "1.39": 41,
+              "1.4": 6,
+              "1.40": 42,
+              "1.41": 43,
+              "1.42": 44,
+              "1.43": 45,
+              "1.44": 46,
+              "1.45": 47,
+              "1.46": 48,
+              "1.47": 49,
+              "1.48": 50,
+              "1.49": 51,
+              "1.5": 7,
+              "1.50": 52,
+              "1.6": 8,
+              "1.7": 9,
+              "1.8": 10,
+              "1.9": 11,
+              "day\\version": 0,
+              "nightly": 1
+            }
+          }
+        }
+      ],
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "Total failed TaskRuns per version per day. Should be 0.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "axisSoftMax": 5
+          },
+          "decimals": 0,
+          "min": 0,
+          "unit": "short"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 58
+      },
+      "id": 10,
+      "options": {
+        "barWidth": 0.84999999999999998,
+        "groupWidth": 0.55000000000000004,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "showValue": "never",
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "WITH daily AS (\n  SELECT\n    TO_CHAR(DATE_TRUNC('day', start), 'MM/DD') AS day,\n    DATE_TRUNC('day', start) AS day_date,\n    CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END AS version,\n    (label_values->>'__results_TaskRuns_count_failed')::DOUBLE PRECISION AS val\n  FROM data\n  WHERE (\n  horreum_testid = ${variant}::INTEGER\n  OR (\n    horreum_testid = 391\n    AND (\n      (${variant}::INTEGER = 423\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 419\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments'\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 421\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'statefulSets'\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 422\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n      OR (${variant}::INTEGER = 420\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments'\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n    )\n  )\n)\n\n    AND $__timeFilter(start)\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END IN ($version)\n    AND (label_values->>'__parameters_test_concurrent')::INTEGER = ${concurrency}::INTEGER\n    AND label_values ? '__results_TaskRuns_count_failed'\n)\nSELECT day, version, SUM(val) AS value\nFROM daily\nGROUP BY day, version\nORDER BY MIN(day_date),\n  CASE WHEN version = 'nightly' THEN 0 ELSE 1 END,\n  version ASC\n",
+          "refId": "A"
+        }
+      ],
+      "title": "TaskRun Failed",
+      "transformations": [
+        {
+          "id": "groupingToMatrix",
+          "options": {
+            "columnField": "version",
+            "rowField": "day",
+            "valueField": "value"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "1.0": 2,
+              "1.1": 3,
+              "1.10": 12,
+              "1.11": 13,
+              "1.12": 14,
+              "1.13": 15,
+              "1.14": 16,
+              "1.15": 17,
+              "1.16": 18,
+              "1.17": 19,
+              "1.18": 20,
+              "1.19": 21,
+              "1.2": 4,
+              "1.20": 22,
+              "1.21": 23,
+              "1.22": 24,
+              "1.23": 25,
+              "1.24": 26,
+              "1.25": 27,
+              "1.26": 28,
+              "1.27": 29,
+              "1.28": 30,
+              "1.29": 31,
+              "1.3": 5,
+              "1.30": 32,
+              "1.31": 33,
+              "1.32": 34,
+              "1.33": 35,
+              "1.34": 36,
+              "1.35": 37,
+              "1.36": 38,
+              "1.37": 39,
+              "1.38": 40,
+              "1.39": 41,
+              "1.4": 6,
+              "1.40": 42,
+              "1.41": 43,
+              "1.42": 44,
+              "1.43": 45,
+              "1.44": 46,
+              "1.45": 47,
+              "1.46": 48,
+              "1.47": 49,
+              "1.48": 50,
+              "1.49": 51,
+              "1.5": 7,
+              "1.50": 52,
+              "1.6": 8,
+              "1.7": 9,
+              "1.8": 10,
+              "1.9": 11,
+              "day\\version": 0,
+              "nightly": 1
+            }
+          }
+        }
+      ],
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "Average Pod scheduling wait for successful TaskRuns.",
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "unit": "s"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 66
+      },
+      "id": 11,
+      "options": {
+        "barWidth": 0.84999999999999998,
+        "groupWidth": 0.55000000000000004,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "showValue": "never",
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "WITH daily AS (\n  SELECT\n    TO_CHAR(DATE_TRUNC('day', start), 'MM/DD') AS day,\n    DATE_TRUNC('day', start) AS day_date,\n    CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END AS version,\n    (label_values->>'__results_TaskRuns_Success_pending_avg')::DOUBLE PRECISION AS val\n  FROM data\n  WHERE (\n  horreum_testid = ${variant}::INTEGER\n  OR (\n    horreum_testid = 391\n    AND (\n      (${variant}::INTEGER = 423\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 419\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments'\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 421\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'statefulSets'\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 422\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n      OR (${variant}::INTEGER = 420\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments'\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n    )\n  )\n)\n\n    AND $__timeFilter(start)\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END IN ($version)\n    AND (label_values->>'__parameters_test_concurrent')::INTEGER = ${concurrency}::INTEGER\n    AND label_values ? '__results_TaskRuns_Success_pending_avg'\n)\nSELECT day, version, AVG(val) AS value\nFROM daily\nGROUP BY day, version\nORDER BY MIN(day_date),\n  CASE WHEN version = 'nightly' THEN 0 ELSE 1 END,\n  version ASC\n",
+          "refId": "A"
+        }
+      ],
+      "title": "TR Pending Time (avg)",
+      "transformations": [
+        {
+          "id": "groupingToMatrix",
+          "options": {
+            "columnField": "version",
+            "rowField": "day",
+            "valueField": "value"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "1.0": 2,
+              "1.1": 3,
+              "1.10": 12,
+              "1.11": 13,
+              "1.12": 14,
+              "1.13": 15,
+              "1.14": 16,
+              "1.15": 17,
+              "1.16": 18,
+              "1.17": 19,
+              "1.18": 20,
+              "1.19": 21,
+              "1.2": 4,
+              "1.20": 22,
+              "1.21": 23,
+              "1.22": 24,
+              "1.23": 25,
+              "1.24": 26,
+              "1.25": 27,
+              "1.26": 28,
+              "1.27": 29,
+              "1.28": 30,
+              "1.29": 31,
+              "1.3": 5,
+              "1.30": 32,
+              "1.31": 33,
+              "1.32": 34,
+              "1.33": 35,
+              "1.34": 36,
+              "1.35": 37,
+              "1.36": 38,
+              "1.37": 39,
+              "1.38": 40,
+              "1.39": 41,
+              "1.4": 6,
+              "1.40": 42,
+              "1.41": 43,
+              "1.42": 44,
+              "1.43": 45,
+              "1.44": 46,
+              "1.45": 47,
+              "1.46": 48,
+              "1.47": 49,
+              "1.48": 50,
+              "1.49": 51,
+              "1.5": 7,
+              "1.50": 52,
+              "1.6": 8,
+              "1.7": 9,
+              "1.8": 10,
+              "1.9": 11,
+              "day\\version": 0,
+              "nightly": 1
+            }
+          }
+        }
+      ],
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "Average container execution time for successful TaskRuns.",
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "unit": "s"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 74
+      },
+      "id": 12,
+      "options": {
+        "barWidth": 0.84999999999999998,
+        "groupWidth": 0.55000000000000004,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "showValue": "never",
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "WITH daily AS (\n  SELECT\n    TO_CHAR(DATE_TRUNC('day', start), 'MM/DD') AS day,\n    DATE_TRUNC('day', start) AS day_date,\n    CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END AS version,\n    (label_values->>'__results_TaskRuns_Success_running_avg')::DOUBLE PRECISION AS val\n  FROM data\n  WHERE (\n  horreum_testid = ${variant}::INTEGER\n  OR (\n    horreum_testid = 391\n    AND (\n      (${variant}::INTEGER = 423\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 419\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments'\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 421\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'statefulSets'\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 422\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n      OR (${variant}::INTEGER = 420\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments'\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n    )\n  )\n)\n\n    AND $__timeFilter(start)\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END IN ($version)\n    AND (label_values->>'__parameters_test_concurrent')::INTEGER = ${concurrency}::INTEGER\n    AND label_values ? '__results_TaskRuns_Success_running_avg'\n)\nSELECT day, version, AVG(val) AS value\nFROM daily\nGROUP BY day, version\nORDER BY MIN(day_date),\n  CASE WHEN version = 'nightly' THEN 0 ELSE 1 END,\n  version ASC\n",
+          "refId": "A"
+        }
+      ],
+      "title": "TR Running Time (avg)",
+      "transformations": [
+        {
+          "id": "groupingToMatrix",
+          "options": {
+            "columnField": "version",
+            "rowField": "day",
+            "valueField": "value"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "1.0": 2,
+              "1.1": 3,
+              "1.10": 12,
+              "1.11": 13,
+              "1.12": 14,
+              "1.13": 15,
+              "1.14": 16,
+              "1.15": 17,
+              "1.16": 18,
+              "1.17": 19,
+              "1.18": 20,
+              "1.19": 21,
+              "1.2": 4,
+              "1.20": 22,
+              "1.21": 23,
+              "1.22": 24,
+              "1.23": 25,
+              "1.24": 26,
+              "1.25": 27,
+              "1.26": 28,
+              "1.27": 29,
+              "1.28": 30,
+              "1.29": 31,
+              "1.3": 5,
+              "1.30": 32,
+              "1.31": 33,
+              "1.32": 34,
+              "1.33": 35,
+              "1.34": 36,
+              "1.35": 37,
+              "1.36": 38,
+              "1.37": 39,
+              "1.38": 40,
+              "1.39": 41,
+              "1.4": 6,
+              "1.40": 42,
+              "1.41": 43,
+              "1.42": 44,
+              "1.43": 45,
+              "1.44": 46,
+              "1.45": 47,
+              "1.46": 48,
+              "1.47": 49,
+              "1.48": 50,
+              "1.49": 51,
+              "1.5": 7,
+              "1.50": 52,
+              "1.6": 8,
+              "1.7": 9,
+              "1.8": 10,
+              "1.9": 11,
+              "day\\version": 0,
+              "nightly": 1
+            }
+          }
+        }
+      ],
+      "type": "barchart"
+    },
+    {
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 82
+      },
+      "id": 13,
+      "title": "Controller Health",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "Mean time from TaskRun creation to Pod creation.",
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "unit": "s"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 83
+      },
+      "id": 14,
+      "options": {
+        "barWidth": 0.84999999999999998,
+        "groupWidth": 0.55000000000000004,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "showValue": "never",
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "WITH daily AS (\n  SELECT\n    TO_CHAR(DATE_TRUNC('day', start), 'MM/DD') AS day,\n    DATE_TRUNC('day', start) AS day_date,\n    CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END AS version,\n    (label_values->>'__results_TaskRunsToPods_creationTimestampDiff_mean')::DOUBLE PRECISION AS val\n  FROM data\n  WHERE (\n  horreum_testid = ${variant}::INTEGER\n  OR (\n    horreum_testid = 391\n    AND (\n      (${variant}::INTEGER = 423\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 419\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments'\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 421\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'statefulSets'\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 422\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n      OR (${variant}::INTEGER = 420\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments'\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n    )\n  )\n)\n\n    AND $__timeFilter(start)\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END IN ($version)\n    AND (label_values->>'__parameters_test_concurrent')::INTEGER = ${concurrency}::INTEGER\n    AND label_values ? '__results_TaskRunsToPods_creationTimestampDiff_mean'\n)\nSELECT day, version, AVG(val) AS value\nFROM daily\nGROUP BY day, version\nORDER BY MIN(day_date),\n  CASE WHEN version = 'nightly' THEN 0 ELSE 1 END,\n  version ASC\n",
+          "refId": "A"
+        }
+      ],
+      "title": "TaskRun → Pod Creation Lag",
+      "transformations": [
+        {
+          "id": "groupingToMatrix",
+          "options": {
+            "columnField": "version",
+            "rowField": "day",
+            "valueField": "value"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "1.0": 2,
+              "1.1": 3,
+              "1.10": 12,
+              "1.11": 13,
+              "1.12": 14,
+              "1.13": 15,
+              "1.14": 16,
+              "1.15": 17,
+              "1.16": 18,
+              "1.17": 19,
+              "1.18": 20,
+              "1.19": 21,
+              "1.2": 4,
+              "1.20": 22,
+              "1.21": 23,
+              "1.22": 24,
+              "1.23": 25,
+              "1.24": 26,
+              "1.25": 27,
+              "1.26": 28,
+              "1.27": 29,
+              "1.28": 30,
+              "1.29": 31,
+              "1.3": 5,
+              "1.30": 32,
+              "1.31": 33,
+              "1.32": 34,
+              "1.33": 35,
+              "1.34": 36,
+              "1.35": 37,
+              "1.36": 38,
+              "1.37": 39,
+              "1.38": 40,
+              "1.39": 41,
+              "1.4": 6,
+              "1.40": 42,
+              "1.41": 43,
+              "1.42": 44,
+              "1.43": 45,
+              "1.44": 46,
+              "1.45": 47,
+              "1.46": 48,
+              "1.47": 49,
+              "1.48": 50,
+              "1.49": 51,
+              "1.5": 7,
+              "1.50": 52,
+              "1.6": 8,
+              "1.7": 9,
+              "1.8": 10,
+              "1.9": 11,
+              "day\\version": 0,
+              "nightly": 1
+            }
+          }
+        }
+      ],
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "Tekton Pipelines controller mean CPU (cores).",
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "unit": "short"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 91
+      },
+      "id": 15,
+      "options": {
+        "barWidth": 0.84999999999999998,
+        "groupWidth": 0.55000000000000004,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "showValue": "never",
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "WITH daily AS (\n  SELECT\n    TO_CHAR(DATE_TRUNC('day', start), 'MM/DD') AS day,\n    DATE_TRUNC('day', start) AS day_date,\n    CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END AS version,\n    (label_values->>'__measurements_tektonPipelinesController_cpu_mean')::DOUBLE PRECISION AS val\n  FROM data\n  WHERE (\n  horreum_testid = ${variant}::INTEGER\n  OR (\n    horreum_testid = 391\n    AND (\n      (${variant}::INTEGER = 423\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 419\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments'\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 421\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'statefulSets'\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 422\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n      OR (${variant}::INTEGER = 420\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments'\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n    )\n  )\n)\n\n    AND $__timeFilter(start)\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END IN ($version)\n    AND (label_values->>'__parameters_test_concurrent')::INTEGER = ${concurrency}::INTEGER\n    AND label_values ? '__measurements_tektonPipelinesController_cpu_mean'\n)\nSELECT day, version, AVG(val) AS value\nFROM daily\nGROUP BY day, version\nORDER BY MIN(day_date),\n  CASE WHEN version = 'nightly' THEN 0 ELSE 1 END,\n  version ASC\n",
+          "refId": "A"
+        }
+      ],
+      "title": "Controller CPU",
+      "transformations": [
+        {
+          "id": "groupingToMatrix",
+          "options": {
+            "columnField": "version",
+            "rowField": "day",
+            "valueField": "value"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "1.0": 2,
+              "1.1": 3,
+              "1.10": 12,
+              "1.11": 13,
+              "1.12": 14,
+              "1.13": 15,
+              "1.14": 16,
+              "1.15": 17,
+              "1.16": 18,
+              "1.17": 19,
+              "1.18": 20,
+              "1.19": 21,
+              "1.2": 4,
+              "1.20": 22,
+              "1.21": 23,
+              "1.22": 24,
+              "1.23": 25,
+              "1.24": 26,
+              "1.25": 27,
+              "1.26": 28,
+              "1.27": 29,
+              "1.28": 30,
+              "1.29": 31,
+              "1.3": 5,
+              "1.30": 32,
+              "1.31": 33,
+              "1.32": 34,
+              "1.33": 35,
+              "1.34": 36,
+              "1.35": 37,
+              "1.36": 38,
+              "1.37": 39,
+              "1.38": 40,
+              "1.39": 41,
+              "1.4": 6,
+              "1.40": 42,
+              "1.41": 43,
+              "1.42": 44,
+              "1.43": 45,
+              "1.44": 46,
+              "1.45": 47,
+              "1.46": 48,
+              "1.47": 49,
+              "1.48": 50,
+              "1.49": 51,
+              "1.5": 7,
+              "1.50": 52,
+              "1.6": 8,
+              "1.7": 9,
+              "1.8": 10,
+              "1.9": 11,
+              "day\\version": 0,
+              "nightly": 1
+            }
+          }
+        }
+      ],
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "Tekton Pipelines controller mean memory (RSS).",
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "unit": "bytes"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 99
+      },
+      "id": 16,
+      "options": {
+        "barWidth": 0.84999999999999998,
+        "groupWidth": 0.55000000000000004,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "showValue": "never",
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "WITH daily AS (\n  SELECT\n    TO_CHAR(DATE_TRUNC('day', start), 'MM/DD') AS day,\n    DATE_TRUNC('day', start) AS day_date,\n    CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END AS version,\n    (label_values->>'__measurements_tektonPipelinesController_memory_mean')::DOUBLE PRECISION AS val\n  FROM data\n  WHERE (\n  horreum_testid = ${variant}::INTEGER\n  OR (\n    horreum_testid = 391\n    AND (\n      (${variant}::INTEGER = 423\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 419\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments'\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 421\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'statefulSets'\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 422\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n      OR (${variant}::INTEGER = 420\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments'\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n    )\n  )\n)\n\n    AND $__timeFilter(start)\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END IN ($version)\n    AND (label_values->>'__parameters_test_concurrent')::INTEGER = ${concurrency}::INTEGER\n    AND label_values ? '__measurements_tektonPipelinesController_memory_mean'\n)\nSELECT day, version, AVG(val) AS value\nFROM daily\nGROUP BY day, version\nORDER BY MIN(day_date),\n  CASE WHEN version = 'nightly' THEN 0 ELSE 1 END,\n  version ASC\n",
+          "refId": "A"
+        }
+      ],
+      "title": "Controller Memory",
+      "transformations": [
+        {
+          "id": "groupingToMatrix",
+          "options": {
+            "columnField": "version",
+            "rowField": "day",
+            "valueField": "value"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "1.0": 2,
+              "1.1": 3,
+              "1.10": 12,
+              "1.11": 13,
+              "1.12": 14,
+              "1.13": 15,
+              "1.14": 16,
+              "1.15": 17,
+              "1.16": 18,
+              "1.17": 19,
+              "1.18": 20,
+              "1.19": 21,
+              "1.2": 4,
+              "1.20": 22,
+              "1.21": 23,
+              "1.22": 24,
+              "1.23": 25,
+              "1.24": 26,
+              "1.25": 27,
+              "1.26": 28,
+              "1.27": 29,
+              "1.28": 30,
+              "1.29": 31,
+              "1.3": 5,
+              "1.30": 32,
+              "1.31": 33,
+              "1.32": 34,
+              "1.33": 35,
+              "1.34": 36,
+              "1.35": 37,
+              "1.36": 38,
+              "1.37": 39,
+              "1.38": 40,
+              "1.39": 41,
+              "1.4": 6,
+              "1.40": 42,
+              "1.41": 43,
+              "1.42": 44,
+              "1.43": 45,
+              "1.44": 46,
+              "1.45": 47,
+              "1.46": 48,
+              "1.47": 49,
+              "1.48": 50,
+              "1.49": 51,
+              "1.5": 7,
+              "1.50": 52,
+              "1.6": 8,
+              "1.7": 9,
+              "1.8": 10,
+              "1.9": 11,
+              "day\\version": 0,
+              "nightly": 1
+            }
+          }
+        }
+      ],
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "Controller workqueue depth. High = bottleneck.",
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "unit": "short"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 107
+      },
+      "id": 17,
+      "options": {
+        "barWidth": 0.84999999999999998,
+        "groupWidth": 0.55000000000000004,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "showValue": "never",
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "WITH daily AS (\n  SELECT\n    TO_CHAR(DATE_TRUNC('day', start), 'MM/DD') AS day,\n    DATE_TRUNC('day', start) AS day_date,\n    CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END AS version,\n    (label_values->>'__measurements_tektonTektonPipelinesControllerWorkqueueDepth_mean')::DOUBLE PRECISION AS val\n  FROM data\n  WHERE (\n  horreum_testid = ${variant}::INTEGER\n  OR (\n    horreum_testid = 391\n    AND (\n      (${variant}::INTEGER = 423\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 419\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments'\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 421\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'statefulSets'\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 422\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n      OR (${variant}::INTEGER = 420\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments'\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n    )\n  )\n)\n\n    AND $__timeFilter(start)\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END IN ($version)\n    AND (label_values->>'__parameters_test_concurrent')::INTEGER = ${concurrency}::INTEGER\n    AND label_values ? '__measurements_tektonTektonPipelinesControllerWorkqueueDepth_mean'\n)\nSELECT day, version, AVG(val) AS value\nFROM daily\nGROUP BY day, version\nORDER BY MIN(day_date),\n  CASE WHEN version = 'nightly' THEN 0 ELSE 1 END,\n  version ASC\n",
+          "refId": "A"
+        }
+      ],
+      "title": "Workqueue Depth",
+      "transformations": [
+        {
+          "id": "groupingToMatrix",
+          "options": {
+            "columnField": "version",
+            "rowField": "day",
+            "valueField": "value"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "1.0": 2,
+              "1.1": 3,
+              "1.10": 12,
+              "1.11": 13,
+              "1.12": 14,
+              "1.13": 15,
+              "1.14": 16,
+              "1.15": 17,
+              "1.16": 18,
+              "1.17": 19,
+              "1.18": 20,
+              "1.19": 21,
+              "1.2": 4,
+              "1.20": 22,
+              "1.21": 23,
+              "1.22": 24,
+              "1.23": 25,
+              "1.24": 26,
+              "1.25": 27,
+              "1.26": 28,
+              "1.27": 29,
+              "1.28": 30,
+              "1.29": 31,
+              "1.3": 5,
+              "1.30": 32,
+              "1.31": 33,
+              "1.32": 34,
+              "1.33": 35,
+              "1.34": 36,
+              "1.35": 37,
+              "1.36": 38,
+              "1.37": 39,
+              "1.38": 40,
+              "1.39": 41,
+              "1.4": 6,
+              "1.40": 42,
+              "1.41": 43,
+              "1.42": 44,
+              "1.43": 45,
+              "1.44": 46,
+              "1.45": 47,
+              "1.46": 48,
+              "1.47": 49,
+              "1.48": 50,
+              "1.49": 51,
+              "1.5": 7,
+              "1.50": 52,
+              "1.6": 8,
+              "1.7": 9,
+              "1.8": 10,
+              "1.9": 11,
+              "day\\version": 0,
+              "nightly": 1
+            }
+          }
+        }
+      ],
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "Admission webhook CPU.",
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "unit": "short"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 115
+      },
+      "id": 18,
+      "options": {
+        "barWidth": 0.84999999999999998,
+        "groupWidth": 0.55000000000000004,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "showValue": "never",
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "WITH daily AS (\n  SELECT\n    TO_CHAR(DATE_TRUNC('day', start), 'MM/DD') AS day,\n    DATE_TRUNC('day', start) AS day_date,\n    CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END AS version,\n    (label_values->>'__measurements_tektonPipelinesWebhook_cpu_mean')::DOUBLE PRECISION AS val\n  FROM data\n  WHERE (\n  horreum_testid = ${variant}::INTEGER\n  OR (\n    horreum_testid = 391\n    AND (\n      (${variant}::INTEGER = 423\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 419\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments'\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 421\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'statefulSets'\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 422\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n      OR (${variant}::INTEGER = 420\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments'\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n    )\n  )\n)\n\n    AND $__timeFilter(start)\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END IN ($version)\n    AND (label_values->>'__parameters_test_concurrent')::INTEGER = ${concurrency}::INTEGER\n    AND label_values ? '__measurements_tektonPipelinesWebhook_cpu_mean'\n)\nSELECT day, version, AVG(val) AS value\nFROM daily\nGROUP BY day, version\nORDER BY MIN(day_date),\n  CASE WHEN version = 'nightly' THEN 0 ELSE 1 END,\n  version ASC\n",
+          "refId": "A"
+        }
+      ],
+      "title": "Webhook CPU",
+      "transformations": [
+        {
+          "id": "groupingToMatrix",
+          "options": {
+            "columnField": "version",
+            "rowField": "day",
+            "valueField": "value"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "1.0": 2,
+              "1.1": 3,
+              "1.10": 12,
+              "1.11": 13,
+              "1.12": 14,
+              "1.13": 15,
+              "1.14": 16,
+              "1.15": 17,
+              "1.16": 18,
+              "1.17": 19,
+              "1.18": 20,
+              "1.19": 21,
+              "1.2": 4,
+              "1.20": 22,
+              "1.21": 23,
+              "1.22": 24,
+              "1.23": 25,
+              "1.24": 26,
+              "1.25": 27,
+              "1.26": 28,
+              "1.27": 29,
+              "1.28": 30,
+              "1.29": 31,
+              "1.3": 5,
+              "1.30": 32,
+              "1.31": 33,
+              "1.32": 34,
+              "1.33": 35,
+              "1.34": 36,
+              "1.35": 37,
+              "1.36": 38,
+              "1.37": 39,
+              "1.38": 40,
+              "1.39": 41,
+              "1.4": 6,
+              "1.40": 42,
+              "1.41": 43,
+              "1.42": 44,
+              "1.43": 45,
+              "1.44": 46,
+              "1.45": 47,
+              "1.46": 48,
+              "1.47": 49,
+              "1.48": 50,
+              "1.49": 51,
+              "1.5": 7,
+              "1.50": 52,
+              "1.6": 8,
+              "1.7": 9,
+              "1.8": 10,
+              "1.9": 11,
+              "day\\version": 0,
+              "nightly": 1
+            }
+          }
+        }
+      ],
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "Admission webhook memory.",
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "unit": "bytes"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 123
+      },
+      "id": 19,
+      "options": {
+        "barWidth": 0.84999999999999998,
+        "groupWidth": 0.55000000000000004,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "showValue": "never",
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "WITH daily AS (\n  SELECT\n    TO_CHAR(DATE_TRUNC('day', start), 'MM/DD') AS day,\n    DATE_TRUNC('day', start) AS day_date,\n    CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END AS version,\n    (label_values->>'__measurements_tektonPipelinesWebhook_memory_mean')::DOUBLE PRECISION AS val\n  FROM data\n  WHERE (\n  horreum_testid = ${variant}::INTEGER\n  OR (\n    horreum_testid = 391\n    AND (\n      (${variant}::INTEGER = 423\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 419\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments'\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 421\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'statefulSets'\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 422\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n      OR (${variant}::INTEGER = 420\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments'\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n    )\n  )\n)\n\n    AND $__timeFilter(start)\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END IN ($version)\n    AND (label_values->>'__parameters_test_concurrent')::INTEGER = ${concurrency}::INTEGER\n    AND label_values ? '__measurements_tektonPipelinesWebhook_memory_mean'\n)\nSELECT day, version, AVG(val) AS value\nFROM daily\nGROUP BY day, version\nORDER BY MIN(day_date),\n  CASE WHEN version = 'nightly' THEN 0 ELSE 1 END,\n  version ASC\n",
+          "refId": "A"
+        }
+      ],
+      "title": "Webhook Memory",
+      "transformations": [
+        {
+          "id": "groupingToMatrix",
+          "options": {
+            "columnField": "version",
+            "rowField": "day",
+            "valueField": "value"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "1.0": 2,
+              "1.1": 3,
+              "1.10": 12,
+              "1.11": 13,
+              "1.12": 14,
+              "1.13": 15,
+              "1.14": 16,
+              "1.15": 17,
+              "1.16": 18,
+              "1.17": 19,
+              "1.18": 20,
+              "1.19": 21,
+              "1.2": 4,
+              "1.20": 22,
+              "1.21": 23,
+              "1.22": 24,
+              "1.23": 25,
+              "1.24": 26,
+              "1.25": 27,
+              "1.26": 28,
+              "1.27": 29,
+              "1.28": 30,
+              "1.29": 31,
+              "1.3": 5,
+              "1.30": 32,
+              "1.31": 33,
+              "1.32": 34,
+              "1.33": 35,
+              "1.34": 36,
+              "1.35": 37,
+              "1.36": 38,
+              "1.37": 39,
+              "1.38": 40,
+              "1.39": 41,
+              "1.4": 6,
+              "1.40": 42,
+              "1.41": 43,
+              "1.42": 44,
+              "1.43": 45,
+              "1.44": 46,
+              "1.45": 47,
+              "1.46": 48,
+              "1.47": 49,
+              "1.48": 50,
+              "1.49": 51,
+              "1.5": 7,
+              "1.50": 52,
+              "1.6": 8,
+              "1.7": 9,
+              "1.8": 10,
+              "1.9": 11,
+              "day\\version": 0,
+              "nightly": 1
+            }
+          }
+        }
+      ],
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "Controller → API server HTTP latency.",
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "unit": "s"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 131
+      },
+      "id": 20,
+      "options": {
+        "barWidth": 0.84999999999999998,
+        "groupWidth": 0.55000000000000004,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "showValue": "never",
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "WITH daily AS (\n  SELECT\n    TO_CHAR(DATE_TRUNC('day', start), 'MM/DD') AS day,\n    DATE_TRUNC('day', start) AS day_date,\n    CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END AS version,\n    (label_values->>'__measurements_tektonPipelinesControllerClientLatencyAverage_mean')::DOUBLE PRECISION AS val\n  FROM data\n  WHERE (\n  horreum_testid = ${variant}::INTEGER\n  OR (\n    horreum_testid = 391\n    AND (\n      (${variant}::INTEGER = 423\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 419\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments'\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 421\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'statefulSets'\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 422\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n      OR (${variant}::INTEGER = 420\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments'\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n    )\n  )\n)\n\n    AND $__timeFilter(start)\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END IN ($version)\n    AND (label_values->>'__parameters_test_concurrent')::INTEGER = ${concurrency}::INTEGER\n    AND label_values ? '__measurements_tektonPipelinesControllerClientLatencyAverage_mean'\n)\nSELECT day, version, AVG(val) AS value\nFROM daily\nGROUP BY day, version\nORDER BY MIN(day_date),\n  CASE WHEN version = 'nightly' THEN 0 ELSE 1 END,\n  version ASC\n",
+          "refId": "A"
+        }
+      ],
+      "title": "Controller Client Latency",
+      "transformations": [
+        {
+          "id": "groupingToMatrix",
+          "options": {
+            "columnField": "version",
+            "rowField": "day",
+            "valueField": "value"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "1.0": 2,
+              "1.1": 3,
+              "1.10": 12,
+              "1.11": 13,
+              "1.12": 14,
+              "1.13": 15,
+              "1.14": 16,
+              "1.15": 17,
+              "1.16": 18,
+              "1.17": 19,
+              "1.18": 20,
+              "1.19": 21,
+              "1.2": 4,
+              "1.20": 22,
+              "1.21": 23,
+              "1.22": 24,
+              "1.23": 25,
+              "1.24": 26,
+              "1.25": 27,
+              "1.26": 28,
+              "1.27": 29,
+              "1.28": 30,
+              "1.29": 31,
+              "1.3": 5,
+              "1.30": 32,
+              "1.31": 33,
+              "1.32": 34,
+              "1.33": 35,
+              "1.34": 36,
+              "1.35": 37,
+              "1.36": 38,
+              "1.37": 39,
+              "1.38": 40,
+              "1.39": 41,
+              "1.4": 6,
+              "1.40": 42,
+              "1.41": 43,
+              "1.42": 44,
+              "1.43": 45,
+              "1.44": 46,
+              "1.45": 47,
+              "1.46": 48,
+              "1.47": 49,
+              "1.48": 50,
+              "1.49": 51,
+              "1.5": 7,
+              "1.50": 52,
+              "1.6": 8,
+              "1.7": 9,
+              "1.8": 10,
+              "1.9": 11,
+              "day\\version": 0,
+              "nightly": 1
+            }
+          }
+        }
+      ],
+      "type": "barchart"
+    },
+    {
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 139
+      },
+      "id": 21,
+      "title": "Cluster & Infrastructure",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "Mean total cluster CPU usage rate (cores).",
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "unit": "short"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 140
+      },
+      "id": 22,
+      "options": {
+        "barWidth": 0.84999999999999998,
+        "groupWidth": 0.55000000000000004,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "showValue": "never",
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "WITH daily AS (\n  SELECT\n    TO_CHAR(DATE_TRUNC('day', start), 'MM/DD') AS day,\n    DATE_TRUNC('day', start) AS day_date,\n    CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END AS version,\n    (label_values->>'__measurements_clusterCpuUsageSecondsTotalRate_mean')::DOUBLE PRECISION AS val\n  FROM data\n  WHERE (\n  horreum_testid = ${variant}::INTEGER\n  OR (\n    horreum_testid = 391\n    AND (\n      (${variant}::INTEGER = 423\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 419\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments'\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 421\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'statefulSets'\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 422\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n      OR (${variant}::INTEGER = 420\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments'\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n    )\n  )\n)\n\n    AND $__timeFilter(start)\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END IN ($version)\n    AND (label_values->>'__parameters_test_concurrent')::INTEGER = ${concurrency}::INTEGER\n    AND label_values ? '__measurements_clusterCpuUsageSecondsTotalRate_mean'\n)\nSELECT day, version, AVG(val) AS value\nFROM daily\nGROUP BY day, version\nORDER BY MIN(day_date),\n  CASE WHEN version = 'nightly' THEN 0 ELSE 1 END,\n  version ASC\n",
+          "refId": "A"
+        }
+      ],
+      "title": "Cluster CPU",
+      "transformations": [
+        {
+          "id": "groupingToMatrix",
+          "options": {
+            "columnField": "version",
+            "rowField": "day",
+            "valueField": "value"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "1.0": 2,
+              "1.1": 3,
+              "1.10": 12,
+              "1.11": 13,
+              "1.12": 14,
+              "1.13": 15,
+              "1.14": 16,
+              "1.15": 17,
+              "1.16": 18,
+              "1.17": 19,
+              "1.18": 20,
+              "1.19": 21,
+              "1.2": 4,
+              "1.20": 22,
+              "1.21": 23,
+              "1.22": 24,
+              "1.23": 25,
+              "1.24": 26,
+              "1.25": 27,
+              "1.26": 28,
+              "1.27": 29,
+              "1.28": 30,
+              "1.29": 31,
+              "1.3": 5,
+              "1.30": 32,
+              "1.31": 33,
+              "1.32": 34,
+              "1.33": 35,
+              "1.34": 36,
+              "1.35": 37,
+              "1.36": 38,
+              "1.37": 39,
+              "1.38": 40,
+              "1.39": 41,
+              "1.4": 6,
+              "1.40": 42,
+              "1.41": 43,
+              "1.42": 44,
+              "1.43": 45,
+              "1.44": 46,
+              "1.45": 47,
+              "1.46": 48,
+              "1.47": 49,
+              "1.48": 50,
+              "1.49": 51,
+              "1.5": 7,
+              "1.50": 52,
+              "1.6": 8,
+              "1.7": 9,
+              "1.8": 10,
+              "1.9": 11,
+              "day\\version": 0,
+              "nightly": 1
+            }
+          }
+        }
+      ],
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "Mean total cluster RSS memory.",
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "unit": "bytes"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 148
+      },
+      "id": 23,
+      "options": {
+        "barWidth": 0.84999999999999998,
+        "groupWidth": 0.55000000000000004,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "showValue": "never",
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "WITH daily AS (\n  SELECT\n    TO_CHAR(DATE_TRUNC('day', start), 'MM/DD') AS day,\n    DATE_TRUNC('day', start) AS day_date,\n    CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END AS version,\n    (label_values->>'__measurements_clusterMemoryUsageRssTotal_mean')::DOUBLE PRECISION AS val\n  FROM data\n  WHERE (\n  horreum_testid = ${variant}::INTEGER\n  OR (\n    horreum_testid = 391\n    AND (\n      (${variant}::INTEGER = 423\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 419\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments'\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 421\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'statefulSets'\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 422\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n      OR (${variant}::INTEGER = 420\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments'\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n    )\n  )\n)\n\n    AND $__timeFilter(start)\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END IN ($version)\n    AND (label_values->>'__parameters_test_concurrent')::INTEGER = ${concurrency}::INTEGER\n    AND label_values ? '__measurements_clusterMemoryUsageRssTotal_mean'\n)\nSELECT day, version, AVG(val) AS value\nFROM daily\nGROUP BY day, version\nORDER BY MIN(day_date),\n  CASE WHEN version = 'nightly' THEN 0 ELSE 1 END,\n  version ASC\n",
+          "refId": "A"
+        }
+      ],
+      "title": "Cluster Memory",
+      "transformations": [
+        {
+          "id": "groupingToMatrix",
+          "options": {
+            "columnField": "version",
+            "rowField": "day",
+            "valueField": "value"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "1.0": 2,
+              "1.1": 3,
+              "1.10": 12,
+              "1.11": 13,
+              "1.12": 14,
+              "1.13": 15,
+              "1.14": 16,
+              "1.15": 17,
+              "1.16": 18,
+              "1.17": 19,
+              "1.18": 20,
+              "1.19": 21,
+              "1.2": 4,
+              "1.20": 22,
+              "1.21": 23,
+              "1.22": 24,
+              "1.23": 25,
+              "1.24": 26,
+              "1.25": 27,
+              "1.26": 28,
+              "1.27": 29,
+              "1.28": 30,
+              "1.29": 31,
+              "1.3": 5,
+              "1.30": 32,
+              "1.31": 33,
+              "1.32": 34,
+              "1.33": 35,
+              "1.34": 36,
+              "1.35": 37,
+              "1.36": 38,
+              "1.37": 39,
+              "1.38": 40,
+              "1.39": 41,
+              "1.4": 6,
+              "1.40": 42,
+              "1.41": 43,
+              "1.42": 44,
+              "1.43": 45,
+              "1.44": 46,
+              "1.45": 47,
+              "1.46": 48,
+              "1.47": 49,
+              "1.48": 50,
+              "1.49": 51,
+              "1.5": 7,
+              "1.50": 52,
+              "1.6": 8,
+              "1.7": 9,
+              "1.8": 10,
+              "1.9": 11,
+              "day\\version": 0,
+              "nightly": 1
+            }
+          }
+        }
+      ],
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "OpenShift API server mean CPU.",
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "unit": "short"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 156
+      },
+      "id": 24,
+      "options": {
+        "barWidth": 0.84999999999999998,
+        "groupWidth": 0.55000000000000004,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "showValue": "never",
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "WITH daily AS (\n  SELECT\n    TO_CHAR(DATE_TRUNC('day', start), 'MM/DD') AS day,\n    DATE_TRUNC('day', start) AS day_date,\n    CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END AS version,\n    (label_values->>'__measurements_apiserver_cpu_mean')::DOUBLE PRECISION AS val\n  FROM data\n  WHERE (\n  horreum_testid = ${variant}::INTEGER\n  OR (\n    horreum_testid = 391\n    AND (\n      (${variant}::INTEGER = 423\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 419\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments'\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 421\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'statefulSets'\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 422\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n      OR (${variant}::INTEGER = 420\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments'\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n    )\n  )\n)\n\n    AND $__timeFilter(start)\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END IN ($version)\n    AND (label_values->>'__parameters_test_concurrent')::INTEGER = ${concurrency}::INTEGER\n    AND label_values ? '__measurements_apiserver_cpu_mean'\n)\nSELECT day, version, AVG(val) AS value\nFROM daily\nGROUP BY day, version\nORDER BY MIN(day_date),\n  CASE WHEN version = 'nightly' THEN 0 ELSE 1 END,\n  version ASC\n",
+          "refId": "A"
+        }
+      ],
+      "title": "API Server CPU",
+      "transformations": [
+        {
+          "id": "groupingToMatrix",
+          "options": {
+            "columnField": "version",
+            "rowField": "day",
+            "valueField": "value"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "1.0": 2,
+              "1.1": 3,
+              "1.10": 12,
+              "1.11": 13,
+              "1.12": 14,
+              "1.13": 15,
+              "1.14": 16,
+              "1.15": 17,
+              "1.16": 18,
+              "1.17": 19,
+              "1.18": 20,
+              "1.19": 21,
+              "1.2": 4,
+              "1.20": 22,
+              "1.21": 23,
+              "1.22": 24,
+              "1.23": 25,
+              "1.24": 26,
+              "1.25": 27,
+              "1.26": 28,
+              "1.27": 29,
+              "1.28": 30,
+              "1.29": 31,
+              "1.3": 5,
+              "1.30": 32,
+              "1.31": 33,
+              "1.32": 34,
+              "1.33": 35,
+              "1.34": 36,
+              "1.35": 37,
+              "1.36": 38,
+              "1.37": 39,
+              "1.38": 40,
+              "1.39": 41,
+              "1.4": 6,
+              "1.40": 42,
+              "1.41": 43,
+              "1.42": 44,
+              "1.43": 45,
+              "1.44": 46,
+              "1.45": 47,
+              "1.46": 48,
+              "1.47": 49,
+              "1.48": 50,
+              "1.49": 51,
+              "1.5": 7,
+              "1.50": 52,
+              "1.6": 8,
+              "1.7": 9,
+              "1.8": 10,
+              "1.9": 11,
+              "day\\version": 0,
+              "nightly": 1
+            }
+          }
+        }
+      ],
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "Kubernetes API server mean CPU.",
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "unit": "short"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 164
+      },
+      "id": 25,
+      "options": {
+        "barWidth": 0.84999999999999998,
+        "groupWidth": 0.55000000000000004,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "showValue": "never",
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "WITH daily AS (\n  SELECT\n    TO_CHAR(DATE_TRUNC('day', start), 'MM/DD') AS day,\n    DATE_TRUNC('day', start) AS day_date,\n    CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END AS version,\n    (label_values->>'__measurements_kubeApiserver_cpu_mean')::DOUBLE PRECISION AS val\n  FROM data\n  WHERE (\n  horreum_testid = ${variant}::INTEGER\n  OR (\n    horreum_testid = 391\n    AND (\n      (${variant}::INTEGER = 423\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 419\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments'\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 421\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'statefulSets'\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 422\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n      OR (${variant}::INTEGER = 420\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments'\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n    )\n  )\n)\n\n    AND $__timeFilter(start)\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END IN ($version)\n    AND (label_values->>'__parameters_test_concurrent')::INTEGER = ${concurrency}::INTEGER\n    AND label_values ? '__measurements_kubeApiserver_cpu_mean'\n)\nSELECT day, version, AVG(val) AS value\nFROM daily\nGROUP BY day, version\nORDER BY MIN(day_date),\n  CASE WHEN version = 'nightly' THEN 0 ELSE 1 END,\n  version ASC\n",
+          "refId": "A"
+        }
+      ],
+      "title": "Kube API Server CPU",
+      "transformations": [
+        {
+          "id": "groupingToMatrix",
+          "options": {
+            "columnField": "version",
+            "rowField": "day",
+            "valueField": "value"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "1.0": 2,
+              "1.1": 3,
+              "1.10": 12,
+              "1.11": 13,
+              "1.12": 14,
+              "1.13": 15,
+              "1.14": 16,
+              "1.15": 17,
+              "1.16": 18,
+              "1.17": 19,
+              "1.18": 20,
+              "1.19": 21,
+              "1.2": 4,
+              "1.20": 22,
+              "1.21": 23,
+              "1.22": 24,
+              "1.23": 25,
+              "1.24": 26,
+              "1.25": 27,
+              "1.26": 28,
+              "1.27": 29,
+              "1.28": 30,
+              "1.29": 31,
+              "1.3": 5,
+              "1.30": 32,
+              "1.31": 33,
+              "1.32": 34,
+              "1.33": 35,
+              "1.34": 36,
+              "1.35": 37,
+              "1.36": 38,
+              "1.37": 39,
+              "1.38": 40,
+              "1.39": 41,
+              "1.4": 6,
+              "1.40": 42,
+              "1.41": 43,
+              "1.42": 44,
+              "1.43": 45,
+              "1.44": 46,
+              "1.45": 47,
+              "1.46": 48,
+              "1.47": 49,
+              "1.48": 50,
+              "1.49": 51,
+              "1.5": 7,
+              "1.50": 52,
+              "1.6": 8,
+              "1.7": 9,
+              "1.8": 10,
+              "1.9": 11,
+              "day\\version": 0,
+              "nightly": 1
+            }
+          }
+        }
+      ],
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "OpenShift API server mean memory.",
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "unit": "bytes"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 172
+      },
+      "id": 26,
+      "options": {
+        "barWidth": 0.84999999999999998,
+        "groupWidth": 0.55000000000000004,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "showValue": "never",
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "WITH daily AS (\n  SELECT\n    TO_CHAR(DATE_TRUNC('day', start), 'MM/DD') AS day,\n    DATE_TRUNC('day', start) AS day_date,\n    CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END AS version,\n    (label_values->>'__measurements_apiserver_memory_mean')::DOUBLE PRECISION AS val\n  FROM data\n  WHERE (\n  horreum_testid = ${variant}::INTEGER\n  OR (\n    horreum_testid = 391\n    AND (\n      (${variant}::INTEGER = 423\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 419\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments'\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 421\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'statefulSets'\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 422\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n      OR (${variant}::INTEGER = 420\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments'\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n    )\n  )\n)\n\n    AND $__timeFilter(start)\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END IN ($version)\n    AND (label_values->>'__parameters_test_concurrent')::INTEGER = ${concurrency}::INTEGER\n    AND label_values ? '__measurements_apiserver_memory_mean'\n)\nSELECT day, version, AVG(val) AS value\nFROM daily\nGROUP BY day, version\nORDER BY MIN(day_date),\n  CASE WHEN version = 'nightly' THEN 0 ELSE 1 END,\n  version ASC\n",
+          "refId": "A"
+        }
+      ],
+      "title": "API Server Memory",
+      "transformations": [
+        {
+          "id": "groupingToMatrix",
+          "options": {
+            "columnField": "version",
+            "rowField": "day",
+            "valueField": "value"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "1.0": 2,
+              "1.1": 3,
+              "1.10": 12,
+              "1.11": 13,
+              "1.12": 14,
+              "1.13": 15,
+              "1.14": 16,
+              "1.15": 17,
+              "1.16": 18,
+              "1.17": 19,
+              "1.18": 20,
+              "1.19": 21,
+              "1.2": 4,
+              "1.20": 22,
+              "1.21": 23,
+              "1.22": 24,
+              "1.23": 25,
+              "1.24": 26,
+              "1.25": 27,
+              "1.26": 28,
+              "1.27": 29,
+              "1.28": 30,
+              "1.29": 31,
+              "1.3": 5,
+              "1.30": 32,
+              "1.31": 33,
+              "1.32": 34,
+              "1.33": 35,
+              "1.34": 36,
+              "1.35": 37,
+              "1.36": 38,
+              "1.37": 39,
+              "1.38": 40,
+              "1.39": 41,
+              "1.4": 6,
+              "1.40": 42,
+              "1.41": 43,
+              "1.42": 44,
+              "1.43": 45,
+              "1.44": 46,
+              "1.45": 47,
+              "1.46": 48,
+              "1.47": 49,
+              "1.48": 50,
+              "1.49": 51,
+              "1.5": 7,
+              "1.50": 52,
+              "1.6": 8,
+              "1.7": 9,
+              "1.8": 10,
+              "1.9": 11,
+              "day\\version": 0,
+              "nightly": 1
+            }
+          }
+        }
+      ],
+      "type": "barchart"
+    },
+    {
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 180
+      },
+      "id": 27,
+      "title": "etcd",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "Mean etcd MVCC database total size.",
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "unit": "bytes"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 181
+      },
+      "id": 28,
+      "options": {
+        "barWidth": 0.84999999999999998,
+        "groupWidth": 0.55000000000000004,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "showValue": "never",
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "WITH daily AS (\n  SELECT\n    TO_CHAR(DATE_TRUNC('day', start), 'MM/DD') AS day,\n    DATE_TRUNC('day', start) AS day_date,\n    CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END AS version,\n    (label_values->>'__measurements_etcdMvccDbTotalSizeInBytesAverage_mean')::DOUBLE PRECISION AS val\n  FROM data\n  WHERE (\n  horreum_testid = ${variant}::INTEGER\n  OR (\n    horreum_testid = 391\n    AND (\n      (${variant}::INTEGER = 423\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 419\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments'\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 421\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'statefulSets'\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 422\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n      OR (${variant}::INTEGER = 420\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments'\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n    )\n  )\n)\n\n    AND $__timeFilter(start)\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END IN ($version)\n    AND (label_values->>'__parameters_test_concurrent')::INTEGER = ${concurrency}::INTEGER\n    AND label_values ? '__measurements_etcdMvccDbTotalSizeInBytesAverage_mean'\n)\nSELECT day, version, AVG(val) AS value\nFROM daily\nGROUP BY day, version\nORDER BY MIN(day_date),\n  CASE WHEN version = 'nightly' THEN 0 ELSE 1 END,\n  version ASC\n",
+          "refId": "A"
+        }
+      ],
+      "title": "etcd DB Size",
+      "transformations": [
+        {
+          "id": "groupingToMatrix",
+          "options": {
+            "columnField": "version",
+            "rowField": "day",
+            "valueField": "value"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "1.0": 2,
+              "1.1": 3,
+              "1.10": 12,
+              "1.11": 13,
+              "1.12": 14,
+              "1.13": 15,
+              "1.14": 16,
+              "1.15": 17,
+              "1.16": 18,
+              "1.17": 19,
+              "1.18": 20,
+              "1.19": 21,
+              "1.2": 4,
+              "1.20": 22,
+              "1.21": 23,
+              "1.22": 24,
+              "1.23": 25,
+              "1.24": 26,
+              "1.25": 27,
+              "1.26": 28,
+              "1.27": 29,
+              "1.28": 30,
+              "1.29": 31,
+              "1.3": 5,
+              "1.30": 32,
+              "1.31": 33,
+              "1.32": 34,
+              "1.33": 35,
+              "1.34": 36,
+              "1.35": 37,
+              "1.36": 38,
+              "1.37": 39,
+              "1.38": 40,
+              "1.39": 41,
+              "1.4": 6,
+              "1.40": 42,
+              "1.41": 43,
+              "1.42": 44,
+              "1.43": 45,
+              "1.44": 46,
+              "1.45": 47,
+              "1.46": 48,
+              "1.47": 49,
+              "1.48": 50,
+              "1.49": 51,
+              "1.5": 7,
+              "1.50": 52,
+              "1.6": 8,
+              "1.7": 9,
+              "1.8": 10,
+              "1.9": 11,
+              "day\\version": 0,
+              "nightly": 1
+            }
+          }
+        }
+      ],
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "Mean etcd live data size.",
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "unit": "bytes"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 189
+      },
+      "id": 29,
+      "options": {
+        "barWidth": 0.84999999999999998,
+        "groupWidth": 0.55000000000000004,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "showValue": "never",
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "WITH daily AS (\n  SELECT\n    TO_CHAR(DATE_TRUNC('day', start), 'MM/DD') AS day,\n    DATE_TRUNC('day', start) AS day_date,\n    CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END AS version,\n    (label_values->>'__measurements_etcdMvccDbTotalSizeInUseInBytesAverage_mean')::DOUBLE PRECISION AS val\n  FROM data\n  WHERE (\n  horreum_testid = ${variant}::INTEGER\n  OR (\n    horreum_testid = 391\n    AND (\n      (${variant}::INTEGER = 423\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 419\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments'\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 421\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'statefulSets'\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 422\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n      OR (${variant}::INTEGER = 420\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments'\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n    )\n  )\n)\n\n    AND $__timeFilter(start)\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END IN ($version)\n    AND (label_values->>'__parameters_test_concurrent')::INTEGER = ${concurrency}::INTEGER\n    AND label_values ? '__measurements_etcdMvccDbTotalSizeInUseInBytesAverage_mean'\n)\nSELECT day, version, AVG(val) AS value\nFROM daily\nGROUP BY day, version\nORDER BY MIN(day_date),\n  CASE WHEN version = 'nightly' THEN 0 ELSE 1 END,\n  version ASC\n",
+          "refId": "A"
+        }
+      ],
+      "title": "etcd DB In Use",
+      "transformations": [
+        {
+          "id": "groupingToMatrix",
+          "options": {
+            "columnField": "version",
+            "rowField": "day",
+            "valueField": "value"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "1.0": 2,
+              "1.1": 3,
+              "1.10": 12,
+              "1.11": 13,
+              "1.12": 14,
+              "1.13": 15,
+              "1.14": 16,
+              "1.15": 17,
+              "1.16": 18,
+              "1.17": 19,
+              "1.18": 20,
+              "1.19": 21,
+              "1.2": 4,
+              "1.20": 22,
+              "1.21": 23,
+              "1.22": 24,
+              "1.23": 25,
+              "1.24": 26,
+              "1.25": 27,
+              "1.26": 28,
+              "1.27": 29,
+              "1.28": 30,
+              "1.29": 31,
+              "1.3": 5,
+              "1.30": 32,
+              "1.31": 33,
+              "1.32": 34,
+              "1.33": 35,
+              "1.34": 36,
+              "1.35": 37,
+              "1.36": 38,
+              "1.37": 39,
+              "1.38": 40,
+              "1.39": 41,
+              "1.4": 6,
+              "1.40": 42,
+              "1.41": 43,
+              "1.42": 44,
+              "1.43": 45,
+              "1.44": 46,
+              "1.45": 47,
+              "1.46": 48,
+              "1.47": 49,
+              "1.48": 50,
+              "1.49": 51,
+              "1.5": 7,
+              "1.50": 52,
+              "1.6": 8,
+              "1.7": 9,
+              "1.8": 10,
+              "1.9": 11,
+              "day\\version": 0,
+              "nightly": 1
+            }
+          }
+        }
+      ],
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "Mean etcd request latency.",
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "unit": "s"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 197
+      },
+      "id": 30,
+      "options": {
+        "barWidth": 0.84999999999999998,
+        "groupWidth": 0.55000000000000004,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "showValue": "never",
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "WITH daily AS (\n  SELECT\n    TO_CHAR(DATE_TRUNC('day', start), 'MM/DD') AS day,\n    DATE_TRUNC('day', start) AS day_date,\n    CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END AS version,\n    (label_values->>'__measurements_etcdRequestDurationSecondsAverage_mean')::DOUBLE PRECISION AS val\n  FROM data\n  WHERE (\n  horreum_testid = ${variant}::INTEGER\n  OR (\n    horreum_testid = 391\n    AND (\n      (${variant}::INTEGER = 423\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 419\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments'\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 421\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'statefulSets'\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 422\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n      OR (${variant}::INTEGER = 420\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments'\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n    )\n  )\n)\n\n    AND $__timeFilter(start)\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END IN ($version)\n    AND (label_values->>'__parameters_test_concurrent')::INTEGER = ${concurrency}::INTEGER\n    AND label_values ? '__measurements_etcdRequestDurationSecondsAverage_mean'\n)\nSELECT day, version, AVG(val) AS value\nFROM daily\nGROUP BY day, version\nORDER BY MIN(day_date),\n  CASE WHEN version = 'nightly' THEN 0 ELSE 1 END,\n  version ASC\n",
+          "refId": "A"
+        }
+      ],
+      "title": "etcd Request Duration",
+      "transformations": [
+        {
+          "id": "groupingToMatrix",
+          "options": {
+            "columnField": "version",
+            "rowField": "day",
+            "valueField": "value"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "1.0": 2,
+              "1.1": 3,
+              "1.10": 12,
+              "1.11": 13,
+              "1.12": 14,
+              "1.13": 15,
+              "1.14": 16,
+              "1.15": 17,
+              "1.16": 18,
+              "1.17": 19,
+              "1.18": 20,
+              "1.19": 21,
+              "1.2": 4,
+              "1.20": 22,
+              "1.21": 23,
+              "1.22": 24,
+              "1.23": 25,
+              "1.24": 26,
+              "1.25": 27,
+              "1.26": 28,
+              "1.27": 29,
+              "1.28": 30,
+              "1.29": 31,
+              "1.3": 5,
+              "1.30": 32,
+              "1.31": 33,
+              "1.32": 34,
+              "1.33": 35,
+              "1.34": 36,
+              "1.35": 37,
+              "1.36": 38,
+              "1.37": 39,
+              "1.38": 40,
+              "1.39": 41,
+              "1.4": 6,
+              "1.40": 42,
+              "1.41": 43,
+              "1.42": 44,
+              "1.43": 45,
+              "1.44": 46,
+              "1.45": 47,
+              "1.46": 48,
+              "1.47": 49,
+              "1.48": 50,
+              "1.49": 51,
+              "1.5": 7,
+              "1.50": 52,
+              "1.6": 8,
+              "1.7": 9,
+              "1.8": 10,
+              "1.9": 11,
+              "day\\version": 0,
+              "nightly": 1
+            }
+          }
+        }
+      ],
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "etcd Pod restarts. Should be 0.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "axisSoftMax": 5
+          },
+          "decimals": 0,
+          "min": 0,
+          "unit": "short"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 205
+      },
+      "id": 31,
+      "options": {
+        "barWidth": 0.84999999999999998,
+        "groupWidth": 0.55000000000000004,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "showValue": "never",
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "WITH daily AS (\n  SELECT\n    TO_CHAR(DATE_TRUNC('day', start), 'MM/DD') AS day,\n    DATE_TRUNC('day', start) AS day_date,\n    CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END AS version,\n    (label_values->>'__measurements_etcd_restarts_range')::DOUBLE PRECISION AS val\n  FROM data\n  WHERE (\n  horreum_testid = ${variant}::INTEGER\n  OR (\n    horreum_testid = 391\n    AND (\n      (${variant}::INTEGER = 423\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 419\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments'\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 421\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'statefulSets'\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 422\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n      OR (${variant}::INTEGER = 420\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments'\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n    )\n  )\n)\n\n    AND $__timeFilter(start)\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END IN ($version)\n    AND (label_values->>'__parameters_test_concurrent')::INTEGER = ${concurrency}::INTEGER\n    AND label_values ? '__measurements_etcd_restarts_range'\n)\nSELECT day, version, SUM(val) AS value\nFROM daily\nGROUP BY day, version\nORDER BY MIN(day_date),\n  CASE WHEN version = 'nightly' THEN 0 ELSE 1 END,\n  version ASC\n",
+          "refId": "A"
+        }
+      ],
+      "title": "etcd Restarts",
+      "transformations": [
+        {
+          "id": "groupingToMatrix",
+          "options": {
+            "columnField": "version",
+            "rowField": "day",
+            "valueField": "value"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "1.0": 2,
+              "1.1": 3,
+              "1.10": 12,
+              "1.11": 13,
+              "1.12": 14,
+              "1.13": 15,
+              "1.14": 16,
+              "1.15": 17,
+              "1.16": 18,
+              "1.17": 19,
+              "1.18": 20,
+              "1.19": 21,
+              "1.2": 4,
+              "1.20": 22,
+              "1.21": 23,
+              "1.22": 24,
+              "1.23": 25,
+              "1.24": 26,
+              "1.25": 27,
+              "1.26": 28,
+              "1.27": 29,
+              "1.28": 30,
+              "1.29": 31,
+              "1.3": 5,
+              "1.30": 32,
+              "1.31": 33,
+              "1.32": 34,
+              "1.33": 35,
+              "1.34": 36,
+              "1.35": 37,
+              "1.36": 38,
+              "1.37": 39,
+              "1.38": 40,
+              "1.39": 41,
+              "1.4": 6,
+              "1.40": 42,
+              "1.41": 43,
+              "1.42": 44,
+              "1.43": 45,
+              "1.44": 46,
+              "1.45": 47,
+              "1.46": 48,
+              "1.47": 49,
+              "1.48": 50,
+              "1.49": 51,
+              "1.5": 7,
+              "1.50": 52,
+              "1.6": 8,
+              "1.7": 9,
+              "1.8": 10,
+              "1.9": 11,
+              "day\\version": 0,
+              "nightly": 1
+            }
+          }
+        }
+      ],
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "Pending pods in kube-scheduler queue.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "axisSoftMax": 5
+          },
+          "decimals": 0,
+          "min": 0,
+          "unit": "short"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 213
+      },
+      "id": 32,
+      "options": {
+        "barWidth": 0.84999999999999998,
+        "groupWidth": 0.55000000000000004,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "showValue": "never",
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "WITH daily AS (\n  SELECT\n    TO_CHAR(DATE_TRUNC('day', start), 'MM/DD') AS day,\n    DATE_TRUNC('day', start) AS day_date,\n    CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END AS version,\n    (label_values->>'__measurements_schedulerPendingPodsCount_range')::DOUBLE PRECISION AS val\n  FROM data\n  WHERE (\n  horreum_testid = ${variant}::INTEGER\n  OR (\n    horreum_testid = 391\n    AND (\n      (${variant}::INTEGER = 423\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 419\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments'\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 421\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'statefulSets'\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 422\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n      OR (${variant}::INTEGER = 420\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments'\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n    )\n  )\n)\n\n    AND $__timeFilter(start)\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END IN ($version)\n    AND (label_values->>'__parameters_test_concurrent')::INTEGER = ${concurrency}::INTEGER\n    AND label_values ? '__measurements_schedulerPendingPodsCount_range'\n)\nSELECT day, version, SUM(val) AS value\nFROM daily\nGROUP BY day, version\nORDER BY MIN(day_date),\n  CASE WHEN version = 'nightly' THEN 0 ELSE 1 END,\n  version ASC\n",
+          "refId": "A"
+        }
+      ],
+      "title": "Scheduler Pending Pods",
+      "transformations": [
+        {
+          "id": "groupingToMatrix",
+          "options": {
+            "columnField": "version",
+            "rowField": "day",
+            "valueField": "value"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "1.0": 2,
+              "1.1": 3,
+              "1.10": 12,
+              "1.11": 13,
+              "1.12": 14,
+              "1.13": 15,
+              "1.14": 16,
+              "1.15": 17,
+              "1.16": 18,
+              "1.17": 19,
+              "1.18": 20,
+              "1.19": 21,
+              "1.2": 4,
+              "1.20": 22,
+              "1.21": 23,
+              "1.22": 24,
+              "1.23": 25,
+              "1.24": 26,
+              "1.25": 27,
+              "1.26": 28,
+              "1.27": 29,
+              "1.28": 30,
+              "1.29": 31,
+              "1.3": 5,
+              "1.30": 32,
+              "1.31": 33,
+              "1.32": 34,
+              "1.33": 35,
+              "1.34": 36,
+              "1.35": 37,
+              "1.36": 38,
+              "1.37": 39,
+              "1.38": 40,
+              "1.39": 41,
+              "1.4": 6,
+              "1.40": 42,
+              "1.41": 43,
+              "1.42": 44,
+              "1.43": 45,
+              "1.44": 46,
+              "1.45": 47,
+              "1.46": 48,
+              "1.47": 49,
+              "1.48": 50,
+              "1.49": 51,
+              "1.5": 7,
+              "1.50": 52,
+              "1.6": 8,
+              "1.7": 9,
+              "1.8": 10,
+              "1.9": 11,
+              "day\\version": 0,
+              "nightly": 1
+            }
+          }
+        }
+      ],
+      "type": "barchart"
+    }
+  ],
+  "refresh": "5m",
+  "schemaVersion": 39,
+  "tags": [
+    "pipelines",
+    "version-comparison",
+    "performance"
+  ],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "selected": false,
+          "text": "grafana-postgresql-datasource",
+          "value": "grafana-postgresql-datasource"
+        },
+        "description": "PostgreSQL datasource for pipeline metrics",
+        "label": "Datasource",
+        "name": "datasource",
+        "query": "grafana-postgresql-datasource",
+        "regex": ".*grafana-postgresql-datasource.*",
+        "type": "datasource"
+      },
+      {
+        "current": {
+          "text": "Standard",
+          "value": "423"
+        },
+        "description": "Pipeline deployment variant (each maps to a separate Horreum test ID).",
+        "includeAll": false,
+        "label": "Variant",
+        "multi": false,
+        "name": "variant",
+        "options": [
+          {
+            "selected": true,
+            "text": "Standard",
+            "value": "423"
+          },
+          {
+            "selected": false,
+            "text": "HA - Deployments",
+            "value": "419"
+          },
+          {
+            "selected": false,
+            "text": "HA - StatefulSets",
+            "value": "421"
+          },
+          {
+            "selected": false,
+            "text": "QBT (non-HA)",
+            "value": "422"
+          },
+          {
+            "selected": false,
+            "text": "HA + QBT",
+            "value": "420"
+          }
+        ],
+        "query": "Standard : 423,HA - Deployments : 419,HA - StatefulSets : 421,QBT (non-HA) : 422,HA + QBT : 420",
+        "type": "custom"
+      },
+      {
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "${datasource}"
+        },
+        "description": "Select versions to compare. Use All to include every version.",
+        "includeAll": true,
+        "label": "Version",
+        "multi": true,
+        "name": "version",
+        "query": "SELECT DISTINCT CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END AS version FROM data WHERE (\n  horreum_testid = ${variant}::INTEGER\n  OR (\n    horreum_testid = 391\n    AND (\n      (${variant}::INTEGER = 423\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 419\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments'\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 421\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'statefulSets'\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 422\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n      OR (${variant}::INTEGER = 420\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments'\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n    )\n  )\n)\n AND $__timeFilter(start) AND label_values ? '__deployment_version' ORDER BY version DESC",
+        "refresh": 2,
+        "sort": 0,
+        "type": "query"
+      },
+      {
+        "current": {
+          "text": "1",
+          "value": "1"
+        },
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "${datasource}"
+        },
+        "description": "Select a single concurrency level to compare versions at.",
+        "includeAll": false,
+        "label": "Concurrency",
+        "multi": false,
+        "name": "concurrency",
+        "query": "SELECT DISTINCT (label_values->>'__parameters_test_concurrent')::INTEGER AS concurrency FROM data WHERE (\n  horreum_testid = ${variant}::INTEGER\n  OR (\n    horreum_testid = 391\n    AND (\n      (${variant}::INTEGER = 423\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 419\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments'\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 421\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'statefulSets'\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 422\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n      OR (${variant}::INTEGER = 420\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values->>'__deployment_haConfig_controllerType') = 'deployments'\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n    )\n  )\n)\n AND $__timeFilter(start) AND label_values ? '__parameters_test_concurrent' ORDER BY concurrency",
+        "refresh": 2,
+        "sort": 3,
+        "type": "query"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-14d",
+    "to": "now"
+  },
+  "timezone": "utc",
+  "title": "Pipelines Version Comparison (v2)",
+  "uid": "Pipelines_Version_Comparison_v2"
+}

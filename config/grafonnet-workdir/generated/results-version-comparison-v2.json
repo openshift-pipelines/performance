@@ -1,0 +1,2647 @@
+{
+  "description": "Daily side-by-side version comparison of Tekton Results ingestion, API performance, and component resource usage. Test ID 425.",
+  "editable": true,
+  "graphTooltip": 2,
+  "panels": [
+    {
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "title": "PipelineRun Ingestion",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "Rate at which the Results watcher ingests completed PipelineRuns (records/sec). Higher indicates faster ingestion. Compare across versions to detect watcher performance regressions.",
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "unit": "short"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 1
+      },
+      "id": 2,
+      "options": {
+        "barWidth": 0.84999999999999998,
+        "groupWidth": 0.55000000000000004,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "showValue": "never",
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "WITH daily AS (\n  SELECT\n    TO_CHAR(DATE_TRUNC('day', start), 'MM/DD') AS day,\n    DATE_TRUNC('day', start) AS day_date,\n    CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END AS version,\n    (label_values->>'__results_PipelineRuns_ingestion_throughput')::DOUBLE PRECISION AS val\n  FROM data\n  WHERE horreum_testid = 425\n    AND $__timeFilter(start)\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END IN ($version)\n    AND label_values ? '__results_PipelineRuns_ingestion_throughput'\n)\nSELECT day, version, AVG(val) AS value\nFROM daily\nGROUP BY day, version\nORDER BY MIN(day_date),\n  CASE WHEN version = 'nightly' THEN 0 ELSE 1 END,\n  version ASC\n",
+          "refId": "A"
+        }
+      ],
+      "title": "PR Ingestion Throughput",
+      "transformations": [
+        {
+          "id": "groupingToMatrix",
+          "options": {
+            "columnField": "version",
+            "rowField": "day",
+            "valueField": "value"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "1.0": 2,
+              "1.1": 3,
+              "1.10": 12,
+              "1.11": 13,
+              "1.12": 14,
+              "1.13": 15,
+              "1.14": 16,
+              "1.15": 17,
+              "1.16": 18,
+              "1.17": 19,
+              "1.18": 20,
+              "1.19": 21,
+              "1.2": 4,
+              "1.20": 22,
+              "1.21": 23,
+              "1.22": 24,
+              "1.23": 25,
+              "1.24": 26,
+              "1.25": 27,
+              "1.26": 28,
+              "1.27": 29,
+              "1.28": 30,
+              "1.29": 31,
+              "1.3": 5,
+              "1.30": 32,
+              "1.31": 33,
+              "1.32": 34,
+              "1.33": 35,
+              "1.34": 36,
+              "1.35": 37,
+              "1.36": 38,
+              "1.37": 39,
+              "1.38": 40,
+              "1.39": 41,
+              "1.4": 6,
+              "1.40": 42,
+              "1.41": 43,
+              "1.42": 44,
+              "1.43": 45,
+              "1.44": 46,
+              "1.45": 47,
+              "1.46": 48,
+              "1.47": 49,
+              "1.48": 50,
+              "1.49": 51,
+              "1.5": 7,
+              "1.50": 52,
+              "1.6": 8,
+              "1.7": 9,
+              "1.8": 10,
+              "1.9": 11,
+              "day\\version": 0,
+              "nightly": 1
+            }
+          }
+        }
+      ],
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "Total wall-clock time for the Results watcher to ingest all completed PipelineRuns. Lower means the watcher kept up with the pipeline creation rate.",
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "unit": "s"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 9
+      },
+      "id": 3,
+      "options": {
+        "barWidth": 0.84999999999999998,
+        "groupWidth": 0.55000000000000004,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "showValue": "never",
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "WITH daily AS (\n  SELECT\n    TO_CHAR(DATE_TRUNC('day', start), 'MM/DD') AS day,\n    DATE_TRUNC('day', start) AS day_date,\n    CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END AS version,\n    (label_values->>'__results_PipelineRuns_ingestion_duration')::DOUBLE PRECISION AS val\n  FROM data\n  WHERE horreum_testid = 425\n    AND $__timeFilter(start)\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END IN ($version)\n    AND label_values ? '__results_PipelineRuns_ingestion_duration'\n)\nSELECT day, version, AVG(val) AS value\nFROM daily\nGROUP BY day, version\nORDER BY MIN(day_date),\n  CASE WHEN version = 'nightly' THEN 0 ELSE 1 END,\n  version ASC\n",
+          "refId": "A"
+        }
+      ],
+      "title": "PR Ingestion Duration",
+      "transformations": [
+        {
+          "id": "groupingToMatrix",
+          "options": {
+            "columnField": "version",
+            "rowField": "day",
+            "valueField": "value"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "1.0": 2,
+              "1.1": 3,
+              "1.10": 12,
+              "1.11": 13,
+              "1.12": 14,
+              "1.13": 15,
+              "1.14": 16,
+              "1.15": 17,
+              "1.16": 18,
+              "1.17": 19,
+              "1.18": 20,
+              "1.19": 21,
+              "1.2": 4,
+              "1.20": 22,
+              "1.21": 23,
+              "1.22": 24,
+              "1.23": 25,
+              "1.24": 26,
+              "1.25": 27,
+              "1.26": 28,
+              "1.27": 29,
+              "1.28": 30,
+              "1.29": 31,
+              "1.3": 5,
+              "1.30": 32,
+              "1.31": 33,
+              "1.32": 34,
+              "1.33": 35,
+              "1.34": 36,
+              "1.35": 37,
+              "1.36": 38,
+              "1.37": 39,
+              "1.38": 40,
+              "1.39": 41,
+              "1.4": 6,
+              "1.40": 42,
+              "1.41": 43,
+              "1.42": 44,
+              "1.43": 45,
+              "1.44": 46,
+              "1.45": 47,
+              "1.46": 48,
+              "1.47": 49,
+              "1.48": 50,
+              "1.49": 51,
+              "1.5": 7,
+              "1.50": 52,
+              "1.6": 8,
+              "1.7": 9,
+              "1.8": 10,
+              "1.9": 11,
+              "day\\version": 0,
+              "nightly": 1
+            }
+          }
+        }
+      ],
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "Number of PipelineRun records successfully persisted to the Results API database per version per day.",
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "min": 0,
+          "unit": "none"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 17
+      },
+      "id": 4,
+      "options": {
+        "barWidth": 0.84999999999999998,
+        "groupWidth": 0.55000000000000004,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "showValue": "never",
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "WITH daily AS (\n  SELECT\n    TO_CHAR(DATE_TRUNC('day', start), 'MM/DD') AS day,\n    DATE_TRUNC('day', start) AS day_date,\n    CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END AS version,\n    (label_values->>'__results_PipelineRuns_ingestion_count_stored_true')::DOUBLE PRECISION AS val\n  FROM data\n  WHERE horreum_testid = 425\n    AND $__timeFilter(start)\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END IN ($version)\n    AND label_values ? '__results_PipelineRuns_ingestion_count_stored_true'\n)\nSELECT day, version, SUM(val) AS value\nFROM daily\nGROUP BY day, version\nORDER BY MIN(day_date),\n  CASE WHEN version = 'nightly' THEN 0 ELSE 1 END,\n  version ASC\n",
+          "refId": "A"
+        }
+      ],
+      "title": "PR Stored Successfully",
+      "transformations": [
+        {
+          "id": "groupingToMatrix",
+          "options": {
+            "columnField": "version",
+            "rowField": "day",
+            "valueField": "value"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "1.0": 2,
+              "1.1": 3,
+              "1.10": 12,
+              "1.11": 13,
+              "1.12": 14,
+              "1.13": 15,
+              "1.14": 16,
+              "1.15": 17,
+              "1.16": 18,
+              "1.17": 19,
+              "1.18": 20,
+              "1.19": 21,
+              "1.2": 4,
+              "1.20": 22,
+              "1.21": 23,
+              "1.22": 24,
+              "1.23": 25,
+              "1.24": 26,
+              "1.25": 27,
+              "1.26": 28,
+              "1.27": 29,
+              "1.28": 30,
+              "1.29": 31,
+              "1.3": 5,
+              "1.30": 32,
+              "1.31": 33,
+              "1.32": 34,
+              "1.33": 35,
+              "1.34": 36,
+              "1.35": 37,
+              "1.36": 38,
+              "1.37": 39,
+              "1.38": 40,
+              "1.39": 41,
+              "1.4": 6,
+              "1.40": 42,
+              "1.41": 43,
+              "1.42": 44,
+              "1.43": 45,
+              "1.44": 46,
+              "1.45": 47,
+              "1.46": 48,
+              "1.47": 49,
+              "1.48": 50,
+              "1.49": 51,
+              "1.5": 7,
+              "1.50": 52,
+              "1.6": 8,
+              "1.7": 9,
+              "1.8": 10,
+              "1.9": 11,
+              "day\\version": 0,
+              "nightly": 1
+            }
+          }
+        }
+      ],
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "Number of PipelineRun records that failed to persist. Non-zero values indicate API errors, DB write failures, or resource exhaustion.",
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "min": 0,
+          "unit": "none"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 25
+      },
+      "id": 5,
+      "options": {
+        "barWidth": 0.84999999999999998,
+        "groupWidth": 0.55000000000000004,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "showValue": "never",
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "WITH daily AS (\n  SELECT\n    TO_CHAR(DATE_TRUNC('day', start), 'MM/DD') AS day,\n    DATE_TRUNC('day', start) AS day_date,\n    CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END AS version,\n    (label_values->>'__results_PipelineRuns_ingestion_count_stored_false')::DOUBLE PRECISION AS val\n  FROM data\n  WHERE horreum_testid = 425\n    AND $__timeFilter(start)\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END IN ($version)\n    AND label_values ? '__results_PipelineRuns_ingestion_count_stored_false'\n)\nSELECT day, version, SUM(val) AS value\nFROM daily\nGROUP BY day, version\nORDER BY MIN(day_date),\n  CASE WHEN version = 'nightly' THEN 0 ELSE 1 END,\n  version ASC\n",
+          "refId": "A"
+        }
+      ],
+      "title": "PR Store Failures",
+      "transformations": [
+        {
+          "id": "groupingToMatrix",
+          "options": {
+            "columnField": "version",
+            "rowField": "day",
+            "valueField": "value"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "1.0": 2,
+              "1.1": 3,
+              "1.10": 12,
+              "1.11": 13,
+              "1.12": 14,
+              "1.13": 15,
+              "1.14": 16,
+              "1.15": 17,
+              "1.16": 18,
+              "1.17": 19,
+              "1.18": 20,
+              "1.19": 21,
+              "1.2": 4,
+              "1.20": 22,
+              "1.21": 23,
+              "1.22": 24,
+              "1.23": 25,
+              "1.24": 26,
+              "1.25": 27,
+              "1.26": 28,
+              "1.27": 29,
+              "1.28": 30,
+              "1.29": 31,
+              "1.3": 5,
+              "1.30": 32,
+              "1.31": 33,
+              "1.32": 34,
+              "1.33": 35,
+              "1.34": 36,
+              "1.35": 37,
+              "1.36": 38,
+              "1.37": 39,
+              "1.38": 40,
+              "1.39": 41,
+              "1.4": 6,
+              "1.40": 42,
+              "1.41": 43,
+              "1.42": 44,
+              "1.43": 45,
+              "1.44": 46,
+              "1.45": 47,
+              "1.46": 48,
+              "1.47": 49,
+              "1.48": 50,
+              "1.49": 51,
+              "1.5": 7,
+              "1.50": 52,
+              "1.6": 8,
+              "1.7": 9,
+              "1.8": 10,
+              "1.9": 11,
+              "day\\version": 0,
+              "nightly": 1
+            }
+          }
+        }
+      ],
+      "type": "barchart"
+    },
+    {
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 33
+      },
+      "id": 6,
+      "title": "TaskRun Ingestion",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "Rate at which the Results watcher ingests completed TaskRuns (records/sec). Each PipelineRun contains 5 tasks × 10 steps.",
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "unit": "short"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 34
+      },
+      "id": 7,
+      "options": {
+        "barWidth": 0.84999999999999998,
+        "groupWidth": 0.55000000000000004,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "showValue": "never",
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "WITH daily AS (\n  SELECT\n    TO_CHAR(DATE_TRUNC('day', start), 'MM/DD') AS day,\n    DATE_TRUNC('day', start) AS day_date,\n    CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END AS version,\n    (label_values->>'__results_TaskRuns_ingestion_throughput')::DOUBLE PRECISION AS val\n  FROM data\n  WHERE horreum_testid = 425\n    AND $__timeFilter(start)\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END IN ($version)\n    AND label_values ? '__results_TaskRuns_ingestion_throughput'\n)\nSELECT day, version, AVG(val) AS value\nFROM daily\nGROUP BY day, version\nORDER BY MIN(day_date),\n  CASE WHEN version = 'nightly' THEN 0 ELSE 1 END,\n  version ASC\n",
+          "refId": "A"
+        }
+      ],
+      "title": "TR Ingestion Throughput",
+      "transformations": [
+        {
+          "id": "groupingToMatrix",
+          "options": {
+            "columnField": "version",
+            "rowField": "day",
+            "valueField": "value"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "1.0": 2,
+              "1.1": 3,
+              "1.10": 12,
+              "1.11": 13,
+              "1.12": 14,
+              "1.13": 15,
+              "1.14": 16,
+              "1.15": 17,
+              "1.16": 18,
+              "1.17": 19,
+              "1.18": 20,
+              "1.19": 21,
+              "1.2": 4,
+              "1.20": 22,
+              "1.21": 23,
+              "1.22": 24,
+              "1.23": 25,
+              "1.24": 26,
+              "1.25": 27,
+              "1.26": 28,
+              "1.27": 29,
+              "1.28": 30,
+              "1.29": 31,
+              "1.3": 5,
+              "1.30": 32,
+              "1.31": 33,
+              "1.32": 34,
+              "1.33": 35,
+              "1.34": 36,
+              "1.35": 37,
+              "1.36": 38,
+              "1.37": 39,
+              "1.38": 40,
+              "1.39": 41,
+              "1.4": 6,
+              "1.40": 42,
+              "1.41": 43,
+              "1.42": 44,
+              "1.43": 45,
+              "1.44": 46,
+              "1.45": 47,
+              "1.46": 48,
+              "1.47": 49,
+              "1.48": 50,
+              "1.49": 51,
+              "1.5": 7,
+              "1.50": 52,
+              "1.6": 8,
+              "1.7": 9,
+              "1.8": 10,
+              "1.9": 11,
+              "day\\version": 0,
+              "nightly": 1
+            }
+          }
+        }
+      ],
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "Total wall-clock time for the Results watcher to ingest all completed TaskRuns.",
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "unit": "s"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 42
+      },
+      "id": 8,
+      "options": {
+        "barWidth": 0.84999999999999998,
+        "groupWidth": 0.55000000000000004,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "showValue": "never",
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "WITH daily AS (\n  SELECT\n    TO_CHAR(DATE_TRUNC('day', start), 'MM/DD') AS day,\n    DATE_TRUNC('day', start) AS day_date,\n    CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END AS version,\n    (label_values->>'__results_TaskRuns_ingestion_duration')::DOUBLE PRECISION AS val\n  FROM data\n  WHERE horreum_testid = 425\n    AND $__timeFilter(start)\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END IN ($version)\n    AND label_values ? '__results_TaskRuns_ingestion_duration'\n)\nSELECT day, version, AVG(val) AS value\nFROM daily\nGROUP BY day, version\nORDER BY MIN(day_date),\n  CASE WHEN version = 'nightly' THEN 0 ELSE 1 END,\n  version ASC\n",
+          "refId": "A"
+        }
+      ],
+      "title": "TR Ingestion Duration",
+      "transformations": [
+        {
+          "id": "groupingToMatrix",
+          "options": {
+            "columnField": "version",
+            "rowField": "day",
+            "valueField": "value"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "1.0": 2,
+              "1.1": 3,
+              "1.10": 12,
+              "1.11": 13,
+              "1.12": 14,
+              "1.13": 15,
+              "1.14": 16,
+              "1.15": 17,
+              "1.16": 18,
+              "1.17": 19,
+              "1.18": 20,
+              "1.19": 21,
+              "1.2": 4,
+              "1.20": 22,
+              "1.21": 23,
+              "1.22": 24,
+              "1.23": 25,
+              "1.24": 26,
+              "1.25": 27,
+              "1.26": 28,
+              "1.27": 29,
+              "1.28": 30,
+              "1.29": 31,
+              "1.3": 5,
+              "1.30": 32,
+              "1.31": 33,
+              "1.32": 34,
+              "1.33": 35,
+              "1.34": 36,
+              "1.35": 37,
+              "1.36": 38,
+              "1.37": 39,
+              "1.38": 40,
+              "1.39": 41,
+              "1.4": 6,
+              "1.40": 42,
+              "1.41": 43,
+              "1.42": 44,
+              "1.43": 45,
+              "1.44": 46,
+              "1.45": 47,
+              "1.46": 48,
+              "1.47": 49,
+              "1.48": 50,
+              "1.49": 51,
+              "1.5": 7,
+              "1.50": 52,
+              "1.6": 8,
+              "1.7": 9,
+              "1.8": 10,
+              "1.9": 11,
+              "day\\version": 0,
+              "nightly": 1
+            }
+          }
+        }
+      ],
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "Number of TaskRun records successfully persisted to the Results API database per version per day.",
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "min": 0,
+          "unit": "none"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 50
+      },
+      "id": 9,
+      "options": {
+        "barWidth": 0.84999999999999998,
+        "groupWidth": 0.55000000000000004,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "showValue": "never",
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "WITH daily AS (\n  SELECT\n    TO_CHAR(DATE_TRUNC('day', start), 'MM/DD') AS day,\n    DATE_TRUNC('day', start) AS day_date,\n    CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END AS version,\n    (label_values->>'__results_TaskRuns_ingestion_count_stored_true')::DOUBLE PRECISION AS val\n  FROM data\n  WHERE horreum_testid = 425\n    AND $__timeFilter(start)\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END IN ($version)\n    AND label_values ? '__results_TaskRuns_ingestion_count_stored_true'\n)\nSELECT day, version, SUM(val) AS value\nFROM daily\nGROUP BY day, version\nORDER BY MIN(day_date),\n  CASE WHEN version = 'nightly' THEN 0 ELSE 1 END,\n  version ASC\n",
+          "refId": "A"
+        }
+      ],
+      "title": "TR Stored Successfully",
+      "transformations": [
+        {
+          "id": "groupingToMatrix",
+          "options": {
+            "columnField": "version",
+            "rowField": "day",
+            "valueField": "value"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "1.0": 2,
+              "1.1": 3,
+              "1.10": 12,
+              "1.11": 13,
+              "1.12": 14,
+              "1.13": 15,
+              "1.14": 16,
+              "1.15": 17,
+              "1.16": 18,
+              "1.17": 19,
+              "1.18": 20,
+              "1.19": 21,
+              "1.2": 4,
+              "1.20": 22,
+              "1.21": 23,
+              "1.22": 24,
+              "1.23": 25,
+              "1.24": 26,
+              "1.25": 27,
+              "1.26": 28,
+              "1.27": 29,
+              "1.28": 30,
+              "1.29": 31,
+              "1.3": 5,
+              "1.30": 32,
+              "1.31": 33,
+              "1.32": 34,
+              "1.33": 35,
+              "1.34": 36,
+              "1.35": 37,
+              "1.36": 38,
+              "1.37": 39,
+              "1.38": 40,
+              "1.39": 41,
+              "1.4": 6,
+              "1.40": 42,
+              "1.41": 43,
+              "1.42": 44,
+              "1.43": 45,
+              "1.44": 46,
+              "1.45": 47,
+              "1.46": 48,
+              "1.47": 49,
+              "1.48": 50,
+              "1.49": 51,
+              "1.5": 7,
+              "1.50": 52,
+              "1.6": 8,
+              "1.7": 9,
+              "1.8": 10,
+              "1.9": 11,
+              "day\\version": 0,
+              "nightly": 1
+            }
+          }
+        }
+      ],
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "Number of TaskRun records that failed to persist. Non-zero values indicate API errors, DB write failures, or resource exhaustion.",
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "min": 0,
+          "unit": "none"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 58
+      },
+      "id": 10,
+      "options": {
+        "barWidth": 0.84999999999999998,
+        "groupWidth": 0.55000000000000004,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "showValue": "never",
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "WITH daily AS (\n  SELECT\n    TO_CHAR(DATE_TRUNC('day', start), 'MM/DD') AS day,\n    DATE_TRUNC('day', start) AS day_date,\n    CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END AS version,\n    (label_values->>'__results_TaskRuns_ingestion_count_stored_false')::DOUBLE PRECISION AS val\n  FROM data\n  WHERE horreum_testid = 425\n    AND $__timeFilter(start)\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END IN ($version)\n    AND label_values ? '__results_TaskRuns_ingestion_count_stored_false'\n)\nSELECT day, version, SUM(val) AS value\nFROM daily\nGROUP BY day, version\nORDER BY MIN(day_date),\n  CASE WHEN version = 'nightly' THEN 0 ELSE 1 END,\n  version ASC\n",
+          "refId": "A"
+        }
+      ],
+      "title": "TR Store Failures",
+      "transformations": [
+        {
+          "id": "groupingToMatrix",
+          "options": {
+            "columnField": "version",
+            "rowField": "day",
+            "valueField": "value"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "1.0": 2,
+              "1.1": 3,
+              "1.10": 12,
+              "1.11": 13,
+              "1.12": 14,
+              "1.13": 15,
+              "1.14": 16,
+              "1.15": 17,
+              "1.16": 18,
+              "1.17": 19,
+              "1.18": 20,
+              "1.19": 21,
+              "1.2": 4,
+              "1.20": 22,
+              "1.21": 23,
+              "1.22": 24,
+              "1.23": 25,
+              "1.24": 26,
+              "1.25": 27,
+              "1.26": 28,
+              "1.27": 29,
+              "1.28": 30,
+              "1.29": 31,
+              "1.3": 5,
+              "1.30": 32,
+              "1.31": 33,
+              "1.32": 34,
+              "1.33": 35,
+              "1.34": 36,
+              "1.35": 37,
+              "1.36": 38,
+              "1.37": 39,
+              "1.38": 40,
+              "1.39": 41,
+              "1.4": 6,
+              "1.40": 42,
+              "1.41": 43,
+              "1.42": 44,
+              "1.43": 45,
+              "1.44": 46,
+              "1.45": 47,
+              "1.46": 48,
+              "1.47": 49,
+              "1.48": 50,
+              "1.49": 51,
+              "1.5": 7,
+              "1.50": 52,
+              "1.6": 8,
+              "1.7": 9,
+              "1.8": 10,
+              "1.9": 11,
+              "day\\version": 0,
+              "nightly": 1
+            }
+          }
+        }
+      ],
+      "type": "barchart"
+    },
+    {
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 66
+      },
+      "id": 11,
+      "title": "Results API",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "Average response time of the Results API /record endpoint under Locust load test (100 users, 10 spawn/sec, 15 min). Measures single-record fetch latency.",
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "unit": "ms"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 67
+      },
+      "id": 12,
+      "options": {
+        "barWidth": 0.84999999999999998,
+        "groupWidth": 0.55000000000000004,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "showValue": "never",
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "WITH daily AS (\n  SELECT\n    TO_CHAR(DATE_TRUNC('day', start), 'MM/DD') AS day,\n    DATE_TRUNC('day', start) AS day_date,\n    CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END AS version,\n    (label_values->>'__results_ResultsAPI_record_latency_avg')::DOUBLE PRECISION AS val\n  FROM data\n  WHERE horreum_testid = 425\n    AND $__timeFilter(start)\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END IN ($version)\n    AND label_values ? '__results_ResultsAPI_record_latency_avg'\n)\nSELECT day, version, AVG(val) AS value\nFROM daily\nGROUP BY day, version\nORDER BY MIN(day_date),\n  CASE WHEN version = 'nightly' THEN 0 ELSE 1 END,\n  version ASC\n",
+          "refId": "A"
+        }
+      ],
+      "title": "/record Latency (avg)",
+      "transformations": [
+        {
+          "id": "groupingToMatrix",
+          "options": {
+            "columnField": "version",
+            "rowField": "day",
+            "valueField": "value"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "1.0": 2,
+              "1.1": 3,
+              "1.10": 12,
+              "1.11": 13,
+              "1.12": 14,
+              "1.13": 15,
+              "1.14": 16,
+              "1.15": 17,
+              "1.16": 18,
+              "1.17": 19,
+              "1.18": 20,
+              "1.19": 21,
+              "1.2": 4,
+              "1.20": 22,
+              "1.21": 23,
+              "1.22": 24,
+              "1.23": 25,
+              "1.24": 26,
+              "1.25": 27,
+              "1.26": 28,
+              "1.27": 29,
+              "1.28": 30,
+              "1.29": 31,
+              "1.3": 5,
+              "1.30": 32,
+              "1.31": 33,
+              "1.32": 34,
+              "1.33": 35,
+              "1.34": 36,
+              "1.35": 37,
+              "1.36": 38,
+              "1.37": 39,
+              "1.38": 40,
+              "1.39": 41,
+              "1.4": 6,
+              "1.40": 42,
+              "1.41": 43,
+              "1.42": 44,
+              "1.43": 45,
+              "1.44": 46,
+              "1.45": 47,
+              "1.46": 48,
+              "1.47": 49,
+              "1.48": 50,
+              "1.49": 51,
+              "1.5": 7,
+              "1.50": 52,
+              "1.6": 8,
+              "1.7": 9,
+              "1.8": 10,
+              "1.9": 11,
+              "day\\version": 0,
+              "nightly": 1
+            }
+          }
+        }
+      ],
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "Sustained requests per second to the Results API /record endpoint during Locust load test. Higher is better — indicates the API can handle more concurrent fetch requests.",
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "unit": "reqps"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 75
+      },
+      "id": 13,
+      "options": {
+        "barWidth": 0.84999999999999998,
+        "groupWidth": 0.55000000000000004,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "showValue": "never",
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "WITH daily AS (\n  SELECT\n    TO_CHAR(DATE_TRUNC('day', start), 'MM/DD') AS day,\n    DATE_TRUNC('day', start) AS day_date,\n    CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END AS version,\n    (label_values->>'__results_ResultsAPI_record_rps')::DOUBLE PRECISION AS val\n  FROM data\n  WHERE horreum_testid = 425\n    AND $__timeFilter(start)\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END IN ($version)\n    AND label_values ? '__results_ResultsAPI_record_rps'\n)\nSELECT day, version, AVG(val) AS value\nFROM daily\nGROUP BY day, version\nORDER BY MIN(day_date),\n  CASE WHEN version = 'nightly' THEN 0 ELSE 1 END,\n  version ASC\n",
+          "refId": "A"
+        }
+      ],
+      "title": "/record RPS",
+      "transformations": [
+        {
+          "id": "groupingToMatrix",
+          "options": {
+            "columnField": "version",
+            "rowField": "day",
+            "valueField": "value"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "1.0": 2,
+              "1.1": 3,
+              "1.10": 12,
+              "1.11": 13,
+              "1.12": 14,
+              "1.13": 15,
+              "1.14": 16,
+              "1.15": 17,
+              "1.16": 18,
+              "1.17": 19,
+              "1.18": 20,
+              "1.19": 21,
+              "1.2": 4,
+              "1.20": 22,
+              "1.21": 23,
+              "1.22": 24,
+              "1.23": 25,
+              "1.24": 26,
+              "1.25": 27,
+              "1.26": 28,
+              "1.27": 29,
+              "1.28": 30,
+              "1.29": 31,
+              "1.3": 5,
+              "1.30": 32,
+              "1.31": 33,
+              "1.32": 34,
+              "1.33": 35,
+              "1.34": 36,
+              "1.35": 37,
+              "1.36": 38,
+              "1.37": 39,
+              "1.38": 40,
+              "1.39": 41,
+              "1.4": 6,
+              "1.40": 42,
+              "1.41": 43,
+              "1.42": 44,
+              "1.43": 45,
+              "1.44": 46,
+              "1.45": 47,
+              "1.46": 48,
+              "1.47": 49,
+              "1.48": 50,
+              "1.49": 51,
+              "1.5": 7,
+              "1.50": 52,
+              "1.6": 8,
+              "1.7": 9,
+              "1.8": 10,
+              "1.9": 11,
+              "day\\version": 0,
+              "nightly": 1
+            }
+          }
+        }
+      ],
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "Average response time of the Results API /records (list) endpoint under Locust load test. Typically higher than /record due to pagination and result set construction.",
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "unit": "ms"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 83
+      },
+      "id": 14,
+      "options": {
+        "barWidth": 0.84999999999999998,
+        "groupWidth": 0.55000000000000004,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "showValue": "never",
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "WITH daily AS (\n  SELECT\n    TO_CHAR(DATE_TRUNC('day', start), 'MM/DD') AS day,\n    DATE_TRUNC('day', start) AS day_date,\n    CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END AS version,\n    (label_values->>'__results_ResultsAPI_records_latency_avg')::DOUBLE PRECISION AS val\n  FROM data\n  WHERE horreum_testid = 425\n    AND $__timeFilter(start)\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END IN ($version)\n    AND label_values ? '__results_ResultsAPI_records_latency_avg'\n)\nSELECT day, version, AVG(val) AS value\nFROM daily\nGROUP BY day, version\nORDER BY MIN(day_date),\n  CASE WHEN version = 'nightly' THEN 0 ELSE 1 END,\n  version ASC\n",
+          "refId": "A"
+        }
+      ],
+      "title": "/records Latency (avg)",
+      "transformations": [
+        {
+          "id": "groupingToMatrix",
+          "options": {
+            "columnField": "version",
+            "rowField": "day",
+            "valueField": "value"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "1.0": 2,
+              "1.1": 3,
+              "1.10": 12,
+              "1.11": 13,
+              "1.12": 14,
+              "1.13": 15,
+              "1.14": 16,
+              "1.15": 17,
+              "1.16": 18,
+              "1.17": 19,
+              "1.18": 20,
+              "1.19": 21,
+              "1.2": 4,
+              "1.20": 22,
+              "1.21": 23,
+              "1.22": 24,
+              "1.23": 25,
+              "1.24": 26,
+              "1.25": 27,
+              "1.26": 28,
+              "1.27": 29,
+              "1.28": 30,
+              "1.29": 31,
+              "1.3": 5,
+              "1.30": 32,
+              "1.31": 33,
+              "1.32": 34,
+              "1.33": 35,
+              "1.34": 36,
+              "1.35": 37,
+              "1.36": 38,
+              "1.37": 39,
+              "1.38": 40,
+              "1.39": 41,
+              "1.4": 6,
+              "1.40": 42,
+              "1.41": 43,
+              "1.42": 44,
+              "1.43": 45,
+              "1.44": 46,
+              "1.45": 47,
+              "1.46": 48,
+              "1.47": 49,
+              "1.48": 50,
+              "1.49": 51,
+              "1.5": 7,
+              "1.50": 52,
+              "1.6": 8,
+              "1.7": 9,
+              "1.8": 10,
+              "1.9": 11,
+              "day\\version": 0,
+              "nightly": 1
+            }
+          }
+        }
+      ],
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "Sustained requests per second to the Results API /records (list) endpoint during Locust load test. Measures bulk-fetch throughput.",
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "unit": "reqps"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 91
+      },
+      "id": 15,
+      "options": {
+        "barWidth": 0.84999999999999998,
+        "groupWidth": 0.55000000000000004,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "showValue": "never",
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "WITH daily AS (\n  SELECT\n    TO_CHAR(DATE_TRUNC('day', start), 'MM/DD') AS day,\n    DATE_TRUNC('day', start) AS day_date,\n    CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END AS version,\n    (label_values->>'__results_ResultsAPI_records_rps')::DOUBLE PRECISION AS val\n  FROM data\n  WHERE horreum_testid = 425\n    AND $__timeFilter(start)\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END IN ($version)\n    AND label_values ? '__results_ResultsAPI_records_rps'\n)\nSELECT day, version, AVG(val) AS value\nFROM daily\nGROUP BY day, version\nORDER BY MIN(day_date),\n  CASE WHEN version = 'nightly' THEN 0 ELSE 1 END,\n  version ASC\n",
+          "refId": "A"
+        }
+      ],
+      "title": "/records RPS",
+      "transformations": [
+        {
+          "id": "groupingToMatrix",
+          "options": {
+            "columnField": "version",
+            "rowField": "day",
+            "valueField": "value"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "1.0": 2,
+              "1.1": 3,
+              "1.10": 12,
+              "1.11": 13,
+              "1.12": 14,
+              "1.13": 15,
+              "1.14": 16,
+              "1.15": 17,
+              "1.16": 18,
+              "1.17": 19,
+              "1.18": 20,
+              "1.19": 21,
+              "1.2": 4,
+              "1.20": 22,
+              "1.21": 23,
+              "1.22": 24,
+              "1.23": 25,
+              "1.24": 26,
+              "1.25": 27,
+              "1.26": 28,
+              "1.27": 29,
+              "1.28": 30,
+              "1.29": 31,
+              "1.3": 5,
+              "1.30": 32,
+              "1.31": 33,
+              "1.32": 34,
+              "1.33": 35,
+              "1.34": 36,
+              "1.35": 37,
+              "1.36": 38,
+              "1.37": 39,
+              "1.38": 40,
+              "1.39": 41,
+              "1.4": 6,
+              "1.40": 42,
+              "1.41": 43,
+              "1.42": 44,
+              "1.43": 45,
+              "1.44": 46,
+              "1.45": 47,
+              "1.46": 48,
+              "1.47": 49,
+              "1.48": 50,
+              "1.49": 51,
+              "1.5": 7,
+              "1.50": 52,
+              "1.6": 8,
+              "1.7": 9,
+              "1.8": 10,
+              "1.9": 11,
+              "day\\version": 0,
+              "nightly": 1
+            }
+          }
+        }
+      ],
+      "type": "barchart"
+    },
+    {
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 99
+      },
+      "id": 16,
+      "title": "Results Watcher & API Server",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "Mean CPU of the tekton-results-watcher Pod (cores). The watcher watches for completed PipelineRuns/TaskRuns and persists them to the Results API.",
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "unit": "short"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 100
+      },
+      "id": 17,
+      "options": {
+        "barWidth": 0.84999999999999998,
+        "groupWidth": 0.55000000000000004,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "showValue": "never",
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "WITH daily AS (\n  SELECT\n    TO_CHAR(DATE_TRUNC('day', start), 'MM/DD') AS day,\n    DATE_TRUNC('day', start) AS day_date,\n    CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END AS version,\n    (label_values->>'__measurements_tektonResultsWatcher_cpu_mean')::DOUBLE PRECISION AS val\n  FROM data\n  WHERE horreum_testid = 425\n    AND $__timeFilter(start)\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END IN ($version)\n    AND label_values ? '__measurements_tektonResultsWatcher_cpu_mean'\n)\nSELECT day, version, AVG(val) AS value\nFROM daily\nGROUP BY day, version\nORDER BY MIN(day_date),\n  CASE WHEN version = 'nightly' THEN 0 ELSE 1 END,\n  version ASC\n",
+          "refId": "A"
+        }
+      ],
+      "title": "Watcher CPU (mean)",
+      "transformations": [
+        {
+          "id": "groupingToMatrix",
+          "options": {
+            "columnField": "version",
+            "rowField": "day",
+            "valueField": "value"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "1.0": 2,
+              "1.1": 3,
+              "1.10": 12,
+              "1.11": 13,
+              "1.12": 14,
+              "1.13": 15,
+              "1.14": 16,
+              "1.15": 17,
+              "1.16": 18,
+              "1.17": 19,
+              "1.18": 20,
+              "1.19": 21,
+              "1.2": 4,
+              "1.20": 22,
+              "1.21": 23,
+              "1.22": 24,
+              "1.23": 25,
+              "1.24": 26,
+              "1.25": 27,
+              "1.26": 28,
+              "1.27": 29,
+              "1.28": 30,
+              "1.29": 31,
+              "1.3": 5,
+              "1.30": 32,
+              "1.31": 33,
+              "1.32": 34,
+              "1.33": 35,
+              "1.34": 36,
+              "1.35": 37,
+              "1.36": 38,
+              "1.37": 39,
+              "1.38": 40,
+              "1.39": 41,
+              "1.4": 6,
+              "1.40": 42,
+              "1.41": 43,
+              "1.42": 44,
+              "1.43": 45,
+              "1.44": 46,
+              "1.45": 47,
+              "1.46": 48,
+              "1.47": 49,
+              "1.48": 50,
+              "1.49": 51,
+              "1.5": 7,
+              "1.50": 52,
+              "1.6": 8,
+              "1.7": 9,
+              "1.8": 10,
+              "1.9": 11,
+              "day\\version": 0,
+              "nightly": 1
+            }
+          }
+        }
+      ],
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "Mean memory (RSS) of the tekton-results-watcher Pod. High memory may indicate large watch caches or slow GC under high ingestion load.",
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "unit": "bytes"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 108
+      },
+      "id": 18,
+      "options": {
+        "barWidth": 0.84999999999999998,
+        "groupWidth": 0.55000000000000004,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "showValue": "never",
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "WITH daily AS (\n  SELECT\n    TO_CHAR(DATE_TRUNC('day', start), 'MM/DD') AS day,\n    DATE_TRUNC('day', start) AS day_date,\n    CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END AS version,\n    (label_values->>'__measurements_tektonResultsWatcher_memory_mean')::DOUBLE PRECISION AS val\n  FROM data\n  WHERE horreum_testid = 425\n    AND $__timeFilter(start)\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END IN ($version)\n    AND label_values ? '__measurements_tektonResultsWatcher_memory_mean'\n)\nSELECT day, version, AVG(val) AS value\nFROM daily\nGROUP BY day, version\nORDER BY MIN(day_date),\n  CASE WHEN version = 'nightly' THEN 0 ELSE 1 END,\n  version ASC\n",
+          "refId": "A"
+        }
+      ],
+      "title": "Watcher Memory (mean)",
+      "transformations": [
+        {
+          "id": "groupingToMatrix",
+          "options": {
+            "columnField": "version",
+            "rowField": "day",
+            "valueField": "value"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "1.0": 2,
+              "1.1": 3,
+              "1.10": 12,
+              "1.11": 13,
+              "1.12": 14,
+              "1.13": 15,
+              "1.14": 16,
+              "1.15": 17,
+              "1.16": 18,
+              "1.17": 19,
+              "1.18": 20,
+              "1.19": 21,
+              "1.2": 4,
+              "1.20": 22,
+              "1.21": 23,
+              "1.22": 24,
+              "1.23": 25,
+              "1.24": 26,
+              "1.25": 27,
+              "1.26": 28,
+              "1.27": 29,
+              "1.28": 30,
+              "1.29": 31,
+              "1.3": 5,
+              "1.30": 32,
+              "1.31": 33,
+              "1.32": 34,
+              "1.33": 35,
+              "1.34": 36,
+              "1.35": 37,
+              "1.36": 38,
+              "1.37": 39,
+              "1.38": 40,
+              "1.39": 41,
+              "1.4": 6,
+              "1.40": 42,
+              "1.41": 43,
+              "1.42": 44,
+              "1.43": 45,
+              "1.44": 46,
+              "1.45": 47,
+              "1.46": 48,
+              "1.47": 49,
+              "1.48": 50,
+              "1.49": 51,
+              "1.5": 7,
+              "1.50": 52,
+              "1.6": 8,
+              "1.7": 9,
+              "1.8": 10,
+              "1.9": 11,
+              "day\\version": 0,
+              "nightly": 1
+            }
+          }
+        }
+      ],
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "Mean CPU of the tekton-results-api Pod (cores). Serves the Results REST API hit by the Locust load test.",
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "unit": "short"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 116
+      },
+      "id": 19,
+      "options": {
+        "barWidth": 0.84999999999999998,
+        "groupWidth": 0.55000000000000004,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "showValue": "never",
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "WITH daily AS (\n  SELECT\n    TO_CHAR(DATE_TRUNC('day', start), 'MM/DD') AS day,\n    DATE_TRUNC('day', start) AS day_date,\n    CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END AS version,\n    (label_values->>'__measurements_tektonResultsApi_cpu_mean')::DOUBLE PRECISION AS val\n  FROM data\n  WHERE horreum_testid = 425\n    AND $__timeFilter(start)\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END IN ($version)\n    AND label_values ? '__measurements_tektonResultsApi_cpu_mean'\n)\nSELECT day, version, AVG(val) AS value\nFROM daily\nGROUP BY day, version\nORDER BY MIN(day_date),\n  CASE WHEN version = 'nightly' THEN 0 ELSE 1 END,\n  version ASC\n",
+          "refId": "A"
+        }
+      ],
+      "title": "API Server CPU (mean)",
+      "transformations": [
+        {
+          "id": "groupingToMatrix",
+          "options": {
+            "columnField": "version",
+            "rowField": "day",
+            "valueField": "value"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "1.0": 2,
+              "1.1": 3,
+              "1.10": 12,
+              "1.11": 13,
+              "1.12": 14,
+              "1.13": 15,
+              "1.14": 16,
+              "1.15": 17,
+              "1.16": 18,
+              "1.17": 19,
+              "1.18": 20,
+              "1.19": 21,
+              "1.2": 4,
+              "1.20": 22,
+              "1.21": 23,
+              "1.22": 24,
+              "1.23": 25,
+              "1.24": 26,
+              "1.25": 27,
+              "1.26": 28,
+              "1.27": 29,
+              "1.28": 30,
+              "1.29": 31,
+              "1.3": 5,
+              "1.30": 32,
+              "1.31": 33,
+              "1.32": 34,
+              "1.33": 35,
+              "1.34": 36,
+              "1.35": 37,
+              "1.36": 38,
+              "1.37": 39,
+              "1.38": 40,
+              "1.39": 41,
+              "1.4": 6,
+              "1.40": 42,
+              "1.41": 43,
+              "1.42": 44,
+              "1.43": 45,
+              "1.44": 46,
+              "1.45": 47,
+              "1.46": 48,
+              "1.47": 49,
+              "1.48": 50,
+              "1.49": 51,
+              "1.5": 7,
+              "1.50": 52,
+              "1.6": 8,
+              "1.7": 9,
+              "1.8": 10,
+              "1.9": 11,
+              "day\\version": 0,
+              "nightly": 1
+            }
+          }
+        }
+      ],
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "Mean memory (RSS) of the tekton-results-api Pod. High memory may indicate query result caching or connection pool growth under Locust load.",
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "unit": "bytes"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 124
+      },
+      "id": 20,
+      "options": {
+        "barWidth": 0.84999999999999998,
+        "groupWidth": 0.55000000000000004,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "showValue": "never",
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "WITH daily AS (\n  SELECT\n    TO_CHAR(DATE_TRUNC('day', start), 'MM/DD') AS day,\n    DATE_TRUNC('day', start) AS day_date,\n    CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END AS version,\n    (label_values->>'__measurements_tektonResultsApi_memory_mean')::DOUBLE PRECISION AS val\n  FROM data\n  WHERE horreum_testid = 425\n    AND $__timeFilter(start)\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END IN ($version)\n    AND label_values ? '__measurements_tektonResultsApi_memory_mean'\n)\nSELECT day, version, AVG(val) AS value\nFROM daily\nGROUP BY day, version\nORDER BY MIN(day_date),\n  CASE WHEN version = 'nightly' THEN 0 ELSE 1 END,\n  version ASC\n",
+          "refId": "A"
+        }
+      ],
+      "title": "API Server Memory (mean)",
+      "transformations": [
+        {
+          "id": "groupingToMatrix",
+          "options": {
+            "columnField": "version",
+            "rowField": "day",
+            "valueField": "value"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "1.0": 2,
+              "1.1": 3,
+              "1.10": 12,
+              "1.11": 13,
+              "1.12": 14,
+              "1.13": 15,
+              "1.14": 16,
+              "1.15": 17,
+              "1.16": 18,
+              "1.17": 19,
+              "1.18": 20,
+              "1.19": 21,
+              "1.2": 4,
+              "1.20": 22,
+              "1.21": 23,
+              "1.22": 24,
+              "1.23": 25,
+              "1.24": 26,
+              "1.25": 27,
+              "1.26": 28,
+              "1.27": 29,
+              "1.28": 30,
+              "1.29": 31,
+              "1.3": 5,
+              "1.30": 32,
+              "1.31": 33,
+              "1.32": 34,
+              "1.33": 35,
+              "1.34": 36,
+              "1.35": 37,
+              "1.36": 38,
+              "1.37": 39,
+              "1.38": 40,
+              "1.39": 41,
+              "1.4": 6,
+              "1.40": 42,
+              "1.41": 43,
+              "1.42": 44,
+              "1.43": 45,
+              "1.44": 46,
+              "1.45": 47,
+              "1.46": 48,
+              "1.47": 49,
+              "1.48": 50,
+              "1.49": 51,
+              "1.5": 7,
+              "1.50": 52,
+              "1.6": 8,
+              "1.7": 9,
+              "1.8": 10,
+              "1.9": 11,
+              "day\\version": 0,
+              "nightly": 1
+            }
+          }
+        }
+      ],
+      "type": "barchart"
+    },
+    {
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 132
+      },
+      "id": 21,
+      "title": "Pipeline Performance",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "Average wall-clock time from PipelineRun creation to completion. Each pipeline has 5 tasks × 10 steps × 15 log lines. Includes scheduling, execution, and signing overhead.",
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "unit": "s"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 133
+      },
+      "id": 22,
+      "options": {
+        "barWidth": 0.84999999999999998,
+        "groupWidth": 0.55000000000000004,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "showValue": "never",
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "WITH daily AS (\n  SELECT\n    TO_CHAR(DATE_TRUNC('day', start), 'MM/DD') AS day,\n    DATE_TRUNC('day', start) AS day_date,\n    CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END AS version,\n    (label_values->>'__results_PipelineRuns_duration_avg')::DOUBLE PRECISION AS val\n  FROM data\n  WHERE horreum_testid = 425\n    AND $__timeFilter(start)\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END IN ($version)\n    AND label_values ? '__results_PipelineRuns_duration_avg'\n)\nSELECT day, version, AVG(val) AS value\nFROM daily\nGROUP BY day, version\nORDER BY MIN(day_date),\n  CASE WHEN version = 'nightly' THEN 0 ELSE 1 END,\n  version ASC\n",
+          "refId": "A"
+        }
+      ],
+      "title": "PipelineRun Duration (avg)",
+      "transformations": [
+        {
+          "id": "groupingToMatrix",
+          "options": {
+            "columnField": "version",
+            "rowField": "day",
+            "valueField": "value"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "1.0": 2,
+              "1.1": 3,
+              "1.10": 12,
+              "1.11": 13,
+              "1.12": 14,
+              "1.13": 15,
+              "1.14": 16,
+              "1.15": 17,
+              "1.16": 18,
+              "1.17": 19,
+              "1.18": 20,
+              "1.19": 21,
+              "1.2": 4,
+              "1.20": 22,
+              "1.21": 23,
+              "1.22": 24,
+              "1.23": 25,
+              "1.24": 26,
+              "1.25": 27,
+              "1.26": 28,
+              "1.27": 29,
+              "1.28": 30,
+              "1.29": 31,
+              "1.3": 5,
+              "1.30": 32,
+              "1.31": 33,
+              "1.32": 34,
+              "1.33": 35,
+              "1.34": 36,
+              "1.35": 37,
+              "1.36": 38,
+              "1.37": 39,
+              "1.38": 40,
+              "1.39": 41,
+              "1.4": 6,
+              "1.40": 42,
+              "1.41": 43,
+              "1.42": 44,
+              "1.43": 45,
+              "1.44": 46,
+              "1.45": 47,
+              "1.46": 48,
+              "1.47": 49,
+              "1.48": 50,
+              "1.49": 51,
+              "1.5": 7,
+              "1.50": 52,
+              "1.6": 8,
+              "1.7": 9,
+              "1.8": 10,
+              "1.9": 11,
+              "day\\version": 0,
+              "nightly": 1
+            }
+          }
+        }
+      ],
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "Total PipelineRuns that completed successfully. The test creates PRs at a constant rate with 30 concurrent; all should succeed.",
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "min": 0,
+          "unit": "none"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 141
+      },
+      "id": 23,
+      "options": {
+        "barWidth": 0.84999999999999998,
+        "groupWidth": 0.55000000000000004,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "showValue": "never",
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "WITH daily AS (\n  SELECT\n    TO_CHAR(DATE_TRUNC('day', start), 'MM/DD') AS day,\n    DATE_TRUNC('day', start) AS day_date,\n    CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END AS version,\n    (label_values->>'__results_PipelineRuns_count_succeeded')::DOUBLE PRECISION AS val\n  FROM data\n  WHERE horreum_testid = 425\n    AND $__timeFilter(start)\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END IN ($version)\n    AND label_values ? '__results_PipelineRuns_count_succeeded'\n)\nSELECT day, version, SUM(val) AS value\nFROM daily\nGROUP BY day, version\nORDER BY MIN(day_date),\n  CASE WHEN version = 'nightly' THEN 0 ELSE 1 END,\n  version ASC\n",
+          "refId": "A"
+        }
+      ],
+      "title": "PipelineRun Succeeded",
+      "transformations": [
+        {
+          "id": "groupingToMatrix",
+          "options": {
+            "columnField": "version",
+            "rowField": "day",
+            "valueField": "value"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "1.0": 2,
+              "1.1": 3,
+              "1.10": 12,
+              "1.11": 13,
+              "1.12": 14,
+              "1.13": 15,
+              "1.14": 16,
+              "1.15": 17,
+              "1.16": 18,
+              "1.17": 19,
+              "1.18": 20,
+              "1.19": 21,
+              "1.2": 4,
+              "1.20": 22,
+              "1.21": 23,
+              "1.22": 24,
+              "1.23": 25,
+              "1.24": 26,
+              "1.25": 27,
+              "1.26": 28,
+              "1.27": 29,
+              "1.28": 30,
+              "1.29": 31,
+              "1.3": 5,
+              "1.30": 32,
+              "1.31": 33,
+              "1.32": 34,
+              "1.33": 35,
+              "1.34": 36,
+              "1.35": 37,
+              "1.36": 38,
+              "1.37": 39,
+              "1.38": 40,
+              "1.39": 41,
+              "1.4": 6,
+              "1.40": 42,
+              "1.41": 43,
+              "1.42": 44,
+              "1.43": 45,
+              "1.44": 46,
+              "1.45": 47,
+              "1.46": 48,
+              "1.47": 49,
+              "1.48": 50,
+              "1.49": 51,
+              "1.5": 7,
+              "1.50": 52,
+              "1.6": 8,
+              "1.7": 9,
+              "1.8": 10,
+              "1.9": 11,
+              "day\\version": 0,
+              "nightly": 1
+            }
+          }
+        }
+      ],
+      "type": "barchart"
+    },
+    {
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 149
+      },
+      "id": 24,
+      "title": "Cluster & Infrastructure",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "Mean total cluster CPU usage rate (cores) across all nodes. Reflects the combined load of pipeline execution, signing, ingestion, and Locust testing.",
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "unit": "short"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 150
+      },
+      "id": 25,
+      "options": {
+        "barWidth": 0.84999999999999998,
+        "groupWidth": 0.55000000000000004,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "showValue": "never",
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "WITH daily AS (\n  SELECT\n    TO_CHAR(DATE_TRUNC('day', start), 'MM/DD') AS day,\n    DATE_TRUNC('day', start) AS day_date,\n    CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END AS version,\n    (label_values->>'__measurements_clusterCpuUsageSecondsTotalRate_mean')::DOUBLE PRECISION AS val\n  FROM data\n  WHERE horreum_testid = 425\n    AND $__timeFilter(start)\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END IN ($version)\n    AND label_values ? '__measurements_clusterCpuUsageSecondsTotalRate_mean'\n)\nSELECT day, version, AVG(val) AS value\nFROM daily\nGROUP BY day, version\nORDER BY MIN(day_date),\n  CASE WHEN version = 'nightly' THEN 0 ELSE 1 END,\n  version ASC\n",
+          "refId": "A"
+        }
+      ],
+      "title": "Cluster CPU",
+      "transformations": [
+        {
+          "id": "groupingToMatrix",
+          "options": {
+            "columnField": "version",
+            "rowField": "day",
+            "valueField": "value"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "1.0": 2,
+              "1.1": 3,
+              "1.10": 12,
+              "1.11": 13,
+              "1.12": 14,
+              "1.13": 15,
+              "1.14": 16,
+              "1.15": 17,
+              "1.16": 18,
+              "1.17": 19,
+              "1.18": 20,
+              "1.19": 21,
+              "1.2": 4,
+              "1.20": 22,
+              "1.21": 23,
+              "1.22": 24,
+              "1.23": 25,
+              "1.24": 26,
+              "1.25": 27,
+              "1.26": 28,
+              "1.27": 29,
+              "1.28": 30,
+              "1.29": 31,
+              "1.3": 5,
+              "1.30": 32,
+              "1.31": 33,
+              "1.32": 34,
+              "1.33": 35,
+              "1.34": 36,
+              "1.35": 37,
+              "1.36": 38,
+              "1.37": 39,
+              "1.38": 40,
+              "1.39": 41,
+              "1.4": 6,
+              "1.40": 42,
+              "1.41": 43,
+              "1.42": 44,
+              "1.43": 45,
+              "1.44": 46,
+              "1.45": 47,
+              "1.46": 48,
+              "1.47": 49,
+              "1.48": 50,
+              "1.49": 51,
+              "1.5": 7,
+              "1.50": 52,
+              "1.6": 8,
+              "1.7": 9,
+              "1.8": 10,
+              "1.9": 11,
+              "day\\version": 0,
+              "nightly": 1
+            }
+          }
+        }
+      ],
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "Mean total cluster RSS memory across all nodes during the test.",
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "unit": "bytes"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 158
+      },
+      "id": 26,
+      "options": {
+        "barWidth": 0.84999999999999998,
+        "groupWidth": 0.55000000000000004,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "showValue": "never",
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "WITH daily AS (\n  SELECT\n    TO_CHAR(DATE_TRUNC('day', start), 'MM/DD') AS day,\n    DATE_TRUNC('day', start) AS day_date,\n    CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END AS version,\n    (label_values->>'__measurements_clusterMemoryUsageRssTotal_mean')::DOUBLE PRECISION AS val\n  FROM data\n  WHERE horreum_testid = 425\n    AND $__timeFilter(start)\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END IN ($version)\n    AND label_values ? '__measurements_clusterMemoryUsageRssTotal_mean'\n)\nSELECT day, version, AVG(val) AS value\nFROM daily\nGROUP BY day, version\nORDER BY MIN(day_date),\n  CASE WHEN version = 'nightly' THEN 0 ELSE 1 END,\n  version ASC\n",
+          "refId": "A"
+        }
+      ],
+      "title": "Cluster Memory",
+      "transformations": [
+        {
+          "id": "groupingToMatrix",
+          "options": {
+            "columnField": "version",
+            "rowField": "day",
+            "valueField": "value"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "1.0": 2,
+              "1.1": 3,
+              "1.10": 12,
+              "1.11": 13,
+              "1.12": 14,
+              "1.13": 15,
+              "1.14": 16,
+              "1.15": 17,
+              "1.16": 18,
+              "1.17": 19,
+              "1.18": 20,
+              "1.19": 21,
+              "1.2": 4,
+              "1.20": 22,
+              "1.21": 23,
+              "1.22": 24,
+              "1.23": 25,
+              "1.24": 26,
+              "1.25": 27,
+              "1.26": 28,
+              "1.27": 29,
+              "1.28": 30,
+              "1.29": 31,
+              "1.3": 5,
+              "1.30": 32,
+              "1.31": 33,
+              "1.32": 34,
+              "1.33": 35,
+              "1.34": 36,
+              "1.35": 37,
+              "1.36": 38,
+              "1.37": 39,
+              "1.38": 40,
+              "1.39": 41,
+              "1.4": 6,
+              "1.40": 42,
+              "1.41": 43,
+              "1.42": 44,
+              "1.43": 45,
+              "1.44": 46,
+              "1.45": 47,
+              "1.46": 48,
+              "1.47": 49,
+              "1.48": 50,
+              "1.49": 51,
+              "1.5": 7,
+              "1.50": 52,
+              "1.6": 8,
+              "1.7": 9,
+              "1.8": 10,
+              "1.9": 11,
+              "day\\version": 0,
+              "nightly": 1
+            }
+          }
+        }
+      ],
+      "type": "barchart"
+    },
+    {
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 166
+      },
+      "id": 27,
+      "title": "etcd",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "Mean etcd MVCC database total size. Reflects Kubernetes object storage growth from PipelineRun/TaskRun creation.",
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "unit": "bytes"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 167
+      },
+      "id": 28,
+      "options": {
+        "barWidth": 0.84999999999999998,
+        "groupWidth": 0.55000000000000004,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "showValue": "never",
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "WITH daily AS (\n  SELECT\n    TO_CHAR(DATE_TRUNC('day', start), 'MM/DD') AS day,\n    DATE_TRUNC('day', start) AS day_date,\n    CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END AS version,\n    (label_values->>'__measurements_etcdMvccDbTotalSizeInBytesAverage_mean')::DOUBLE PRECISION AS val\n  FROM data\n  WHERE horreum_testid = 425\n    AND $__timeFilter(start)\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END IN ($version)\n    AND label_values ? '__measurements_etcdMvccDbTotalSizeInBytesAverage_mean'\n)\nSELECT day, version, AVG(val) AS value\nFROM daily\nGROUP BY day, version\nORDER BY MIN(day_date),\n  CASE WHEN version = 'nightly' THEN 0 ELSE 1 END,\n  version ASC\n",
+          "refId": "A"
+        }
+      ],
+      "title": "etcd DB Size",
+      "transformations": [
+        {
+          "id": "groupingToMatrix",
+          "options": {
+            "columnField": "version",
+            "rowField": "day",
+            "valueField": "value"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "1.0": 2,
+              "1.1": 3,
+              "1.10": 12,
+              "1.11": 13,
+              "1.12": 14,
+              "1.13": 15,
+              "1.14": 16,
+              "1.15": 17,
+              "1.16": 18,
+              "1.17": 19,
+              "1.18": 20,
+              "1.19": 21,
+              "1.2": 4,
+              "1.20": 22,
+              "1.21": 23,
+              "1.22": 24,
+              "1.23": 25,
+              "1.24": 26,
+              "1.25": 27,
+              "1.26": 28,
+              "1.27": 29,
+              "1.28": 30,
+              "1.29": 31,
+              "1.3": 5,
+              "1.30": 32,
+              "1.31": 33,
+              "1.32": 34,
+              "1.33": 35,
+              "1.34": 36,
+              "1.35": 37,
+              "1.36": 38,
+              "1.37": 39,
+              "1.38": 40,
+              "1.39": 41,
+              "1.4": 6,
+              "1.40": 42,
+              "1.41": 43,
+              "1.42": 44,
+              "1.43": 45,
+              "1.44": 46,
+              "1.45": 47,
+              "1.46": 48,
+              "1.47": 49,
+              "1.48": 50,
+              "1.49": 51,
+              "1.5": 7,
+              "1.50": 52,
+              "1.6": 8,
+              "1.7": 9,
+              "1.8": 10,
+              "1.9": 11,
+              "day\\version": 0,
+              "nightly": 1
+            }
+          }
+        }
+      ],
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${datasource}"
+      },
+      "description": "Mean etcd request latency. High latency indicates etcd is under pressure from the volume of Kubernetes API operations.",
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "unit": "s"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 175
+      },
+      "id": 29,
+      "options": {
+        "barWidth": 0.84999999999999998,
+        "groupWidth": 0.55000000000000004,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "showValue": "never",
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "v11.4.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "WITH daily AS (\n  SELECT\n    TO_CHAR(DATE_TRUNC('day', start), 'MM/DD') AS day,\n    DATE_TRUNC('day', start) AS day_date,\n    CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END AS version,\n    (label_values->>'__measurements_etcdRequestDurationSecondsAverage_mean')::DOUBLE PRECISION AS val\n  FROM data\n  WHERE horreum_testid = 425\n    AND $__timeFilter(start)\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END IN ($version)\n    AND label_values ? '__measurements_etcdRequestDurationSecondsAverage_mean'\n)\nSELECT day, version, AVG(val) AS value\nFROM daily\nGROUP BY day, version\nORDER BY MIN(day_date),\n  CASE WHEN version = 'nightly' THEN 0 ELSE 1 END,\n  version ASC\n",
+          "refId": "A"
+        }
+      ],
+      "title": "etcd Request Duration",
+      "transformations": [
+        {
+          "id": "groupingToMatrix",
+          "options": {
+            "columnField": "version",
+            "rowField": "day",
+            "valueField": "value"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "1.0": 2,
+              "1.1": 3,
+              "1.10": 12,
+              "1.11": 13,
+              "1.12": 14,
+              "1.13": 15,
+              "1.14": 16,
+              "1.15": 17,
+              "1.16": 18,
+              "1.17": 19,
+              "1.18": 20,
+              "1.19": 21,
+              "1.2": 4,
+              "1.20": 22,
+              "1.21": 23,
+              "1.22": 24,
+              "1.23": 25,
+              "1.24": 26,
+              "1.25": 27,
+              "1.26": 28,
+              "1.27": 29,
+              "1.28": 30,
+              "1.29": 31,
+              "1.3": 5,
+              "1.30": 32,
+              "1.31": 33,
+              "1.32": 34,
+              "1.33": 35,
+              "1.34": 36,
+              "1.35": 37,
+              "1.36": 38,
+              "1.37": 39,
+              "1.38": 40,
+              "1.39": 41,
+              "1.4": 6,
+              "1.40": 42,
+              "1.41": 43,
+              "1.42": 44,
+              "1.43": 45,
+              "1.44": 46,
+              "1.45": 47,
+              "1.46": 48,
+              "1.47": 49,
+              "1.48": 50,
+              "1.49": 51,
+              "1.5": 7,
+              "1.50": 52,
+              "1.6": 8,
+              "1.7": 9,
+              "1.8": 10,
+              "1.9": 11,
+              "day\\version": 0,
+              "nightly": 1
+            }
+          }
+        }
+      ],
+      "type": "barchart"
+    }
+  ],
+  "refresh": "5m",
+  "schemaVersion": 39,
+  "tags": [
+    "results",
+    "version-comparison",
+    "performance"
+  ],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "selected": false,
+          "text": "grafana-postgresql-datasource",
+          "value": "grafana-postgresql-datasource"
+        },
+        "description": "PostgreSQL datasource for Results metrics",
+        "label": "Datasource",
+        "name": "datasource",
+        "query": "grafana-postgresql-datasource",
+        "regex": ".*grafana-postgresql-datasource.*",
+        "type": "datasource"
+      },
+      {
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "${datasource}"
+        },
+        "description": "Select versions to compare. Use All to include every version.",
+        "includeAll": true,
+        "label": "Version",
+        "multi": true,
+        "name": "version",
+        "query": "SELECT DISTINCT CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END AS version FROM data WHERE horreum_testid = 425 AND $__timeFilter(start) AND label_values ? '__deployment_version' ORDER BY version DESC",
+        "refresh": 2,
+        "sort": 0,
+        "type": "query"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-14d",
+    "to": "now"
+  },
+  "timezone": "utc",
+  "title": "Results Version Comparison (v2)",
+  "uid": "Results_Version_Comparison_v2"
+}

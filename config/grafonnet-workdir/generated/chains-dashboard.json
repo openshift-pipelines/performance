@@ -1,7 +1,7 @@
 {
-  "description": "OpenShift Pipelines Chains signing performance. Tracks signing throughput, duration, Chains controller resources, and cluster health across different test_total values (500, 1000, 1500).",
+  "description": "OpenShift Pipelines Chains signing performance trends per variant and version. Includes historical data from legacy test 418 and new per-variant tests (427-430). Select a variant, version, and test total to track regressions over time.",
   "editable": true,
-  "graphTooltip": 1,
+  "graphTooltip": 2,
   "panels": [
     {
       "gridPos": {
@@ -24,8 +24,10 @@
         "defaults": {
           "custom": {
             "drawStyle": "line",
-            "fillOpacity": 0,
-            "pointSize": 7,
+            "fillOpacity": 8,
+            "gradientMode": "opacity",
+            "lineWidth": 2,
+            "pointSize": 6,
             "showPoints": "always",
             "spanNulls": false
           },
@@ -40,11 +42,22 @@
         "y": 1
       },
       "id": 2,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
       "pluginVersion": "v11.4.0",
       "targets": [
         {
           "format": "time_series",
-          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_total')::INTEGER AS test_total,\n    AVG((label_values->>'__results_PipelineRuns_signing_throughput')::DOUBLE PRECISION) AS pr_throughput\n  FROM data\n  WHERE horreum_testid = 418\n    AND $__timeFilter(start)\n    AND (label_values->>'__parameters_test_total')::INTEGER IN ($test_total)\n\n    AND (\n  ('$deploy_config' = 'standard' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'ha' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'qbt' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n  OR ('$deploy_config' = 'ha-qbt' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n)\n\n    AND (\n  ('$version' = 'nightly' AND (label_values ? '__deployment_nightly') AND (label_values->>'__deployment_nightly')::BOOLEAN = true)\n  OR ('$version' != 'nightly' AND (label_values->>'__deployment_version') = '$version')\n)\n\n    AND label_values ? '__results_PipelineRuns_signing_throughput'\n  GROUP BY day, test_total\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'pr_throughput @ ' || test_total AS metric,\n  pr_throughput AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
+          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_total')::INTEGER AS test_total,\n    AVG((label_values->>'__results_PipelineRuns_signing_throughput')::DOUBLE PRECISION) AS pr_throughput\n  FROM data\n  WHERE (\n  horreum_testid = ${variant}::INTEGER\n  OR (\n    horreum_testid = 418\n    AND (\n      (${variant}::INTEGER = 427\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 428\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 429\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n      OR (${variant}::INTEGER = 430\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n    )\n  )\n)\n\n    AND $__timeFilter(start)\n    AND (label_values->>'__parameters_test_total')::INTEGER IN ($test_total)\n\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END = '${version}'\n\n    AND label_values ? '__results_PipelineRuns_signing_throughput'\n  GROUP BY day, test_total\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'pr_throughput @ t' || test_total AS metric,\n  pr_throughput AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
           "refId": "A"
         }
       ],
@@ -56,13 +69,15 @@
         "type": "grafana-postgresql-datasource",
         "uid": "${datasource}"
       },
-      "description": "TaskRun signing throughput (signed runs per second). Higher is better. Computed as signed_count / signing_window_duration.",
+      "description": "TaskRun signing throughput (signed runs per second). Higher is better.",
       "fieldConfig": {
         "defaults": {
           "custom": {
             "drawStyle": "line",
-            "fillOpacity": 0,
-            "pointSize": 7,
+            "fillOpacity": 8,
+            "gradientMode": "opacity",
+            "lineWidth": 2,
+            "pointSize": 6,
             "showPoints": "always",
             "spanNulls": false
           },
@@ -77,11 +92,22 @@
         "y": 1
       },
       "id": 3,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
       "pluginVersion": "v11.4.0",
       "targets": [
         {
           "format": "time_series",
-          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_total')::INTEGER AS test_total,\n    AVG((label_values->>'__results_TaskRuns_signing_throughput')::DOUBLE PRECISION) AS tr_throughput\n  FROM data\n  WHERE horreum_testid = 418\n    AND $__timeFilter(start)\n    AND (label_values->>'__parameters_test_total')::INTEGER IN ($test_total)\n\n    AND (\n  ('$deploy_config' = 'standard' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'ha' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'qbt' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n  OR ('$deploy_config' = 'ha-qbt' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n)\n\n    AND (\n  ('$version' = 'nightly' AND (label_values ? '__deployment_nightly') AND (label_values->>'__deployment_nightly')::BOOLEAN = true)\n  OR ('$version' != 'nightly' AND (label_values->>'__deployment_version') = '$version')\n)\n\n    AND label_values ? '__results_TaskRuns_signing_throughput'\n  GROUP BY day, test_total\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'tr_throughput @ ' || test_total AS metric,\n  tr_throughput AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
+          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_total')::INTEGER AS test_total,\n    AVG((label_values->>'__results_TaskRuns_signing_throughput')::DOUBLE PRECISION) AS tr_throughput\n  FROM data\n  WHERE (\n  horreum_testid = ${variant}::INTEGER\n  OR (\n    horreum_testid = 418\n    AND (\n      (${variant}::INTEGER = 427\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 428\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 429\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n      OR (${variant}::INTEGER = 430\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n    )\n  )\n)\n\n    AND $__timeFilter(start)\n    AND (label_values->>'__parameters_test_total')::INTEGER IN ($test_total)\n\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END = '${version}'\n\n    AND label_values ? '__results_TaskRuns_signing_throughput'\n  GROUP BY day, test_total\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'tr_throughput @ t' || test_total AS metric,\n  tr_throughput AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
           "refId": "A"
         }
       ],
@@ -93,13 +119,15 @@
         "type": "grafana-postgresql-datasource",
         "uid": "${datasource}"
       },
-      "description": "Total wall-clock time of the PipelineRun signing window (last signed_at - first signed_at). Lower is better — indicates how quickly Chains processes the entire batch.",
+      "description": "Total wall-clock time of the PipelineRun signing window (last signed_at - first signed_at). Lower is better.",
       "fieldConfig": {
         "defaults": {
           "custom": {
             "drawStyle": "line",
-            "fillOpacity": 0,
-            "pointSize": 7,
+            "fillOpacity": 8,
+            "gradientMode": "opacity",
+            "lineWidth": 2,
+            "pointSize": 6,
             "showPoints": "always",
             "spanNulls": false
           },
@@ -114,11 +142,22 @@
         "y": 9
       },
       "id": 4,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
       "pluginVersion": "v11.4.0",
       "targets": [
         {
           "format": "time_series",
-          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_total')::INTEGER AS test_total,\n    AVG((label_values->>'__results_PipelineRuns_signing_duration')::DOUBLE PRECISION) AS pr_sign_duration\n  FROM data\n  WHERE horreum_testid = 418\n    AND $__timeFilter(start)\n    AND (label_values->>'__parameters_test_total')::INTEGER IN ($test_total)\n\n    AND (\n  ('$deploy_config' = 'standard' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'ha' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'qbt' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n  OR ('$deploy_config' = 'ha-qbt' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n)\n\n    AND (\n  ('$version' = 'nightly' AND (label_values ? '__deployment_nightly') AND (label_values->>'__deployment_nightly')::BOOLEAN = true)\n  OR ('$version' != 'nightly' AND (label_values->>'__deployment_version') = '$version')\n)\n\n    AND label_values ? '__results_PipelineRuns_signing_duration'\n  GROUP BY day, test_total\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'pr_sign_duration @ ' || test_total AS metric,\n  pr_sign_duration AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
+          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_total')::INTEGER AS test_total,\n    AVG((label_values->>'__results_PipelineRuns_signing_duration')::DOUBLE PRECISION) AS pr_sign_duration\n  FROM data\n  WHERE (\n  horreum_testid = ${variant}::INTEGER\n  OR (\n    horreum_testid = 418\n    AND (\n      (${variant}::INTEGER = 427\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 428\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 429\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n      OR (${variant}::INTEGER = 430\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n    )\n  )\n)\n\n    AND $__timeFilter(start)\n    AND (label_values->>'__parameters_test_total')::INTEGER IN ($test_total)\n\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END = '${version}'\n\n    AND label_values ? '__results_PipelineRuns_signing_duration'\n  GROUP BY day, test_total\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'pr_sign_duration @ t' || test_total AS metric,\n  pr_sign_duration AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
           "refId": "A"
         }
       ],
@@ -130,13 +169,15 @@
         "type": "grafana-postgresql-datasource",
         "uid": "${datasource}"
       },
-      "description": "Total wall-clock time of the TaskRun signing window (last signed_at - first signed_at). Lower is better.",
+      "description": "Total wall-clock time of the TaskRun signing window. Lower is better.",
       "fieldConfig": {
         "defaults": {
           "custom": {
             "drawStyle": "line",
-            "fillOpacity": 0,
-            "pointSize": 7,
+            "fillOpacity": 8,
+            "gradientMode": "opacity",
+            "lineWidth": 2,
+            "pointSize": 6,
             "showPoints": "always",
             "spanNulls": false
           },
@@ -151,11 +192,22 @@
         "y": 9
       },
       "id": 5,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
       "pluginVersion": "v11.4.0",
       "targets": [
         {
           "format": "time_series",
-          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_total')::INTEGER AS test_total,\n    AVG((label_values->>'__results_TaskRuns_signing_duration')::DOUBLE PRECISION) AS tr_sign_duration\n  FROM data\n  WHERE horreum_testid = 418\n    AND $__timeFilter(start)\n    AND (label_values->>'__parameters_test_total')::INTEGER IN ($test_total)\n\n    AND (\n  ('$deploy_config' = 'standard' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'ha' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'qbt' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n  OR ('$deploy_config' = 'ha-qbt' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n)\n\n    AND (\n  ('$version' = 'nightly' AND (label_values ? '__deployment_nightly') AND (label_values->>'__deployment_nightly')::BOOLEAN = true)\n  OR ('$version' != 'nightly' AND (label_values->>'__deployment_version') = '$version')\n)\n\n    AND label_values ? '__results_TaskRuns_signing_duration'\n  GROUP BY day, test_total\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'tr_sign_duration @ ' || test_total AS metric,\n  tr_sign_duration AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
+          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_total')::INTEGER AS test_total,\n    AVG((label_values->>'__results_TaskRuns_signing_duration')::DOUBLE PRECISION) AS tr_sign_duration\n  FROM data\n  WHERE (\n  horreum_testid = ${variant}::INTEGER\n  OR (\n    horreum_testid = 418\n    AND (\n      (${variant}::INTEGER = 427\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 428\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 429\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n      OR (${variant}::INTEGER = 430\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n    )\n  )\n)\n\n    AND $__timeFilter(start)\n    AND (label_values->>'__parameters_test_total')::INTEGER IN ($test_total)\n\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END = '${version}'\n\n    AND label_values ? '__results_TaskRuns_signing_duration'\n  GROUP BY day, test_total\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'tr_sign_duration @ t' || test_total AS metric,\n  tr_sign_duration AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
           "refId": "A"
         }
       ],
@@ -172,8 +224,10 @@
         "defaults": {
           "custom": {
             "drawStyle": "line",
-            "fillOpacity": 0,
-            "pointSize": 7,
+            "fillOpacity": 8,
+            "gradientMode": "opacity",
+            "lineWidth": 2,
+            "pointSize": 6,
             "showPoints": "always",
             "spanNulls": false
           },
@@ -188,11 +242,22 @@
         "y": 17
       },
       "id": 6,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
       "pluginVersion": "v11.4.0",
       "targets": [
         {
           "format": "time_series",
-          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_total')::INTEGER AS test_total,\n    AVG((label_values->>'__results_PipelineRuns_signing_count_signed_false')::DOUBLE PRECISION) AS pr_sign_failed,\n    AVG((label_values->>'__results_PipelineRuns_signing_count_signed_true')::DOUBLE PRECISION) AS pr_signed,\n    AVG((label_values->>'__results_PipelineRuns_signing_count_unsigned')::DOUBLE PRECISION) AS pr_unsigned\n  FROM data\n  WHERE horreum_testid = 418\n    AND $__timeFilter(start)\n    AND (label_values->>'__parameters_test_total')::INTEGER IN ($test_total)\n\n    AND (\n  ('$deploy_config' = 'standard' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'ha' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'qbt' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n  OR ('$deploy_config' = 'ha-qbt' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n)\n\n    AND (\n  ('$version' = 'nightly' AND (label_values ? '__deployment_nightly') AND (label_values->>'__deployment_nightly')::BOOLEAN = true)\n  OR ('$version' != 'nightly' AND (label_values->>'__deployment_version') = '$version')\n)\n\n    AND label_values ? '__results_PipelineRuns_signing_count_signed_false'\n    AND label_values ? '__results_PipelineRuns_signing_count_signed_true'\n    AND label_values ? '__results_PipelineRuns_signing_count_unsigned'\n  GROUP BY day, test_total\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'pr_sign_failed @ ' || test_total AS metric,\n  pr_sign_failed AS value\nFROM daily_agg\n\n\nUNION ALL\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'pr_signed @ ' || test_total AS metric,\n  pr_signed AS value\nFROM daily_agg\n\n\nUNION ALL\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'pr_unsigned @ ' || test_total AS metric,\n  pr_unsigned AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
+          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_total')::INTEGER AS test_total,\n    AVG((label_values->>'__results_PipelineRuns_signing_count_signed_false')::DOUBLE PRECISION) AS pr_sign_failed,\n    AVG((label_values->>'__results_PipelineRuns_signing_count_signed_true')::DOUBLE PRECISION) AS pr_signed,\n    AVG((label_values->>'__results_PipelineRuns_signing_count_unsigned')::DOUBLE PRECISION) AS pr_unsigned\n  FROM data\n  WHERE (\n  horreum_testid = ${variant}::INTEGER\n  OR (\n    horreum_testid = 418\n    AND (\n      (${variant}::INTEGER = 427\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 428\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 429\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n      OR (${variant}::INTEGER = 430\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n    )\n  )\n)\n\n    AND $__timeFilter(start)\n    AND (label_values->>'__parameters_test_total')::INTEGER IN ($test_total)\n\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END = '${version}'\n\n    AND label_values ? '__results_PipelineRuns_signing_count_signed_false'\n    AND label_values ? '__results_PipelineRuns_signing_count_signed_true'\n    AND label_values ? '__results_PipelineRuns_signing_count_unsigned'\n  GROUP BY day, test_total\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'pr_sign_failed @ t' || test_total AS metric,\n  pr_sign_failed AS value\nFROM daily_agg\n\n\nUNION ALL\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'pr_signed @ t' || test_total AS metric,\n  pr_signed AS value\nFROM daily_agg\n\n\nUNION ALL\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'pr_unsigned @ t' || test_total AS metric,\n  pr_unsigned AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
           "refId": "A"
         }
       ],
@@ -204,13 +269,15 @@
         "type": "grafana-postgresql-datasource",
         "uid": "${datasource}"
       },
-      "description": "TaskRun signing outcome breakdown:\n- **tr_signed**: successfully signed\n- **tr_unsigned**: never signed (still pending)\n- **tr_sign_failed**: signing attempted but failed",
+      "description": "TaskRun signing outcome breakdown:\n- **tr_signed**: successfully signed\n- **tr_unsigned**: never signed\n- **tr_sign_failed**: signing failed",
       "fieldConfig": {
         "defaults": {
           "custom": {
             "drawStyle": "line",
-            "fillOpacity": 0,
-            "pointSize": 7,
+            "fillOpacity": 8,
+            "gradientMode": "opacity",
+            "lineWidth": 2,
+            "pointSize": 6,
             "showPoints": "always",
             "spanNulls": false
           },
@@ -225,11 +292,22 @@
         "y": 17
       },
       "id": 7,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
       "pluginVersion": "v11.4.0",
       "targets": [
         {
           "format": "time_series",
-          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_total')::INTEGER AS test_total,\n    AVG((label_values->>'__results_TaskRuns_signing_count_signed_false')::DOUBLE PRECISION) AS tr_sign_failed,\n    AVG((label_values->>'__results_TaskRuns_signing_count_signed_true')::DOUBLE PRECISION) AS tr_signed,\n    AVG((label_values->>'__results_TaskRuns_signing_count_unsigned')::DOUBLE PRECISION) AS tr_unsigned\n  FROM data\n  WHERE horreum_testid = 418\n    AND $__timeFilter(start)\n    AND (label_values->>'__parameters_test_total')::INTEGER IN ($test_total)\n\n    AND (\n  ('$deploy_config' = 'standard' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'ha' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'qbt' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n  OR ('$deploy_config' = 'ha-qbt' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n)\n\n    AND (\n  ('$version' = 'nightly' AND (label_values ? '__deployment_nightly') AND (label_values->>'__deployment_nightly')::BOOLEAN = true)\n  OR ('$version' != 'nightly' AND (label_values->>'__deployment_version') = '$version')\n)\n\n    AND label_values ? '__results_TaskRuns_signing_count_signed_false'\n    AND label_values ? '__results_TaskRuns_signing_count_signed_true'\n    AND label_values ? '__results_TaskRuns_signing_count_unsigned'\n  GROUP BY day, test_total\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'tr_sign_failed @ ' || test_total AS metric,\n  tr_sign_failed AS value\nFROM daily_agg\n\n\nUNION ALL\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'tr_signed @ ' || test_total AS metric,\n  tr_signed AS value\nFROM daily_agg\n\n\nUNION ALL\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'tr_unsigned @ ' || test_total AS metric,\n  tr_unsigned AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
+          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_total')::INTEGER AS test_total,\n    AVG((label_values->>'__results_TaskRuns_signing_count_signed_false')::DOUBLE PRECISION) AS tr_sign_failed,\n    AVG((label_values->>'__results_TaskRuns_signing_count_signed_true')::DOUBLE PRECISION) AS tr_signed,\n    AVG((label_values->>'__results_TaskRuns_signing_count_unsigned')::DOUBLE PRECISION) AS tr_unsigned\n  FROM data\n  WHERE (\n  horreum_testid = ${variant}::INTEGER\n  OR (\n    horreum_testid = 418\n    AND (\n      (${variant}::INTEGER = 427\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 428\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 429\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n      OR (${variant}::INTEGER = 430\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n    )\n  )\n)\n\n    AND $__timeFilter(start)\n    AND (label_values->>'__parameters_test_total')::INTEGER IN ($test_total)\n\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END = '${version}'\n\n    AND label_values ? '__results_TaskRuns_signing_count_signed_false'\n    AND label_values ? '__results_TaskRuns_signing_count_signed_true'\n    AND label_values ? '__results_TaskRuns_signing_count_unsigned'\n  GROUP BY day, test_total\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'tr_sign_failed @ t' || test_total AS metric,\n  tr_sign_failed AS value\nFROM daily_agg\n\n\nUNION ALL\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'tr_signed @ t' || test_total AS metric,\n  tr_signed AS value\nFROM daily_agg\n\n\nUNION ALL\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'tr_unsigned @ t' || test_total AS metric,\n  tr_unsigned AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
           "refId": "A"
         }
       ],
@@ -257,8 +335,10 @@
         "defaults": {
           "custom": {
             "drawStyle": "line",
-            "fillOpacity": 0,
-            "pointSize": 7,
+            "fillOpacity": 8,
+            "gradientMode": "opacity",
+            "lineWidth": 2,
+            "pointSize": 6,
             "showPoints": "always",
             "spanNulls": false
           },
@@ -273,11 +353,22 @@
         "y": 26
       },
       "id": 9,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
       "pluginVersion": "v11.4.0",
       "targets": [
         {
           "format": "time_series",
-          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_total')::INTEGER AS test_total,\n    AVG((label_values->>'__results_PipelineRuns_count_succeeded')::DOUBLE PRECISION) AS pr_succeeded\n  FROM data\n  WHERE horreum_testid = 418\n    AND $__timeFilter(start)\n    AND (label_values->>'__parameters_test_total')::INTEGER IN ($test_total)\n\n    AND (\n  ('$deploy_config' = 'standard' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'ha' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'qbt' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n  OR ('$deploy_config' = 'ha-qbt' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n)\n\n    AND (\n  ('$version' = 'nightly' AND (label_values ? '__deployment_nightly') AND (label_values->>'__deployment_nightly')::BOOLEAN = true)\n  OR ('$version' != 'nightly' AND (label_values->>'__deployment_version') = '$version')\n)\n\n    AND label_values ? '__results_PipelineRuns_count_succeeded'\n  GROUP BY day, test_total\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'pr_succeeded @ ' || test_total AS metric,\n  pr_succeeded AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
+          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_total')::INTEGER AS test_total,\n    AVG((label_values->>'__results_PipelineRuns_count_succeeded')::DOUBLE PRECISION) AS pr_succeeded\n  FROM data\n  WHERE (\n  horreum_testid = ${variant}::INTEGER\n  OR (\n    horreum_testid = 418\n    AND (\n      (${variant}::INTEGER = 427\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 428\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 429\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n      OR (${variant}::INTEGER = 430\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n    )\n  )\n)\n\n    AND $__timeFilter(start)\n    AND (label_values->>'__parameters_test_total')::INTEGER IN ($test_total)\n\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END = '${version}'\n\n    AND label_values ? '__results_PipelineRuns_count_succeeded'\n  GROUP BY day, test_total\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'pr_succeeded @ t' || test_total AS metric,\n  pr_succeeded AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
           "refId": "A"
         }
       ],
@@ -293,9 +384,12 @@
       "fieldConfig": {
         "defaults": {
           "custom": {
+            "axisSoftMax": 5,
             "drawStyle": "line",
-            "fillOpacity": 0,
-            "pointSize": 7,
+            "fillOpacity": 8,
+            "gradientMode": "opacity",
+            "lineWidth": 2,
+            "pointSize": 6,
             "showPoints": "always",
             "spanNulls": false
           },
@@ -310,11 +404,22 @@
         "y": 26
       },
       "id": 10,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
       "pluginVersion": "v11.4.0",
       "targets": [
         {
           "format": "time_series",
-          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_total')::INTEGER AS test_total,\n    AVG((label_values->>'__results_PipelineRuns_count_failed')::DOUBLE PRECISION) AS pr_failed\n  FROM data\n  WHERE horreum_testid = 418\n    AND $__timeFilter(start)\n    AND (label_values->>'__parameters_test_total')::INTEGER IN ($test_total)\n\n    AND (\n  ('$deploy_config' = 'standard' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'ha' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'qbt' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n  OR ('$deploy_config' = 'ha-qbt' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n)\n\n    AND (\n  ('$version' = 'nightly' AND (label_values ? '__deployment_nightly') AND (label_values->>'__deployment_nightly')::BOOLEAN = true)\n  OR ('$version' != 'nightly' AND (label_values->>'__deployment_version') = '$version')\n)\n\n    AND label_values ? '__results_PipelineRuns_count_failed'\n  GROUP BY day, test_total\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'pr_failed @ ' || test_total AS metric,\n  pr_failed AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
+          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_total')::INTEGER AS test_total,\n    AVG((label_values->>'__results_PipelineRuns_count_failed')::DOUBLE PRECISION) AS pr_failed\n  FROM data\n  WHERE (\n  horreum_testid = ${variant}::INTEGER\n  OR (\n    horreum_testid = 418\n    AND (\n      (${variant}::INTEGER = 427\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 428\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 429\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n      OR (${variant}::INTEGER = 430\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n    )\n  )\n)\n\n    AND $__timeFilter(start)\n    AND (label_values->>'__parameters_test_total')::INTEGER IN ($test_total)\n\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END = '${version}'\n\n    AND label_values ? '__results_PipelineRuns_count_failed'\n  GROUP BY day, test_total\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'pr_failed @ t' || test_total AS metric,\n  pr_failed AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
           "refId": "A"
         }
       ],
@@ -331,8 +436,10 @@
         "defaults": {
           "custom": {
             "drawStyle": "line",
-            "fillOpacity": 0,
-            "pointSize": 7,
+            "fillOpacity": 8,
+            "gradientMode": "opacity",
+            "lineWidth": 2,
+            "pointSize": 6,
             "showPoints": "always",
             "spanNulls": false
           },
@@ -347,11 +454,22 @@
         "y": 34
       },
       "id": 11,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
       "pluginVersion": "v11.4.0",
       "targets": [
         {
           "format": "time_series",
-          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_total')::INTEGER AS test_total,\n    AVG((label_values->>'__results_TaskRuns_count_succeeded')::DOUBLE PRECISION) AS tr_succeeded\n  FROM data\n  WHERE horreum_testid = 418\n    AND $__timeFilter(start)\n    AND (label_values->>'__parameters_test_total')::INTEGER IN ($test_total)\n\n    AND (\n  ('$deploy_config' = 'standard' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'ha' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'qbt' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n  OR ('$deploy_config' = 'ha-qbt' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n)\n\n    AND (\n  ('$version' = 'nightly' AND (label_values ? '__deployment_nightly') AND (label_values->>'__deployment_nightly')::BOOLEAN = true)\n  OR ('$version' != 'nightly' AND (label_values->>'__deployment_version') = '$version')\n)\n\n    AND label_values ? '__results_TaskRuns_count_succeeded'\n  GROUP BY day, test_total\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'tr_succeeded @ ' || test_total AS metric,\n  tr_succeeded AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
+          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_total')::INTEGER AS test_total,\n    AVG((label_values->>'__results_TaskRuns_count_succeeded')::DOUBLE PRECISION) AS tr_succeeded\n  FROM data\n  WHERE (\n  horreum_testid = ${variant}::INTEGER\n  OR (\n    horreum_testid = 418\n    AND (\n      (${variant}::INTEGER = 427\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 428\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 429\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n      OR (${variant}::INTEGER = 430\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n    )\n  )\n)\n\n    AND $__timeFilter(start)\n    AND (label_values->>'__parameters_test_total')::INTEGER IN ($test_total)\n\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END = '${version}'\n\n    AND label_values ? '__results_TaskRuns_count_succeeded'\n  GROUP BY day, test_total\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'tr_succeeded @ t' || test_total AS metric,\n  tr_succeeded AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
           "refId": "A"
         }
       ],
@@ -367,9 +485,12 @@
       "fieldConfig": {
         "defaults": {
           "custom": {
+            "axisSoftMax": 5,
             "drawStyle": "line",
-            "fillOpacity": 0,
-            "pointSize": 7,
+            "fillOpacity": 8,
+            "gradientMode": "opacity",
+            "lineWidth": 2,
+            "pointSize": 6,
             "showPoints": "always",
             "spanNulls": false
           },
@@ -384,11 +505,22 @@
         "y": 34
       },
       "id": 12,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
       "pluginVersion": "v11.4.0",
       "targets": [
         {
           "format": "time_series",
-          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_total')::INTEGER AS test_total,\n    AVG((label_values->>'__results_TaskRuns_count_failed')::DOUBLE PRECISION) AS tr_failed\n  FROM data\n  WHERE horreum_testid = 418\n    AND $__timeFilter(start)\n    AND (label_values->>'__parameters_test_total')::INTEGER IN ($test_total)\n\n    AND (\n  ('$deploy_config' = 'standard' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'ha' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'qbt' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n  OR ('$deploy_config' = 'ha-qbt' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n)\n\n    AND (\n  ('$version' = 'nightly' AND (label_values ? '__deployment_nightly') AND (label_values->>'__deployment_nightly')::BOOLEAN = true)\n  OR ('$version' != 'nightly' AND (label_values->>'__deployment_version') = '$version')\n)\n\n    AND label_values ? '__results_TaskRuns_count_failed'\n  GROUP BY day, test_total\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'tr_failed @ ' || test_total AS metric,\n  tr_failed AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
+          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_total')::INTEGER AS test_total,\n    AVG((label_values->>'__results_TaskRuns_count_failed')::DOUBLE PRECISION) AS tr_failed\n  FROM data\n  WHERE (\n  horreum_testid = ${variant}::INTEGER\n  OR (\n    horreum_testid = 418\n    AND (\n      (${variant}::INTEGER = 427\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 428\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 429\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n      OR (${variant}::INTEGER = 430\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n    )\n  )\n)\n\n    AND $__timeFilter(start)\n    AND (label_values->>'__parameters_test_total')::INTEGER IN ($test_total)\n\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END = '${version}'\n\n    AND label_values ? '__results_TaskRuns_count_failed'\n  GROUP BY day, test_total\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'tr_failed @ t' || test_total AS metric,\n  tr_failed AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
           "refId": "A"
         }
       ],
@@ -411,13 +543,15 @@
         "type": "grafana-postgresql-datasource",
         "uid": "${datasource}"
       },
-      "description": "Tekton Chains controller CPU usage in CPU cores (e.g. 0.5 = 500 millicores).\n- **cpu_mean**: average over the test window\n- **cpu_max**: peak usage\n\nHigh CPU indicates signing is compute-bound (e.g. cryptographic operations).",
+      "description": "Tekton Chains controller CPU usage in CPU cores.\n- **cpu_mean**: average over the test window\n- **cpu_max**: peak usage",
       "fieldConfig": {
         "defaults": {
           "custom": {
             "drawStyle": "line",
-            "fillOpacity": 0,
-            "pointSize": 7,
+            "fillOpacity": 8,
+            "gradientMode": "opacity",
+            "lineWidth": 2,
+            "pointSize": 6,
             "showPoints": "always",
             "spanNulls": false
           },
@@ -432,11 +566,22 @@
         "y": 43
       },
       "id": 14,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
       "pluginVersion": "v11.4.0",
       "targets": [
         {
           "format": "time_series",
-          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_total')::INTEGER AS test_total,\n    AVG((label_values->>'__measurements_tektonChainsController_cpu_max')::DOUBLE PRECISION) AS cpu_max,\n    AVG((label_values->>'__measurements_tektonChainsController_cpu_mean')::DOUBLE PRECISION) AS cpu_mean\n  FROM data\n  WHERE horreum_testid = 418\n    AND $__timeFilter(start)\n    AND (label_values->>'__parameters_test_total')::INTEGER IN ($test_total)\n\n    AND (\n  ('$deploy_config' = 'standard' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'ha' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'qbt' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n  OR ('$deploy_config' = 'ha-qbt' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n)\n\n    AND (\n  ('$version' = 'nightly' AND (label_values ? '__deployment_nightly') AND (label_values->>'__deployment_nightly')::BOOLEAN = true)\n  OR ('$version' != 'nightly' AND (label_values->>'__deployment_version') = '$version')\n)\n\n    AND label_values ? '__measurements_tektonChainsController_cpu_max'\n    AND label_values ? '__measurements_tektonChainsController_cpu_mean'\n  GROUP BY day, test_total\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'cpu_max @ ' || test_total AS metric,\n  cpu_max AS value\nFROM daily_agg\n\n\nUNION ALL\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'cpu_mean @ ' || test_total AS metric,\n  cpu_mean AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
+          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_total')::INTEGER AS test_total,\n    AVG((label_values->>'__measurements_tektonChainsController_cpu_max')::DOUBLE PRECISION) AS cpu_max,\n    AVG((label_values->>'__measurements_tektonChainsController_cpu_mean')::DOUBLE PRECISION) AS cpu_mean\n  FROM data\n  WHERE (\n  horreum_testid = ${variant}::INTEGER\n  OR (\n    horreum_testid = 418\n    AND (\n      (${variant}::INTEGER = 427\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 428\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 429\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n      OR (${variant}::INTEGER = 430\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n    )\n  )\n)\n\n    AND $__timeFilter(start)\n    AND (label_values->>'__parameters_test_total')::INTEGER IN ($test_total)\n\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END = '${version}'\n\n    AND label_values ? '__measurements_tektonChainsController_cpu_max'\n    AND label_values ? '__measurements_tektonChainsController_cpu_mean'\n  GROUP BY day, test_total\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'cpu_max @ t' || test_total AS metric,\n  cpu_max AS value\nFROM daily_agg\n\n\nUNION ALL\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'cpu_mean @ t' || test_total AS metric,\n  cpu_mean AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
           "refId": "A"
         }
       ],
@@ -448,13 +593,15 @@
         "type": "grafana-postgresql-datasource",
         "uid": "${datasource}"
       },
-      "description": "Tekton Chains controller memory (RSS) usage.\n- **mem_mean**: average over the test window\n- **mem_max**: peak usage\n\nGrowing memory may indicate leaks or large attestation payloads.",
+      "description": "Tekton Chains controller memory (RSS) usage.\n- **mem_mean**: average\n- **mem_max**: peak",
       "fieldConfig": {
         "defaults": {
           "custom": {
             "drawStyle": "line",
-            "fillOpacity": 0,
-            "pointSize": 7,
+            "fillOpacity": 8,
+            "gradientMode": "opacity",
+            "lineWidth": 2,
+            "pointSize": 6,
             "showPoints": "always",
             "spanNulls": false
           },
@@ -469,11 +616,22 @@
         "y": 43
       },
       "id": 15,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
       "pluginVersion": "v11.4.0",
       "targets": [
         {
           "format": "time_series",
-          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_total')::INTEGER AS test_total,\n    AVG((label_values->>'__measurements_tektonChainsController_memory_max')::DOUBLE PRECISION) AS mem_max,\n    AVG((label_values->>'__measurements_tektonChainsController_memory_mean')::DOUBLE PRECISION) AS mem_mean\n  FROM data\n  WHERE horreum_testid = 418\n    AND $__timeFilter(start)\n    AND (label_values->>'__parameters_test_total')::INTEGER IN ($test_total)\n\n    AND (\n  ('$deploy_config' = 'standard' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'ha' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'qbt' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n  OR ('$deploy_config' = 'ha-qbt' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n)\n\n    AND (\n  ('$version' = 'nightly' AND (label_values ? '__deployment_nightly') AND (label_values->>'__deployment_nightly')::BOOLEAN = true)\n  OR ('$version' != 'nightly' AND (label_values->>'__deployment_version') = '$version')\n)\n\n    AND label_values ? '__measurements_tektonChainsController_memory_max'\n    AND label_values ? '__measurements_tektonChainsController_memory_mean'\n  GROUP BY day, test_total\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'mem_max @ ' || test_total AS metric,\n  mem_max AS value\nFROM daily_agg\n\n\nUNION ALL\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'mem_mean @ ' || test_total AS metric,\n  mem_mean AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
+          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_total')::INTEGER AS test_total,\n    AVG((label_values->>'__measurements_tektonChainsController_memory_max')::DOUBLE PRECISION) AS mem_max,\n    AVG((label_values->>'__measurements_tektonChainsController_memory_mean')::DOUBLE PRECISION) AS mem_mean\n  FROM data\n  WHERE (\n  horreum_testid = ${variant}::INTEGER\n  OR (\n    horreum_testid = 418\n    AND (\n      (${variant}::INTEGER = 427\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 428\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 429\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n      OR (${variant}::INTEGER = 430\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n    )\n  )\n)\n\n    AND $__timeFilter(start)\n    AND (label_values->>'__parameters_test_total')::INTEGER IN ($test_total)\n\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END = '${version}'\n\n    AND label_values ? '__measurements_tektonChainsController_memory_max'\n    AND label_values ? '__measurements_tektonChainsController_memory_mean'\n  GROUP BY day, test_total\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'mem_max @ t' || test_total AS metric,\n  mem_max AS value\nFROM daily_agg\n\n\nUNION ALL\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'mem_mean @ t' || test_total AS metric,\n  mem_mean AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
           "refId": "A"
         }
       ],
@@ -485,13 +643,15 @@
         "type": "grafana-postgresql-datasource",
         "uid": "${datasource}"
       },
-      "description": "Chains controller workqueue depth.\n- **wq_mean**: average queue depth during the test\n- **wq_max**: peak queue depth\n\nA growing workqueue means the controller cannot sign runs fast enough. Sustained high values indicate a bottleneck.",
+      "description": "Chains controller workqueue depth.\n- **wq_mean**: average queue depth\n- **wq_max**: peak queue depth\n\nSustained high values indicate a signing bottleneck.",
       "fieldConfig": {
         "defaults": {
           "custom": {
             "drawStyle": "line",
-            "fillOpacity": 0,
-            "pointSize": 7,
+            "fillOpacity": 8,
+            "gradientMode": "opacity",
+            "lineWidth": 2,
+            "pointSize": 6,
             "showPoints": "always",
             "spanNulls": false
           },
@@ -506,11 +666,22 @@
         "y": 51
       },
       "id": 16,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
       "pluginVersion": "v11.4.0",
       "targets": [
         {
           "format": "time_series",
-          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_total')::INTEGER AS test_total,\n    AVG((label_values->>'__measurements_tektonChainsControllerWorkqueueDepth_max')::DOUBLE PRECISION) AS wq_max,\n    AVG((label_values->>'__measurements_tektonChainsControllerWorkqueueDepth_mean')::DOUBLE PRECISION) AS wq_mean\n  FROM data\n  WHERE horreum_testid = 418\n    AND $__timeFilter(start)\n    AND (label_values->>'__parameters_test_total')::INTEGER IN ($test_total)\n\n    AND (\n  ('$deploy_config' = 'standard' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'ha' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'qbt' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n  OR ('$deploy_config' = 'ha-qbt' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n)\n\n    AND (\n  ('$version' = 'nightly' AND (label_values ? '__deployment_nightly') AND (label_values->>'__deployment_nightly')::BOOLEAN = true)\n  OR ('$version' != 'nightly' AND (label_values->>'__deployment_version') = '$version')\n)\n\n    AND label_values ? '__measurements_tektonChainsControllerWorkqueueDepth_max'\n    AND label_values ? '__measurements_tektonChainsControllerWorkqueueDepth_mean'\n  GROUP BY day, test_total\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'wq_max @ ' || test_total AS metric,\n  wq_max AS value\nFROM daily_agg\n\n\nUNION ALL\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'wq_mean @ ' || test_total AS metric,\n  wq_mean AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
+          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_total')::INTEGER AS test_total,\n    AVG((label_values->>'__measurements_tektonChainsControllerWorkqueueDepth_max')::DOUBLE PRECISION) AS wq_max,\n    AVG((label_values->>'__measurements_tektonChainsControllerWorkqueueDepth_mean')::DOUBLE PRECISION) AS wq_mean\n  FROM data\n  WHERE (\n  horreum_testid = ${variant}::INTEGER\n  OR (\n    horreum_testid = 418\n    AND (\n      (${variant}::INTEGER = 427\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 428\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 429\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n      OR (${variant}::INTEGER = 430\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n    )\n  )\n)\n\n    AND $__timeFilter(start)\n    AND (label_values->>'__parameters_test_total')::INTEGER IN ($test_total)\n\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END = '${version}'\n\n    AND label_values ? '__measurements_tektonChainsControllerWorkqueueDepth_max'\n    AND label_values ? '__measurements_tektonChainsControllerWorkqueueDepth_mean'\n  GROUP BY day, test_total\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'wq_max @ t' || test_total AS metric,\n  wq_max AS value\nFROM daily_agg\n\n\nUNION ALL\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'wq_mean @ t' || test_total AS metric,\n  wq_mean AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
           "refId": "A"
         }
       ],
@@ -522,13 +693,16 @@
         "type": "grafana-postgresql-datasource",
         "uid": "${datasource}"
       },
-      "description": "Number of Chains controller Pod restarts during the test. Should be 0. Restarts during signing cause missed or delayed signatures.",
+      "description": "Chains controller Pod restarts during the test. Should be 0.",
       "fieldConfig": {
         "defaults": {
           "custom": {
+            "axisSoftMax": 5,
             "drawStyle": "line",
-            "fillOpacity": 0,
-            "pointSize": 7,
+            "fillOpacity": 8,
+            "gradientMode": "opacity",
+            "lineWidth": 2,
+            "pointSize": 6,
             "showPoints": "always",
             "spanNulls": false
           },
@@ -543,11 +717,22 @@
         "y": 51
       },
       "id": 17,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
       "pluginVersion": "v11.4.0",
       "targets": [
         {
           "format": "time_series",
-          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_total')::INTEGER AS test_total,\n    AVG((label_values->>'__measurements_tektonChainsController_restarts_range')::DOUBLE PRECISION) AS chains_restarts\n  FROM data\n  WHERE horreum_testid = 418\n    AND $__timeFilter(start)\n    AND (label_values->>'__parameters_test_total')::INTEGER IN ($test_total)\n\n    AND (\n  ('$deploy_config' = 'standard' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'ha' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'qbt' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n  OR ('$deploy_config' = 'ha-qbt' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n)\n\n    AND (\n  ('$version' = 'nightly' AND (label_values ? '__deployment_nightly') AND (label_values->>'__deployment_nightly')::BOOLEAN = true)\n  OR ('$version' != 'nightly' AND (label_values->>'__deployment_version') = '$version')\n)\n\n    AND label_values ? '__measurements_tektonChainsController_restarts_range'\n  GROUP BY day, test_total\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'chains_restarts @ ' || test_total AS metric,\n  chains_restarts AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
+          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_total')::INTEGER AS test_total,\n    AVG((label_values->>'__measurements_tektonChainsController_restarts_range')::DOUBLE PRECISION) AS chains_restarts\n  FROM data\n  WHERE (\n  horreum_testid = ${variant}::INTEGER\n  OR (\n    horreum_testid = 418\n    AND (\n      (${variant}::INTEGER = 427\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 428\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 429\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n      OR (${variant}::INTEGER = 430\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n    )\n  )\n)\n\n    AND $__timeFilter(start)\n    AND (label_values->>'__parameters_test_total')::INTEGER IN ($test_total)\n\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END = '${version}'\n\n    AND label_values ? '__measurements_tektonChainsController_restarts_range'\n  GROUP BY day, test_total\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'chains_restarts @ t' || test_total AS metric,\n  chains_restarts AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
           "refId": "A"
         }
       ],
@@ -570,13 +755,15 @@
         "type": "grafana-postgresql-datasource",
         "uid": "${datasource}"
       },
-      "description": "Mean total CPU usage rate across all cluster nodes during the test, in CPU cores.",
+      "description": "Mean total CPU usage rate across all cluster nodes, in CPU cores.",
       "fieldConfig": {
         "defaults": {
           "custom": {
             "drawStyle": "line",
-            "fillOpacity": 0,
-            "pointSize": 7,
+            "fillOpacity": 8,
+            "gradientMode": "opacity",
+            "lineWidth": 2,
+            "pointSize": 6,
             "showPoints": "always",
             "spanNulls": false
           },
@@ -591,11 +778,22 @@
         "y": 60
       },
       "id": 19,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
       "pluginVersion": "v11.4.0",
       "targets": [
         {
           "format": "time_series",
-          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_total')::INTEGER AS test_total,\n    AVG((label_values->>'__measurements_clusterCpuUsageSecondsTotalRate_mean')::DOUBLE PRECISION) AS cluster_cpu\n  FROM data\n  WHERE horreum_testid = 418\n    AND $__timeFilter(start)\n    AND (label_values->>'__parameters_test_total')::INTEGER IN ($test_total)\n\n    AND (\n  ('$deploy_config' = 'standard' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'ha' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'qbt' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n  OR ('$deploy_config' = 'ha-qbt' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n)\n\n    AND (\n  ('$version' = 'nightly' AND (label_values ? '__deployment_nightly') AND (label_values->>'__deployment_nightly')::BOOLEAN = true)\n  OR ('$version' != 'nightly' AND (label_values->>'__deployment_version') = '$version')\n)\n\n    AND label_values ? '__measurements_clusterCpuUsageSecondsTotalRate_mean'\n  GROUP BY day, test_total\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'cluster_cpu @ ' || test_total AS metric,\n  cluster_cpu AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
+          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_total')::INTEGER AS test_total,\n    AVG((label_values->>'__measurements_clusterCpuUsageSecondsTotalRate_mean')::DOUBLE PRECISION) AS cluster_cpu\n  FROM data\n  WHERE (\n  horreum_testid = ${variant}::INTEGER\n  OR (\n    horreum_testid = 418\n    AND (\n      (${variant}::INTEGER = 427\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 428\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 429\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n      OR (${variant}::INTEGER = 430\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n    )\n  )\n)\n\n    AND $__timeFilter(start)\n    AND (label_values->>'__parameters_test_total')::INTEGER IN ($test_total)\n\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END = '${version}'\n\n    AND label_values ? '__measurements_clusterCpuUsageSecondsTotalRate_mean'\n  GROUP BY day, test_total\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'cluster_cpu @ t' || test_total AS metric,\n  cluster_cpu AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
           "refId": "A"
         }
       ],
@@ -607,13 +805,15 @@
         "type": "grafana-postgresql-datasource",
         "uid": "${datasource}"
       },
-      "description": "Mean total RSS memory usage across all cluster nodes during the test.",
+      "description": "Mean total RSS memory usage across all cluster nodes.",
       "fieldConfig": {
         "defaults": {
           "custom": {
             "drawStyle": "line",
-            "fillOpacity": 0,
-            "pointSize": 7,
+            "fillOpacity": 8,
+            "gradientMode": "opacity",
+            "lineWidth": 2,
+            "pointSize": 6,
             "showPoints": "always",
             "spanNulls": false
           },
@@ -628,11 +828,22 @@
         "y": 60
       },
       "id": 20,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
       "pluginVersion": "v11.4.0",
       "targets": [
         {
           "format": "time_series",
-          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_total')::INTEGER AS test_total,\n    AVG((label_values->>'__measurements_clusterMemoryUsageRssTotal_mean')::DOUBLE PRECISION) AS cluster_mem\n  FROM data\n  WHERE horreum_testid = 418\n    AND $__timeFilter(start)\n    AND (label_values->>'__parameters_test_total')::INTEGER IN ($test_total)\n\n    AND (\n  ('$deploy_config' = 'standard' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'ha' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'qbt' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n  OR ('$deploy_config' = 'ha-qbt' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n)\n\n    AND (\n  ('$version' = 'nightly' AND (label_values ? '__deployment_nightly') AND (label_values->>'__deployment_nightly')::BOOLEAN = true)\n  OR ('$version' != 'nightly' AND (label_values->>'__deployment_version') = '$version')\n)\n\n    AND label_values ? '__measurements_clusterMemoryUsageRssTotal_mean'\n  GROUP BY day, test_total\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'cluster_mem @ ' || test_total AS metric,\n  cluster_mem AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
+          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_total')::INTEGER AS test_total,\n    AVG((label_values->>'__measurements_clusterMemoryUsageRssTotal_mean')::DOUBLE PRECISION) AS cluster_mem\n  FROM data\n  WHERE (\n  horreum_testid = ${variant}::INTEGER\n  OR (\n    horreum_testid = 418\n    AND (\n      (${variant}::INTEGER = 427\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 428\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 429\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n      OR (${variant}::INTEGER = 430\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n    )\n  )\n)\n\n    AND $__timeFilter(start)\n    AND (label_values->>'__parameters_test_total')::INTEGER IN ($test_total)\n\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END = '${version}'\n\n    AND label_values ? '__measurements_clusterMemoryUsageRssTotal_mean'\n  GROUP BY day, test_total\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'cluster_mem @ t' || test_total AS metric,\n  cluster_mem AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
           "refId": "A"
         }
       ],
@@ -644,13 +855,15 @@
         "type": "grafana-postgresql-datasource",
         "uid": "${datasource}"
       },
-      "description": "Mean CPU usage of OpenShift and Kubernetes API servers.\n- **apiserver_cpu**: openshift-apiserver\n- **kube_apiserver_cpu**: kube-apiserver",
+      "description": "Mean CPU usage of the OpenShift and Kubernetes API servers.",
       "fieldConfig": {
         "defaults": {
           "custom": {
             "drawStyle": "line",
-            "fillOpacity": 0,
-            "pointSize": 7,
+            "fillOpacity": 8,
+            "gradientMode": "opacity",
+            "lineWidth": 2,
+            "pointSize": 6,
             "showPoints": "always",
             "spanNulls": false
           },
@@ -665,15 +878,26 @@
         "y": 68
       },
       "id": 21,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
       "pluginVersion": "v11.4.0",
       "targets": [
         {
           "format": "time_series",
-          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_total')::INTEGER AS test_total,\n    AVG((label_values->>'__measurements_apiserver_cpu_mean')::DOUBLE PRECISION) AS apiserver_cpu,\n    AVG((label_values->>'__measurements_kubeApiserver_cpu_mean')::DOUBLE PRECISION) AS kube_apiserver_cpu\n  FROM data\n  WHERE horreum_testid = 418\n    AND $__timeFilter(start)\n    AND (label_values->>'__parameters_test_total')::INTEGER IN ($test_total)\n\n    AND (\n  ('$deploy_config' = 'standard' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'ha' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'qbt' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n  OR ('$deploy_config' = 'ha-qbt' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n)\n\n    AND (\n  ('$version' = 'nightly' AND (label_values ? '__deployment_nightly') AND (label_values->>'__deployment_nightly')::BOOLEAN = true)\n  OR ('$version' != 'nightly' AND (label_values->>'__deployment_version') = '$version')\n)\n\n    AND label_values ? '__measurements_apiserver_cpu_mean'\n    AND label_values ? '__measurements_kubeApiserver_cpu_mean'\n  GROUP BY day, test_total\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'apiserver_cpu @ ' || test_total AS metric,\n  apiserver_cpu AS value\nFROM daily_agg\n\n\nUNION ALL\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'kube_apiserver_cpu @ ' || test_total AS metric,\n  kube_apiserver_cpu AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
+          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_total')::INTEGER AS test_total,\n    AVG((label_values->>'__measurements_kubeApiserver_cpu_mean')::DOUBLE PRECISION) AS kube_apiserver_cpu,\n    AVG((label_values->>'__measurements_apiserver_cpu_mean')::DOUBLE PRECISION) AS ocp_apiserver_cpu\n  FROM data\n  WHERE (\n  horreum_testid = ${variant}::INTEGER\n  OR (\n    horreum_testid = 418\n    AND (\n      (${variant}::INTEGER = 427\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 428\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 429\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n      OR (${variant}::INTEGER = 430\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n    )\n  )\n)\n\n    AND $__timeFilter(start)\n    AND (label_values->>'__parameters_test_total')::INTEGER IN ($test_total)\n\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END = '${version}'\n\n    AND label_values ? '__measurements_kubeApiserver_cpu_mean'\n    AND label_values ? '__measurements_apiserver_cpu_mean'\n  GROUP BY day, test_total\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'kube_apiserver_cpu @ t' || test_total AS metric,\n  kube_apiserver_cpu AS value\nFROM daily_agg\n\n\nUNION ALL\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'ocp_apiserver_cpu @ t' || test_total AS metric,\n  ocp_apiserver_cpu AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
           "refId": "A"
         }
       ],
-      "title": "API Server CPU Usage (Mean)",
+      "title": "API Server CPU (OpenShift / Kube)",
       "type": "timeseries"
     },
     {
@@ -681,13 +905,15 @@
         "type": "grafana-postgresql-datasource",
         "uid": "${datasource}"
       },
-      "description": "Mean memory usage of OpenShift and Kubernetes API servers.",
+      "description": "Mean memory usage of the OpenShift and Kubernetes API servers.",
       "fieldConfig": {
         "defaults": {
           "custom": {
             "drawStyle": "line",
-            "fillOpacity": 0,
-            "pointSize": 7,
+            "fillOpacity": 8,
+            "gradientMode": "opacity",
+            "lineWidth": 2,
+            "pointSize": 6,
             "showPoints": "always",
             "spanNulls": false
           },
@@ -702,15 +928,26 @@
         "y": 68
       },
       "id": 22,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
       "pluginVersion": "v11.4.0",
       "targets": [
         {
           "format": "time_series",
-          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_total')::INTEGER AS test_total,\n    AVG((label_values->>'__measurements_apiserver_memory_mean')::DOUBLE PRECISION) AS apiserver_mem,\n    AVG((label_values->>'__measurements_kubeApiserver_memory_mean')::DOUBLE PRECISION) AS kube_apiserver_mem\n  FROM data\n  WHERE horreum_testid = 418\n    AND $__timeFilter(start)\n    AND (label_values->>'__parameters_test_total')::INTEGER IN ($test_total)\n\n    AND (\n  ('$deploy_config' = 'standard' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'ha' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'qbt' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n  OR ('$deploy_config' = 'ha-qbt' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n)\n\n    AND (\n  ('$version' = 'nightly' AND (label_values ? '__deployment_nightly') AND (label_values->>'__deployment_nightly')::BOOLEAN = true)\n  OR ('$version' != 'nightly' AND (label_values->>'__deployment_version') = '$version')\n)\n\n    AND label_values ? '__measurements_apiserver_memory_mean'\n    AND label_values ? '__measurements_kubeApiserver_memory_mean'\n  GROUP BY day, test_total\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'apiserver_mem @ ' || test_total AS metric,\n  apiserver_mem AS value\nFROM daily_agg\n\n\nUNION ALL\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'kube_apiserver_mem @ ' || test_total AS metric,\n  kube_apiserver_mem AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
+          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_total')::INTEGER AS test_total,\n    AVG((label_values->>'__measurements_kubeApiserver_memory_mean')::DOUBLE PRECISION) AS kube_apiserver_mem,\n    AVG((label_values->>'__measurements_apiserver_memory_mean')::DOUBLE PRECISION) AS ocp_apiserver_mem\n  FROM data\n  WHERE (\n  horreum_testid = ${variant}::INTEGER\n  OR (\n    horreum_testid = 418\n    AND (\n      (${variant}::INTEGER = 427\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 428\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 429\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n      OR (${variant}::INTEGER = 430\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n    )\n  )\n)\n\n    AND $__timeFilter(start)\n    AND (label_values->>'__parameters_test_total')::INTEGER IN ($test_total)\n\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END = '${version}'\n\n    AND label_values ? '__measurements_kubeApiserver_memory_mean'\n    AND label_values ? '__measurements_apiserver_memory_mean'\n  GROUP BY day, test_total\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'kube_apiserver_mem @ t' || test_total AS metric,\n  kube_apiserver_mem AS value\nFROM daily_agg\n\n\nUNION ALL\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'ocp_apiserver_mem @ t' || test_total AS metric,\n  ocp_apiserver_mem AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
           "refId": "A"
         }
       ],
-      "title": "API Server Memory Usage (Mean)",
+      "title": "API Server Memory (OpenShift / Kube)",
       "type": "timeseries"
     },
     {
@@ -729,13 +966,15 @@
         "type": "grafana-postgresql-datasource",
         "uid": "${datasource}"
       },
-      "description": "Mean etcd MVCC database size.\n- **db_total**: total allocated size on disk\n- **db_in_use**: logical size of live data\n\nChains stores signing metadata in annotations, which increases etcd load.",
+      "description": "Mean etcd MVCC database size.\n- **db_total**: total allocated size on disk\n- **db_in_use**: live data size\n\nChains stores signing metadata in annotations, which increases etcd load.",
       "fieldConfig": {
         "defaults": {
           "custom": {
             "drawStyle": "line",
-            "fillOpacity": 0,
-            "pointSize": 7,
+            "fillOpacity": 8,
+            "gradientMode": "opacity",
+            "lineWidth": 2,
+            "pointSize": 6,
             "showPoints": "always",
             "spanNulls": false
           },
@@ -750,15 +989,26 @@
         "y": 77
       },
       "id": 24,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
       "pluginVersion": "v11.4.0",
       "targets": [
         {
           "format": "time_series",
-          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_total')::INTEGER AS test_total,\n    AVG((label_values->>'__measurements_etcdMvccDbTotalSizeInUseInBytesAverage_mean')::DOUBLE PRECISION) AS db_in_use,\n    AVG((label_values->>'__measurements_etcdMvccDbTotalSizeInBytesAverage_mean')::DOUBLE PRECISION) AS db_total\n  FROM data\n  WHERE horreum_testid = 418\n    AND $__timeFilter(start)\n    AND (label_values->>'__parameters_test_total')::INTEGER IN ($test_total)\n\n    AND (\n  ('$deploy_config' = 'standard' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'ha' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'qbt' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n  OR ('$deploy_config' = 'ha-qbt' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n)\n\n    AND (\n  ('$version' = 'nightly' AND (label_values ? '__deployment_nightly') AND (label_values->>'__deployment_nightly')::BOOLEAN = true)\n  OR ('$version' != 'nightly' AND (label_values->>'__deployment_version') = '$version')\n)\n\n    AND label_values ? '__measurements_etcdMvccDbTotalSizeInUseInBytesAverage_mean'\n    AND label_values ? '__measurements_etcdMvccDbTotalSizeInBytesAverage_mean'\n  GROUP BY day, test_total\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'db_in_use @ ' || test_total AS metric,\n  db_in_use AS value\nFROM daily_agg\n\n\nUNION ALL\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'db_total @ ' || test_total AS metric,\n  db_total AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
+          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_total')::INTEGER AS test_total,\n    AVG((label_values->>'__measurements_etcdMvccDbTotalSizeInUseInBytesAverage_mean')::DOUBLE PRECISION) AS db_in_use,\n    AVG((label_values->>'__measurements_etcdMvccDbTotalSizeInBytesAverage_mean')::DOUBLE PRECISION) AS db_total\n  FROM data\n  WHERE (\n  horreum_testid = ${variant}::INTEGER\n  OR (\n    horreum_testid = 418\n    AND (\n      (${variant}::INTEGER = 427\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 428\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 429\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n      OR (${variant}::INTEGER = 430\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n    )\n  )\n)\n\n    AND $__timeFilter(start)\n    AND (label_values->>'__parameters_test_total')::INTEGER IN ($test_total)\n\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END = '${version}'\n\n    AND label_values ? '__measurements_etcdMvccDbTotalSizeInUseInBytesAverage_mean'\n    AND label_values ? '__measurements_etcdMvccDbTotalSizeInBytesAverage_mean'\n  GROUP BY day, test_total\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'db_in_use @ t' || test_total AS metric,\n  db_in_use AS value\nFROM daily_agg\n\n\nUNION ALL\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'db_total @ t' || test_total AS metric,\n  db_total AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
           "refId": "A"
         }
       ],
-      "title": "etcd MVCC DB Size (Mean)",
+      "title": "etcd DB Size (total / in-use)",
       "type": "timeseries"
     },
     {
@@ -766,13 +1016,15 @@
         "type": "grafana-postgresql-datasource",
         "uid": "${datasource}"
       },
-      "description": "Mean and peak etcd request duration.\n- **req_duration_mean**: average latency\n- **req_duration_max**: worst-case latency\n\nHigh values indicate etcd pressure from Chains annotation writes.",
+      "description": "Mean and peak etcd request duration.\n- **req_duration_mean**: average latency\n- **req_duration_max**: worst-case latency",
       "fieldConfig": {
         "defaults": {
           "custom": {
             "drawStyle": "line",
-            "fillOpacity": 0,
-            "pointSize": 7,
+            "fillOpacity": 8,
+            "gradientMode": "opacity",
+            "lineWidth": 2,
+            "pointSize": 6,
             "showPoints": "always",
             "spanNulls": false
           },
@@ -787,15 +1039,26 @@
         "y": 77
       },
       "id": 25,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
       "pluginVersion": "v11.4.0",
       "targets": [
         {
           "format": "time_series",
-          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_total')::INTEGER AS test_total,\n    AVG((label_values->>'__measurements_etcdRequestDurationSecondsAverage_max')::DOUBLE PRECISION) AS req_duration_max,\n    AVG((label_values->>'__measurements_etcdRequestDurationSecondsAverage_mean')::DOUBLE PRECISION) AS req_duration_mean\n  FROM data\n  WHERE horreum_testid = 418\n    AND $__timeFilter(start)\n    AND (label_values->>'__parameters_test_total')::INTEGER IN ($test_total)\n\n    AND (\n  ('$deploy_config' = 'standard' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'ha' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'qbt' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n  OR ('$deploy_config' = 'ha-qbt' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n)\n\n    AND (\n  ('$version' = 'nightly' AND (label_values ? '__deployment_nightly') AND (label_values->>'__deployment_nightly')::BOOLEAN = true)\n  OR ('$version' != 'nightly' AND (label_values->>'__deployment_version') = '$version')\n)\n\n    AND label_values ? '__measurements_etcdRequestDurationSecondsAverage_max'\n    AND label_values ? '__measurements_etcdRequestDurationSecondsAverage_mean'\n  GROUP BY day, test_total\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'req_duration_max @ ' || test_total AS metric,\n  req_duration_max AS value\nFROM daily_agg\n\n\nUNION ALL\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'req_duration_mean @ ' || test_total AS metric,\n  req_duration_mean AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
+          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_total')::INTEGER AS test_total,\n    AVG((label_values->>'__measurements_etcdRequestDurationSecondsAverage_max')::DOUBLE PRECISION) AS req_duration_max,\n    AVG((label_values->>'__measurements_etcdRequestDurationSecondsAverage_mean')::DOUBLE PRECISION) AS req_duration_mean\n  FROM data\n  WHERE (\n  horreum_testid = ${variant}::INTEGER\n  OR (\n    horreum_testid = 418\n    AND (\n      (${variant}::INTEGER = 427\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 428\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 429\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n      OR (${variant}::INTEGER = 430\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n    )\n  )\n)\n\n    AND $__timeFilter(start)\n    AND (label_values->>'__parameters_test_total')::INTEGER IN ($test_total)\n\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END = '${version}'\n\n    AND label_values ? '__measurements_etcdRequestDurationSecondsAverage_max'\n    AND label_values ? '__measurements_etcdRequestDurationSecondsAverage_mean'\n  GROUP BY day, test_total\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'req_duration_max @ t' || test_total AS metric,\n  req_duration_max AS value\nFROM daily_agg\n\n\nUNION ALL\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'req_duration_mean @ t' || test_total AS metric,\n  req_duration_mean AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
           "refId": "A"
         }
       ],
-      "title": "etcd Request Duration",
+      "title": "etcd Request Duration (mean / max)",
       "type": "timeseries"
     },
     {
@@ -818,9 +1081,12 @@
       "fieldConfig": {
         "defaults": {
           "custom": {
+            "axisSoftMax": 5,
             "drawStyle": "line",
-            "fillOpacity": 0,
-            "pointSize": 7,
+            "fillOpacity": 8,
+            "gradientMode": "opacity",
+            "lineWidth": 2,
+            "pointSize": 6,
             "showPoints": "always",
             "spanNulls": false
           },
@@ -835,11 +1101,22 @@
         "y": 86
       },
       "id": 27,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
       "pluginVersion": "v11.4.0",
       "targets": [
         {
           "format": "time_series",
-          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_total')::INTEGER AS test_total,\n    AVG((label_values->>'__measurements_apiserver_restarts_range')::DOUBLE PRECISION) AS apiserver,\n    AVG((label_values->>'__measurements_etcd_restarts_range')::DOUBLE PRECISION) AS etcd,\n    AVG((label_values->>'__measurements_kubeApiserver_restarts_range')::DOUBLE PRECISION) AS kube_apiserver\n  FROM data\n  WHERE horreum_testid = 418\n    AND $__timeFilter(start)\n    AND (label_values->>'__parameters_test_total')::INTEGER IN ($test_total)\n\n    AND (\n  ('$deploy_config' = 'standard' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'ha' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'qbt' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n  OR ('$deploy_config' = 'ha-qbt' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n)\n\n    AND (\n  ('$version' = 'nightly' AND (label_values ? '__deployment_nightly') AND (label_values->>'__deployment_nightly')::BOOLEAN = true)\n  OR ('$version' != 'nightly' AND (label_values->>'__deployment_version') = '$version')\n)\n\n    AND label_values ? '__measurements_apiserver_restarts_range'\n    AND label_values ? '__measurements_etcd_restarts_range'\n    AND label_values ? '__measurements_kubeApiserver_restarts_range'\n  GROUP BY day, test_total\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'apiserver @ ' || test_total AS metric,\n  apiserver AS value\nFROM daily_agg\n\n\nUNION ALL\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'etcd @ ' || test_total AS metric,\n  etcd AS value\nFROM daily_agg\n\n\nUNION ALL\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'kube_apiserver @ ' || test_total AS metric,\n  kube_apiserver AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
+          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_total')::INTEGER AS test_total,\n    AVG((label_values->>'__measurements_apiserver_restarts_range')::DOUBLE PRECISION) AS apiserver,\n    AVG((label_values->>'__measurements_etcd_restarts_range')::DOUBLE PRECISION) AS etcd,\n    AVG((label_values->>'__measurements_kubeApiserver_restarts_range')::DOUBLE PRECISION) AS kube_apiserver\n  FROM data\n  WHERE (\n  horreum_testid = ${variant}::INTEGER\n  OR (\n    horreum_testid = 418\n    AND (\n      (${variant}::INTEGER = 427\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 428\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 429\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n      OR (${variant}::INTEGER = 430\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n    )\n  )\n)\n\n    AND $__timeFilter(start)\n    AND (label_values->>'__parameters_test_total')::INTEGER IN ($test_total)\n\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END = '${version}'\n\n    AND label_values ? '__measurements_apiserver_restarts_range'\n    AND label_values ? '__measurements_etcd_restarts_range'\n    AND label_values ? '__measurements_kubeApiserver_restarts_range'\n  GROUP BY day, test_total\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'apiserver @ t' || test_total AS metric,\n  apiserver AS value\nFROM daily_agg\n\n\nUNION ALL\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'etcd @ t' || test_total AS metric,\n  etcd AS value\nFROM daily_agg\n\n\nUNION ALL\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'kube_apiserver @ t' || test_total AS metric,\n  kube_apiserver AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
           "refId": "A"
         }
       ],
@@ -851,13 +1128,16 @@
         "type": "grafana-postgresql-datasource",
         "uid": "${datasource}"
       },
-      "description": "Restart counts for Tekton Pipelines components. All should be 0.\n\nNote: Chains controller restarts are shown separately in the Chains Controller section above.",
+      "description": "Restart counts for Tekton Pipelines components. All should be 0.",
       "fieldConfig": {
         "defaults": {
           "custom": {
+            "axisSoftMax": 5,
             "drawStyle": "line",
-            "fillOpacity": 0,
-            "pointSize": 7,
+            "fillOpacity": 8,
+            "gradientMode": "opacity",
+            "lineWidth": 2,
+            "pointSize": 6,
             "showPoints": "always",
             "spanNulls": false
           },
@@ -872,11 +1152,22 @@
         "y": 86
       },
       "id": 28,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
       "pluginVersion": "v11.4.0",
       "targets": [
         {
           "format": "time_series",
-          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_total')::INTEGER AS test_total,\n    AVG((label_values->>'__measurements_tektonPipelinesController_restarts_range')::DOUBLE PRECISION) AS pipelines_ctrl,\n    AVG((label_values->>'__measurements_tektonPipelinesWebhook_restarts_range')::DOUBLE PRECISION) AS pipelines_webhook,\n    AVG((label_values->>'__measurements_tektonOperatorProxyWebhook_restarts_range')::DOUBLE PRECISION) AS proxy_webhook\n  FROM data\n  WHERE horreum_testid = 418\n    AND $__timeFilter(start)\n    AND (label_values->>'__parameters_test_total')::INTEGER IN ($test_total)\n\n    AND (\n  ('$deploy_config' = 'standard' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'ha' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'qbt' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n  OR ('$deploy_config' = 'ha-qbt' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n)\n\n    AND (\n  ('$version' = 'nightly' AND (label_values ? '__deployment_nightly') AND (label_values->>'__deployment_nightly')::BOOLEAN = true)\n  OR ('$version' != 'nightly' AND (label_values->>'__deployment_version') = '$version')\n)\n\n    AND label_values ? '__measurements_tektonPipelinesController_restarts_range'\n    AND label_values ? '__measurements_tektonPipelinesWebhook_restarts_range'\n    AND label_values ? '__measurements_tektonOperatorProxyWebhook_restarts_range'\n  GROUP BY day, test_total\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'pipelines_ctrl @ ' || test_total AS metric,\n  pipelines_ctrl AS value\nFROM daily_agg\n\n\nUNION ALL\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'pipelines_webhook @ ' || test_total AS metric,\n  pipelines_webhook AS value\nFROM daily_agg\n\n\nUNION ALL\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'proxy_webhook @ ' || test_total AS metric,\n  proxy_webhook AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
+          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_total')::INTEGER AS test_total,\n    AVG((label_values->>'__measurements_tektonPipelinesController_restarts_range')::DOUBLE PRECISION) AS pipelines_ctrl,\n    AVG((label_values->>'__measurements_tektonPipelinesWebhook_restarts_range')::DOUBLE PRECISION) AS pipelines_webhook,\n    AVG((label_values->>'__measurements_tektonOperatorProxyWebhook_restarts_range')::DOUBLE PRECISION) AS proxy_webhook\n  FROM data\n  WHERE (\n  horreum_testid = ${variant}::INTEGER\n  OR (\n    horreum_testid = 418\n    AND (\n      (${variant}::INTEGER = 427\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 428\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 429\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n      OR (${variant}::INTEGER = 430\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n    )\n  )\n)\n\n    AND $__timeFilter(start)\n    AND (label_values->>'__parameters_test_total')::INTEGER IN ($test_total)\n\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END = '${version}'\n\n    AND label_values ? '__measurements_tektonPipelinesController_restarts_range'\n    AND label_values ? '__measurements_tektonPipelinesWebhook_restarts_range'\n    AND label_values ? '__measurements_tektonOperatorProxyWebhook_restarts_range'\n  GROUP BY day, test_total\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'pipelines_ctrl @ t' || test_total AS metric,\n  pipelines_ctrl AS value\nFROM daily_agg\n\n\nUNION ALL\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'pipelines_webhook @ t' || test_total AS metric,\n  pipelines_webhook AS value\nFROM daily_agg\n\n\nUNION ALL\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'proxy_webhook @ t' || test_total AS metric,\n  proxy_webhook AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
           "refId": "A"
         }
       ],
@@ -888,13 +1179,16 @@
         "type": "grafana-postgresql-datasource",
         "uid": "${datasource}"
       },
-      "description": "Range of pending pods in the kube-scheduler queue. High values indicate scheduling pressure.",
+      "description": "Range of pending pods in the kube-scheduler queue.",
       "fieldConfig": {
         "defaults": {
           "custom": {
+            "axisSoftMax": 5,
             "drawStyle": "line",
-            "fillOpacity": 0,
-            "pointSize": 7,
+            "fillOpacity": 8,
+            "gradientMode": "opacity",
+            "lineWidth": 2,
+            "pointSize": 6,
             "showPoints": "always",
             "spanNulls": false
           },
@@ -909,11 +1203,22 @@
         "y": 94
       },
       "id": 29,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
       "pluginVersion": "v11.4.0",
       "targets": [
         {
           "format": "time_series",
-          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_total')::INTEGER AS test_total,\n    AVG((label_values->>'__measurements_schedulerPendingPodsCount_range')::DOUBLE PRECISION) AS pending_pods\n  FROM data\n  WHERE horreum_testid = 418\n    AND $__timeFilter(start)\n    AND (label_values->>'__parameters_test_total')::INTEGER IN ($test_total)\n\n    AND (\n  ('$deploy_config' = 'standard' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'ha' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n  OR ('$deploy_config' = 'qbt' AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false) AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n  OR ('$deploy_config' = 'ha-qbt' AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n)\n\n    AND (\n  ('$version' = 'nightly' AND (label_values ? '__deployment_nightly') AND (label_values->>'__deployment_nightly')::BOOLEAN = true)\n  OR ('$version' != 'nightly' AND (label_values->>'__deployment_version') = '$version')\n)\n\n    AND label_values ? '__measurements_schedulerPendingPodsCount_range'\n  GROUP BY day, test_total\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'pending_pods @ ' || test_total AS metric,\n  pending_pods AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
+          "rawSql": "WITH daily_agg AS (\n  SELECT\n    DATE_TRUNC('day', start) AS day,\n    (label_values->>'__parameters_test_total')::INTEGER AS test_total,\n    AVG((label_values->>'__measurements_schedulerPendingPodsCount_range')::DOUBLE PRECISION) AS pending_pods\n  FROM data\n  WHERE (\n  horreum_testid = ${variant}::INTEGER\n  OR (\n    horreum_testid = 418\n    AND (\n      (${variant}::INTEGER = 427\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 428\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 429\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n      OR (${variant}::INTEGER = 430\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n    )\n  )\n)\n\n    AND $__timeFilter(start)\n    AND (label_values->>'__parameters_test_total')::INTEGER IN ($test_total)\n\n    AND CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END = '${version}'\n\n    AND label_values ? '__measurements_schedulerPendingPodsCount_range'\n  GROUP BY day, test_total\n)\n\nSELECT\n  EXTRACT(EPOCH FROM day) AS time,\n  'pending_pods @ t' || test_total AS metric,\n  pending_pods AS value\nFROM daily_agg\n\n\nORDER BY time, metric;\n",
           "refId": "A"
         }
       ],
@@ -923,6 +1228,11 @@
   ],
   "refresh": "5m",
   "schemaVersion": 39,
+  "tags": [
+    "chains",
+    "trend",
+    "performance"
+  ],
   "templating": {
     "list": [
       {
@@ -941,36 +1251,36 @@
       {
         "current": {
           "text": "Standard",
-          "value": "standard"
+          "value": "427"
         },
-        "description": "Standard, HA, QBT, or HA+QBT.",
+        "description": "Chains deployment variant (each maps to a separate Horreum test ID).",
         "includeAll": false,
-        "label": "Deployment Configuration",
+        "label": "Variant",
         "multi": false,
-        "name": "deploy_config",
+        "name": "variant",
         "options": [
           {
             "selected": true,
             "text": "Standard",
-            "value": "standard"
+            "value": "427"
           },
           {
             "selected": false,
             "text": "HA",
-            "value": "ha"
+            "value": "428"
           },
           {
             "selected": false,
             "text": "QBT (non-HA)",
-            "value": "qbt"
+            "value": "429"
           },
           {
             "selected": false,
             "text": "HA + QBT",
-            "value": "ha-qbt"
+            "value": "430"
           }
         ],
-        "query": "Standard : standard,HA : ha,QBT (non-HA) : qbt,HA + QBT : ha-qbt",
+        "query": "Standard : 427,HA : 428,QBT (non-HA) : 429,HA + QBT : 430",
         "type": "custom"
       },
       {
@@ -982,14 +1292,14 @@
           "type": "grafana-postgresql-datasource",
           "uid": "${datasource}"
         },
-        "description": "Filter by Pipelines version.",
+        "description": "Filter to a specific version to track its trend over time.",
         "includeAll": false,
         "label": "Version",
         "multi": false,
         "name": "version",
-        "query": "SELECT DISTINCT CASE WHEN (label_values ? '__deployment_nightly') AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE (label_values->>'__deployment_version') END AS version FROM data WHERE horreum_testid = 418 AND label_values ? '__deployment_version' AND (label_values->>'__deployment_version') IS NOT NULL AND label_values ? '__results_PipelineRuns_signing_throughput' ORDER BY version",
+        "query": "SELECT DISTINCT CASE WHEN label_values ? '__deployment_nightly' AND (label_values->>'__deployment_nightly')::BOOLEAN = true THEN 'nightly' ELSE COALESCE(label_values->>'__deployment_version', 'unknown') END AS version FROM data WHERE (\n  horreum_testid = ${variant}::INTEGER\n  OR (\n    horreum_testid = 418\n    AND (\n      (${variant}::INTEGER = 427\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 428\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 429\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n      OR (${variant}::INTEGER = 430\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n    )\n  )\n)\n AND $__timeFilter(start) AND label_values ? '__deployment_version' ORDER BY version DESC",
         "refresh": 2,
-        "sort": 3,
+        "sort": 0,
         "type": "query"
       },
       {
@@ -1001,12 +1311,12 @@
           "type": "grafana-postgresql-datasource",
           "uid": "${datasource}"
         },
-        "description": "Filter by total PipelineRuns count (500, 1000, 1500).",
+        "description": "Filter by total PipelineRuns count (500, 1000).",
         "includeAll": true,
         "label": "Test Total",
         "multi": true,
         "name": "test_total",
-        "query": "SELECT DISTINCT (label_values->>'__parameters_test_total')::INTEGER AS test_total FROM data WHERE horreum_testid = 418 AND label_values ? '__parameters_test_total' ORDER BY test_total",
+        "query": "SELECT DISTINCT (label_values->>'__parameters_test_total')::INTEGER AS test_total FROM data WHERE (\n  horreum_testid = ${variant}::INTEGER\n  OR (\n    horreum_testid = 418\n    AND (\n      (${variant}::INTEGER = 427\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 428\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (NOT (label_values ? '__deployment_qbtConfig_qbtEnabled') OR (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = false))\n      OR (${variant}::INTEGER = 429\n        AND (NOT (label_values ? '__deployment_haConfig_haEnabled') OR (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = false)\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n      OR (${variant}::INTEGER = 430\n        AND (label_values->>'__deployment_haConfig_haEnabled')::BOOLEAN = true\n        AND (label_values ? '__deployment_qbtConfig_qbtEnabled') AND (label_values->>'__deployment_qbtConfig_qbtEnabled')::BOOLEAN = true)\n    )\n  )\n)\n AND $__timeFilter(start) AND label_values ? '__parameters_test_total' ORDER BY test_total",
         "refresh": 2,
         "sort": 3,
         "type": "query"
@@ -1014,7 +1324,7 @@
     ]
   },
   "time": {
-    "from": "now-14d",
+    "from": "now-30d",
     "to": "now"
   },
   "timezone": "utc",
