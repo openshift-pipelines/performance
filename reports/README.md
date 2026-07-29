@@ -1,6 +1,6 @@
 # Performance Report Generator
 
-Automated pipeline for generating Red Hat KB-style performance articles for OpenShift Pipelines. Fetches data from the Horreum PostgreSQL database, applies statistical normalization, and produces a structured JSON that an LLM turns into a publishable markdown article.
+Automated pipeline for generating Red Hat KB-style performance articles for OpenShift Pipelines. Fetches data from a PostgreSQL database containing performance test results, applies statistical normalization, and produces a structured JSON that an LLM turns into a publishable markdown article.
 
 ## Quick Start
 
@@ -10,13 +10,13 @@ cd reports/
 # Setup
 python3 -m venv ../venv
 source ../venv/bin/activate
-pip install psycopg2-binary pyyaml openai
+pip install psycopg2-binary pyyaml
 
 # Set DB connection via environment variables
-export HORREUM_DB_HOST="your-db-host"
-export HORREUM_DB_USER="your-db-user"
-export HORREUM_DB_NAME="your-db-name"
-export HORREUM_DB_PASSWORD="your-db-password"
+export POSTGRES_PIPELINE_DB_HOST="your-db-host"
+export POSTGRES_PIPELINE_DB_USER="your-db-user"
+export POSTGRES_PIPELINE_DB_NAME="your-db-name"
+export POSTGRES_PIPELINE_DB_PASSWORD="your-db-password"
 
 # Generate comparison data
 python generate_comparison.py --version-a 1.22 --version-b 1.23
@@ -26,21 +26,19 @@ This produces `output/comparison_v1.22_vs_v1.23.json` and copies the prompt temp
 
 ## Pipeline Overview
 
-The workflow has two stages:
-
 ```
 ┌─────────────────────────┐      ┌─────────────────────────┐
-│  generate_comparison.py │      │   generate_article.py   │
+│  generate_comparison.py │      │   Your LLM of choice    │
 │                         │      │                         │
-│  Horreum DB ──► JSON    │ ───► │  JSON + Prompt ──► .md  │
-│  (fetch, normalize,     │      │  (OpenAI API call)      │
+│  PostgreSQL ──► JSON    │ ───► │  JSON + Prompt ──► .md  │
+│  (fetch, normalize,     │      │  (Claude, ChatGPT, etc) │
 │   compare/benchmark)    │      │                         │
 └─────────────────────────┘      └─────────────────────────┘
 ```
 
-**Stage 1** connects to the database (read-only), fetches the last N runs per version, excludes outlier runs using MAD (Median Absolute Deviation), computes means and percentage changes, and writes a structured JSON file. It also saves intermediate artifacts (`raw_data_*.json` and `mad_analysis_*.json`) so QE teams can cross-verify the analysis against source data.
+**Stage 1** (`generate_comparison.py`) connects to the database (read-only), fetches the last N runs per version, excludes outlier runs using MAD (Median Absolute Deviation), computes means and percentage changes, and writes a structured JSON file. It also saves intermediate artifacts (`raw_data_*.json` and `mad_analysis_*.json`) so QE teams can cross-verify the analysis against source data. A prompt template is copied alongside the output.
 
-**Stage 2** takes that JSON, injects it into a prompt template with tone/framing guidelines, sends it to an OpenAI model, and writes the final KB article as markdown.
+**Stage 2** (manual): Feed the JSON and prompt template into your preferred LLM (Claude, ChatGPT, or any other) to generate the final KB article.
 
 ## Environment Variables
 
@@ -48,13 +46,12 @@ All database connection details are configured via environment variables to avoi
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `HORREUM_DB_HOST` | Yes | PostgreSQL host |
-| `HORREUM_DB_USER` | Yes | Database user |
-| `HORREUM_DB_NAME` | Yes | Database name |
-| `HORREUM_DB_PASSWORD` | Yes | Database password |
-| `HORREUM_DB_PORT` | No | PostgreSQL port (default: `5432`) |
-| `HORREUM_DB_SSLMODE` | No | SSL mode (default: `prefer`) |
-| `OPENAI_API_KEY` | For Stage 2 | OpenAI API key |
+| `POSTGRES_PIPELINE_DB_HOST` | Yes | PostgreSQL host |
+| `POSTGRES_PIPELINE_DB_USER` | Yes | Database user |
+| `POSTGRES_PIPELINE_DB_NAME` | Yes | Database name |
+| `POSTGRES_PIPELINE_DB_PASSWORD` | Yes | Database password |
+| `POSTGRES_PIPELINE_DB_PORT` | No | PostgreSQL port (default: `5432`) |
+| `POSTGRES_PIPELINE_DB_SSLMODE` | No | SSL mode (default: `prefer`) |
 
 All values can also be passed as CLI arguments (`--db-host`, `--db-user`, etc.) which override the environment variables.
 
@@ -92,22 +89,12 @@ Output: `output/benchmark_v1.23.json`
 
 ## Generating the KB Article
 
-Once you have the JSON output from Stage 1:
+Once you have the JSON output and prompt template from Stage 1:
 
-```bash
-export OPENAI_API_KEY="sk-..."
-
-# Auto-detects comparison vs benchmark from the JSON
-python generate_article.py --input output/comparison_v1.22_vs_v1.23.json
-
-# Custom model
-python generate_article.py --input output/comparison_v1.22_vs_v1.23.json --model gpt-4o-mini
-
-# Explicit output path
-python generate_article.py --input output/benchmark_v1.23.json --output output/my_article.md
-```
-
-Output: `output/kb_article_v1.22_vs_v1.23.md`
+1. Open the prompt template (`output/prompt_template.md` or `output/prompt_template_benchmark.md`)
+2. Copy the JSON data from the output file (e.g., `output/comparison_v1.22_vs_v1.23.json`)
+3. Feed both into your preferred LLM (Claude, ChatGPT, or any other AI assistant)
+4. The prompt template contains all tone/framing guidelines to produce a customer-facing KB article
 
 ## CLI Reference
 
@@ -119,21 +106,12 @@ Output: `output/kb_article_v1.22_vs_v1.23.md`
 | `--version-b` | *(none)* | Comparison version (e.g., `1.22`, `nightly`). Omit for benchmark mode |
 | `--runs` | `3` | Number of recent runs to fetch per version for normalization |
 | `--output` | `output/` | Output directory |
-| `--db-host` | env `HORREUM_DB_HOST` | PostgreSQL host |
-| `--db-port` | env `HORREUM_DB_PORT` or `5432` | PostgreSQL port |
-| `--db-name` | env `HORREUM_DB_NAME` | Database name |
-| `--db-user` | env `HORREUM_DB_USER` | Database user |
-| `--db-sslmode` | env `HORREUM_DB_SSLMODE` or `prefer` | SSL mode |
-| `--db-password-env` | `HORREUM_DB_PASSWORD` | Env var containing the DB password |
-
-### generate_article.py
-
-| Argument | Default | Description |
-|----------|---------|-------------|
-| `--input` | *(required)* | Path to comparison or benchmark JSON |
-| `--output` | *(auto)* | Output markdown path. Auto-generated if omitted |
-| `--model` | `gpt-4o` | OpenAI model to use |
-| `--api-key-env` | `OPENAI_API_KEY` | Env var containing the OpenAI API key |
+| `--db-host` | env `POSTGRES_PIPELINE_DB_HOST` | PostgreSQL host |
+| `--db-port` | env `POSTGRES_PIPELINE_DB_PORT` or `5432` | PostgreSQL port |
+| `--db-name` | env `POSTGRES_PIPELINE_DB_NAME` | Database name |
+| `--db-user` | env `POSTGRES_PIPELINE_DB_USER` | Database user |
+| `--db-sslmode` | env `POSTGRES_PIPELINE_DB_SSLMODE` or `prefer` | SSL mode |
+| `--db-password-env` | `POSTGRES_PIPELINE_DB_PASSWORD` | Env var containing the DB password |
 
 ## Configuration
 
@@ -152,7 +130,7 @@ All metric definitions, test IDs, thresholds, and component/variant mappings are
 
 ### Components and Variants
 
-The config defines three components, each with deployment variants and per-variant Horreum test IDs:
+The config defines three components, each with deployment variants and per-variant test IDs:
 
 **Pipelines** (grouped by `test_concurrent`): Standard (423), HA-Deployments (419), HA-StatefulSets (421), QBT (422), HA+QBT (420)
 
@@ -160,7 +138,7 @@ The config defines three components, each with deployment variants and per-varia
 
 **Results** (no grouping): Standard (425)
 
-Each variant has a `new_test_id` and optionally a `legacy_test_id` with filters for backward compatibility with older Horreum data.
+Each variant has a `new_test_id` and optionally a `legacy_test_id` with filters for backward compatibility with older data.
 
 ### Adding a New Metric
 
@@ -181,7 +159,7 @@ Add under the component's `variants` in `config.yaml`:
 ```yaml
 new_variant:
   display_name: "New Variant"
-  new_test_id: 999           # Horreum test ID for this variant
+  new_test_id: 999           # Test ID for this variant
   legacy_test_id: null       # Optional: legacy test ID for older data
   legacy_filter: null        # Required if legacy_test_id is set
 ```
@@ -238,8 +216,7 @@ The database connection enforces **read-only mode** at the PostgreSQL session le
 reports/
 ├── README.md                       # This file
 ├── config.yaml                     # Metric definitions, test IDs, thresholds
-├── generate_comparison.py          # Stage 1: DB -> JSON
-├── generate_article.py             # Stage 2: JSON -> KB article via OpenAI
+├── generate_comparison.py          # DB -> JSON (fetch, normalize, compare)
 ├── prompt_template.md              # LLM prompt for comparison mode
 ├── prompt_template_benchmark.md    # LLM prompt for benchmark mode
 ├── lib/
@@ -262,18 +239,14 @@ reports/
 source ../venv/bin/activate
 
 # Set credentials
-export HORREUM_DB_HOST="your-db-host"
-export HORREUM_DB_USER="your-db-user"
-export HORREUM_DB_NAME="your-db-name"
-export HORREUM_DB_PASSWORD="your-db-password"
-export OPENAI_API_KEY="sk-your-api-key"
+export POSTGRES_PIPELINE_DB_HOST="your-db-host"
+export POSTGRES_PIPELINE_DB_USER="your-db-user"
+export POSTGRES_PIPELINE_DB_NAME="your-db-name"
+export POSTGRES_PIPELINE_DB_PASSWORD="your-db-password"
 
-# Stage 1: Fetch and process data
+# Fetch and process data
 python generate_comparison.py --version-a 1.22 --version-b 1.23 --runs 3
 
-# Stage 2: Generate the article
-python generate_article.py --input output/comparison_v1.22_vs_v1.23.json
-
-# Result
-cat output/kb_article_v1.22_vs_v1.23.md
+# Feed output/comparison_v1.22_vs_v1.23.json + output/prompt_template.md
+# into your preferred LLM to generate the KB article
 ```

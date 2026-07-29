@@ -7,10 +7,10 @@ Supports three modes:
 
 Usage:
     # Set DB connection via environment variables:
-    export HORREUM_DB_HOST="your-db-host"
-    export HORREUM_DB_USER="your-db-user"
-    export HORREUM_DB_NAME="your-db-name"
-    export HORREUM_DB_PASSWORD="your-db-password"
+    export POSTGRES_PIPELINE_DB_HOST="your-db-host"
+    export POSTGRES_PIPELINE_DB_USER="your-db-user"
+    export POSTGRES_PIPELINE_DB_NAME="your-db-name"
+    export POSTGRES_PIPELINE_DB_PASSWORD="your-db-password"
 
     # Comparison:
     python generate_comparison.py --version-a 1.22 --version-b 1.23
@@ -228,18 +228,18 @@ def main():
                         help="Output directory")
 
     # DB connection args — all default to environment variables
-    parser.add_argument("--db-host", default=os.environ.get("HORREUM_DB_HOST", ""),
-                        help="PostgreSQL host (env: HORREUM_DB_HOST)")
+    parser.add_argument("--db-host", default=os.environ.get("POSTGRES_PIPELINE_DB_HOST", ""),
+                        help="PostgreSQL host (env: POSTGRES_PIPELINE_DB_HOST)")
     parser.add_argument("--db-port", type=int,
-                        default=int(os.environ.get("HORREUM_DB_PORT", "5432")),
-                        help="PostgreSQL port (env: HORREUM_DB_PORT)")
-    parser.add_argument("--db-name", default=os.environ.get("HORREUM_DB_NAME", ""),
-                        help="Database name (env: HORREUM_DB_NAME)")
-    parser.add_argument("--db-sslmode", default=os.environ.get("HORREUM_DB_SSLMODE", "prefer"),
-                        help="SSL mode (env: HORREUM_DB_SSLMODE)")
-    parser.add_argument("--db-user", default=os.environ.get("HORREUM_DB_USER", ""),
-                        help="Database user (env: HORREUM_DB_USER)")
-    parser.add_argument("--db-password-env", default="HORREUM_DB_PASSWORD",
+                        default=int(os.environ.get("POSTGRES_PIPELINE_DB_PORT", "5432")),
+                        help="PostgreSQL port (env: POSTGRES_PIPELINE_DB_PORT)")
+    parser.add_argument("--db-name", default=os.environ.get("POSTGRES_PIPELINE_DB_NAME", ""),
+                        help="Database name (env: POSTGRES_PIPELINE_DB_NAME)")
+    parser.add_argument("--db-sslmode", default=os.environ.get("POSTGRES_PIPELINE_DB_SSLMODE", "prefer"),
+                        help="SSL mode (env: POSTGRES_PIPELINE_DB_SSLMODE)")
+    parser.add_argument("--db-user", default=os.environ.get("POSTGRES_PIPELINE_DB_USER", ""),
+                        help="Database user (env: POSTGRES_PIPELINE_DB_USER)")
+    parser.add_argument("--db-password-env", default="POSTGRES_PIPELINE_DB_PASSWORD",
                         help="Environment variable containing DB password")
 
     args = parser.parse_args()
@@ -258,7 +258,7 @@ def main():
 
     # Fetch data
     if not args.db_host:
-        logger.error("--db-host is required. Set HORREUM_DB_HOST or pass --db-host.")
+        logger.error("--db-host is required. Set POSTGRES_PIPELINE_DB_HOST or pass --db-host.")
         sys.exit(1)
 
     raw_data = fetch_from_db(args, config, version_a, version_b)
