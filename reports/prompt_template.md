@@ -21,6 +21,9 @@ This is a **customer-facing product article**, NOT an internal test report. The 
 - Draw attention to instrumentation bugs (e.g., negative latency values) — silently omit bad metrics instead
 - Lead sections, paragraphs, or the overview with negative findings
 - Present percentage increases of failures without absolute context (e.g., "367% increase" without mentioning the actual failure rate)
+- Never fabricate reasons for metric changes. You do not know what code changes occurred between versions. Do not attribute changes to "implementation improvements", "code optimizations", or any other assumed cause
+- Never try to cover up or explain away an unfavorable metric change by inventing assumptions. If a metric regressed, state it factually with absolute values — do not speculate about why
+- Only describe WHAT changed and by how much. Use the cross-metric correlation rules below to explain how metrics relate to each other, but never invent WHY a change happened
 
 ### Handling Regressions Honestly Without Alarming:
 - Always provide absolute context, not just percentage change. "+367% store failures" is alarming; "failure rate increased from ~1% to ~4% while total throughput grew 23%" is honest and contextualized.
@@ -33,6 +36,45 @@ This is a **customer-facing product article**, NOT an internal test report. The 
 - When data comes from 3+ runs with outlier detection, higher precision is acceptable.
 - Never fabricate, inflate, or cherry-pick numbers. Present the data as it is, with appropriate framing.
 - If a number seems anomalous (e.g., -23000% change, negative latency), omit that metric entirely. Do not mention it or explain why it's missing.
+
+### Absolute Value Significance:
+- Always present absolute values alongside percentage changes so the reader can judge practical significance.
+- Do NOT highlight percentage changes as key findings when both absolute values are negligibly small relative to resource limits. For example, a "45% CPU reduction" from 0.042 to 0.036 cores is a ~6 millicore change against a 1-core limit — this is not a meaningful finding and should not be called out in summaries, tables, or overview sections.
+- A percentage change is only worth highlighting when the absolute values are operationally meaningful (e.g., duration changes of seconds, CPU changes of 0.1+ cores, memory changes of 100+ MB).
+
+## Test Setup and Scenario Descriptions
+
+The performance tests are from the [openshift-pipelines/performance](https://github.com/openshift-pipelines/performance) repository. Use these descriptions in the article — do not make up or assume test details.
+
+### Test Infrastructure
+- **Cluster**: AWS-based OpenShift cluster with 3 control plane nodes + 5 compute nodes (m6a.2xlarge)
+- **Pipelines Controller Resources**: 1 CPU request/limit, 2 GiB memory request/limit
+- **Chains Controller Resources**: Default operator-managed resources
+- **Results API/Watcher Resources**: Default operator-managed resources
+
+### Test Scenario: "math"
+
+The [math scenario](https://github.com/openshift-pipelines/performance/tree/main/tests/scaling-pipelines/scenario/math) is designed to stress the Pipelines controller and OpenShift scheduler. It runs 1,000 PipelineRuns (`TEST_TOTAL=1000`) using a lightweight math Pipeline consisting of 4 parallel Tasks (sum, diff, mul, div). Each Task performs a trivial bash computation — the workload is intentionally minimal so that the bottleneck is the controller/scheduler, not the workload itself.
+
+### Concurrency Levels
+
+The `TEST_CONCURRENT` parameter controls how many PipelineRuns execute simultaneously. The tests sweep across concurrency levels (12, 14, 16, 18, 20) to measure how the controller scales under increasing parallel load. Higher concurrency stresses the controller's reconciliation loop, workqueue, and Kubernetes API interactions.
+
+### Deployment Configurations
+
+- **Standard (Default)**: Single Pipelines controller replica with default settings. Baseline configuration.
+- **HA - Deployments**: High Availability with multiple controller replicas managed as a Kubernetes Deployment. Distributes reconciliation load across replicas for better throughput and reliability.
+- **HA - StatefulSets**: High Availability with controller replicas managed as a StatefulSet. Alternative HA model with different leader election and pod identity characteristics.
+- **QBT (non-HA)**: Single replica with tuned Kubernetes API QPS, burst, and thread-per-controller settings. Optimizes controller-to-API-server communication for higher throughput.
+- **HA + QBT**: Combines HA (multi-replica) with QBT tuning. Most aggressive configuration for maximum throughput at high scale.
+
+### Chains Tests
+
+Chains tests measure Tekton Chains signing performance at two scale levels: 500 and 1,000 total PipelineRuns. Key metrics are signing throughput (runs/s), signing duration, and unsigned PipelineRun count.
+
+### Results Tests
+
+Results tests measure Tekton Results ingestion performance (how fast the Watcher stores PipelineRun/TaskRun records) and API query performance under load (using Locust to generate concurrent `/record` and `/records` endpoint requests).
 
 ## Your Input
 
@@ -91,10 +133,13 @@ Write a markdown document with this structure:
 Only mention limitations if they affect a major configuration, and frame as "area for tuning".]
 
 ## Test Environment
-- **Infrastructure**: [from data if available, otherwise say "AWS-based OpenShift clusters"]
-- **Configuration**: [3 control plane + 5 compute nodes, m6a.2xlarge]
-- **Pipelines Controller Resources**: [1 CPU, 2 GiB memory]
-- **Methodology**: [Automated CI with outlier-excluded means across multiple runs per version]
+- **Repository**: [openshift-pipelines/performance](https://github.com/openshift-pipelines/performance)
+- **Test Scenario**: [math](https://github.com/openshift-pipelines/performance/tree/main/tests/scaling-pipelines/scenario/math) — 1,000 PipelineRuns, 4 parallel Tasks each
+- **Infrastructure**: AWS-based OpenShift cluster, 3 control plane + 5 compute nodes (m6a.2xlarge)
+- **Pipelines Controller Resources**: 1 CPU, 2 GiB memory
+- **Chains Controller Resources**: Default operator-managed
+- **Results API/Watcher Resources**: Default operator-managed
+- **Methodology**: Automated CI with MAD-based outlier exclusion across 3 runs per version per concurrency level
 
 ## Key Performance Findings
 
