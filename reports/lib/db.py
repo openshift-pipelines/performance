@@ -15,7 +15,7 @@ def make_readonly_connection(conn):
     Sets the session to READ ONLY at the PostgreSQL protocol level,
     preventing any INSERT/UPDATE/DELETE/CREATE even if a bug introduces one.
     """
-    conn.set_session(readonly=True, autocommit=False)
+    conn.set_session(readonly=True, autocommit=True)
     logger.info("Database connection set to READ ONLY mode")
 
 
@@ -89,10 +89,6 @@ def fetch_runs(conn, component_config, variant_name, variant_config,
     test_id_pred = _build_test_id_predicate(variant_config)
     group_by = component_config.get("group_by")
     extractions = _build_metric_extractions(metric_keys)
-
-    group_select = ""
-    if group_by:
-        group_select = f"(label_values->>'__{group_by}') AS group_key,"
 
     if group_by:
         partition_col = f"(label_values->>'__{group_by}')"
