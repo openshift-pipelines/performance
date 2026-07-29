@@ -188,14 +188,34 @@ new_variant:
 
 ## Outlier Detection
 
-The pipeline uses **Median Absolute Deviation (MAD)** to handle infrastructure flakiness:
+### Why MAD?
+
+Performance CI runs execute 3-4 times per version. Infrastructure flakiness (noisy neighbors, scheduling delays, node pressure) can produce one bad run that skews averages — fabricating regressions that don't exist or hiding real improvements. We need an outlier detection method that works reliably with very small sample sizes.
+
+**Standard approaches don't work here:**
+- **Z-score** (standard deviation) assumes normal distribution and needs 20-30+ samples. With 3 runs, one outlier shifts both the mean and standard deviation, so the outlier doesn't even register as anomalous.
+- **IQR (Interquartile Range)** requires enough data points to compute meaningful quartiles. With 3 samples, Q1 and Q3 collapse to the min and max — it cannot distinguish signal from noise.
+
+**MAD (Median Absolute Deviation)** uses the **median** instead of the mean as its reference point, so a single bad run cannot pull the baseline toward itself. It is well-studied in robust statistics and reliable with as few as 3 data points.
+
+### How it works
 
 1. For each metric across N runs, compute the median and MAD
 2. Flag individual metric values that deviate beyond `2.5 x MAD` from the median
-3. If a run has >50% of its metrics flagged, exclude the entire run (indicates an infrastructure issue, not a real performance change)
-4. At least 2 runs must survive — if exclusion would leave fewer, all runs are kept
+3. If a run has >50% of its metrics flagged, exclude the entire run — this signals a systemic infrastructure issue (e.g., node under pressure), not a real performance change affecting one metric
+4. Safety guardrail: at least 2 runs must survive exclusion. If removing outliers would leave fewer, all runs are kept to avoid drawing conclusions from a single data point
 
-This approach is robust with small sample sizes (3-4 runs) where standard Z-score or IQR methods are unreliable.
+The **whole-run exclusion logic** is the key design decision. A run with most metrics deviating is almost certainly an infrastructure problem. But if only one metric deviates on an otherwise normal run, that could be a real signal worth preserving.
+
+### Configuration
+
+All thresholds are tunable in `config.yaml`:
+
+| Parameter | Default | Purpose |
+|-----------|---------|---------|
+| `mad_threshold` | `2.5` | MAD multiplier — values beyond `median +/- 2.5 x MAD` are flagged |
+| `outlier_metric_ratio` | `0.5` | If >50% of metrics flagged on a run, exclude the whole run |
+| `min_runs_after_exclusion` | `2` | Minimum runs that must survive — prevents over-exclusion |
 
 ## QE Validation Artifacts
 
