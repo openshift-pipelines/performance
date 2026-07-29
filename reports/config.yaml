@@ -1,8 +1,8 @@
 # Performance Comparison Report Generator — Configuration
 # Metric definitions, test IDs, and analysis thresholds.
 #
-# Metric keys match the JSONB label_values field names in Horreum PostgreSQL
-# (without the leading `__` prefix that Horreum adds).
+# Metric keys match the JSONB label_values field names in PostgreSQL
+# (without the leading `__` prefix stored in the database).
 
 thresholds:
   significant_change_pct: 5     # below this = "stable"

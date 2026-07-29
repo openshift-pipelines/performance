@@ -1,7 +1,7 @@
-"""PostgreSQL data fetcher for Horreum performance data.
+"""PostgreSQL data fetcher for performance test data.
 
 SAFETY: This module enforces READ-ONLY access. The target is a production
-Horreum database — no writes are permitted under any circumstances.
+database — no writes are permitted under any circumstances.
 """
 
 import logging
