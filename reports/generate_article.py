@@ -100,25 +100,29 @@ def call_openai(prompt, model, api_key):
     logger.info("Calling OpenAI API (model=%s)...", model)
     logger.info("Prompt length: %d characters", len(prompt))
 
-    response = client.chat.completions.create(
-        model=model,
-        messages=[
-            {
-                "role": "system",
-                "content": (
-                    "You are a senior performance engineer at Red Hat. "
-                    "You write clear, professional, customer-facing KB articles. "
-                    "Follow the instructions in the user message exactly."
-                ),
-            },
-            {
-                "role": "user",
-                "content": prompt,
-            },
-        ],
-        temperature=0.3,
-        max_tokens=16000,
-    )
+    try:
+        response = client.chat.completions.create(
+            model=model,
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "You are a senior performance engineer at Red Hat. "
+                        "You write clear, professional, customer-facing KB articles. "
+                        "Follow the instructions in the user message exactly."
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": prompt,
+                },
+            ],
+            temperature=0.3,
+            max_tokens=16000,
+        )
+    except Exception as e:
+        logger.error("OpenAI API call failed: %s", e)
+        sys.exit(1)
 
     article = response.choices[0].message.content
     usage = response.usage
