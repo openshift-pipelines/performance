@@ -94,26 +94,54 @@ def fetch_runs(conn, component_config, variant_name, variant_config,
     if group_by:
         group_select = f"(label_values->>'__{group_by}') AS group_key,"
 
-    query = f"""
-        SELECT
-            start,
-            (label_values->>'__metadata_env_BUILD_ID') AS build_id,
-            (label_values->>'__deployment_version') AS version,
-            {group_select}
-            {extractions}
-        FROM data
-        WHERE {test_id_pred}
-          AND (
-            CASE
-              WHEN label_values ? '__deployment_nightly'
-                   AND (label_values->>'__deployment_nightly')::BOOLEAN = true
-              THEN 'nightly'
-              ELSE COALESCE(label_values->>'__deployment_version', 'unknown')
-            END
-          ) = %s
-        ORDER BY start DESC
-        LIMIT %s
-    """
+    if group_by:
+        partition_col = f"(label_values->>'__{group_by}')"
+        query = f"""
+            SELECT * FROM (
+                SELECT
+                    start,
+                    (label_values->>'__metadata_env_BUILD_ID') AS build_id,
+                    (label_values->>'__deployment_version') AS version,
+                    {partition_col} AS group_key,
+                    {extractions},
+                    ROW_NUMBER() OVER (
+                        PARTITION BY {partition_col}
+                        ORDER BY start DESC
+                    ) AS rn
+                FROM data
+                WHERE {test_id_pred}
+                  AND (
+                    CASE
+                      WHEN label_values ? '__deployment_nightly'
+                           AND (label_values->>'__deployment_nightly')::BOOLEAN = true
+                      THEN 'nightly'
+                      ELSE COALESCE(label_values->>'__deployment_version', 'unknown')
+                    END
+                  ) = %s
+            ) sub
+            WHERE rn <= %s
+            ORDER BY group_key, start DESC
+        """
+    else:
+        query = f"""
+            SELECT
+                start,
+                (label_values->>'__metadata_env_BUILD_ID') AS build_id,
+                (label_values->>'__deployment_version') AS version,
+                {extractions}
+            FROM data
+            WHERE {test_id_pred}
+              AND (
+                CASE
+                  WHEN label_values ? '__deployment_nightly'
+                       AND (label_values->>'__deployment_nightly')::BOOLEAN = true
+                  THEN 'nightly'
+                  ELSE COALESCE(label_values->>'__deployment_version', 'unknown')
+                END
+              ) = %s
+            ORDER BY start DESC
+            LIMIT %s
+        """
 
     cursor = conn.cursor()
     cursor.execute(query, (version, limit))
@@ -126,6 +154,7 @@ def fetch_runs(conn, component_config, variant_name, variant_config,
         run = dict(zip(columns, row))
         run["_start"] = str(run.pop("start", ""))
         run["_build_id"] = run.pop("build_id", "")
+        run.pop("rn", None)
 
         gk = str(run.pop("group_key", "_all")) if group_by else "_all"
 
