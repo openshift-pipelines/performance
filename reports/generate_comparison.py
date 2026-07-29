@@ -267,9 +267,24 @@ def main():
     output_dir = Path(args.output)
     output_dir.mkdir(parents=True, exist_ok=True)
 
+    version_suffix = (f"v{version_a}_vs_v{version_b}" if mode == "comparison"
+                      else f"v{version_a}")
+
+    # Save raw DB data for QE validation
+    raw_file = output_dir / f"raw_data_{version_suffix}.json"
+    with open(raw_file, "w") as f:
+        json.dump(raw_data, f, indent=2, default=str)
+    logger.info("Raw DB data saved to %s", raw_file)
+
     if mode == "comparison":
         logger.info("Processing comparison data with MAD outlier detection...")
         all_comparisons = process_comparison(raw_data, config)
+
+        mad_file = output_dir / f"mad_analysis_{version_suffix}.json"
+        with open(mad_file, "w") as f:
+            json.dump(all_comparisons, f, indent=2, default=str)
+        logger.info("MAD analysis saved to %s", mad_file)
+
         output = format_comparison_data(all_comparisons, config, version_a, version_b)
         output_file = output_dir / f"comparison_v{version_a}_vs_v{version_b}.json"
         prompt_name = "prompt_template.md"
@@ -277,6 +292,12 @@ def main():
     else:
         logger.info("Processing benchmark data with MAD outlier detection...")
         all_benchmarks = process_benchmark(raw_data, config)
+
+        mad_file = output_dir / f"mad_analysis_{version_suffix}.json"
+        with open(mad_file, "w") as f:
+            json.dump(all_benchmarks, f, indent=2, default=str)
+        logger.info("MAD analysis saved to %s", mad_file)
+
         output = format_benchmark_data(all_benchmarks, config, version_a)
         output_file = output_dir / f"benchmark_v{version_a}.json"
         prompt_name = "prompt_template_benchmark.md"
