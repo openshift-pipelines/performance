@@ -38,7 +38,7 @@ The workflow has two stages:
 └─────────────────────────┘      └─────────────────────────┘
 ```
 
-**Stage 1** connects to the database (read-only), fetches the last N runs per version, excludes outlier runs using MAD (Median Absolute Deviation), computes means and percentage changes, and writes a structured JSON file.
+**Stage 1** connects to the database (read-only), fetches the last N runs per version, excludes outlier runs using MAD (Median Absolute Deviation), computes means and percentage changes, and writes a structured JSON file. It also saves intermediate artifacts (`raw_data_*.json` and `mad_analysis_*.json`) so QE teams can cross-verify the analysis against source data.
 
 **Stage 2** takes that JSON, injects it into a prompt template with tone/framing guidelines, sends it to an OpenAI model, and writes the final KB article as markdown.
 
@@ -197,6 +197,17 @@ The pipeline uses **Median Absolute Deviation (MAD)** to handle infrastructure f
 
 This approach is robust with small sample sizes (3-4 runs) where standard Z-score or IQR methods are unreliable.
 
+## QE Validation Artifacts
+
+Stage 1 saves two intermediate files alongside the final output so QE teams can trace any reported number back to source data:
+
+| File | Contents |
+|------|----------|
+| `raw_data_*.json` | Every row fetched from the DB — metric values, timestamps, build IDs, version labels. This is the unprocessed source of truth. |
+| `mad_analysis_*.json` | Post-outlier-detection results — which runs survived, which were excluded (with flagged metric counts and ratios), and the computed per-metric means/comparisons. |
+
+To validate a number in the final report: final JSON -> `mad_analysis` (check outlier decisions and means) -> `raw_data` (check actual DB values).
+
 ## Database Safety
 
 The database connection enforces **read-only mode** at the PostgreSQL session level (`SET SESSION READ ONLY`). This prevents any write operations even if a code bug introduces one. Only SELECT queries are executed.
@@ -217,7 +228,9 @@ reports/
 │   ├── stats.py                    # MAD outlier detection, comparison stats
 │   └── formatter.py                # JSON output structuring
 └── output/                         # Generated files (gitignored)
-    ├── comparison_v1.22_vs_v1.23.json
+    ├── raw_data_v1.22_vs_v1.23.json        # Raw DB rows for QE validation
+    ├── mad_analysis_v1.22_vs_v1.23.json    # Outlier detection results
+    ├── comparison_v1.22_vs_v1.23.json      # Final processed output
     ├── benchmark_v1.23.json
     └── kb_article_v1.22_vs_v1.23.md
 ```
