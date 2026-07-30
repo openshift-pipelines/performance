@@ -22,7 +22,7 @@ export POSTGRES_PIPELINE_DB_PASSWORD="your-db-password"
 python generate_comparison.py --version-a 1.22 --version-b 1.23
 ```
 
-This produces `output/comparison_v1.22_vs_v1.23.json` and copies the prompt template alongside it.
+This produces `output/comparison_v1.22_vs_v1.23.json` and copies the prompt templates alongside it (KB article template + regression report template).
 
 ## Pipeline Overview
 
@@ -38,7 +38,7 @@ This produces `output/comparison_v1.22_vs_v1.23.json` and copies the prompt temp
 
 **Stage 1** (`generate_comparison.py`) connects to the database (read-only), fetches the last N runs per version, excludes outlier runs using MAD (Median Absolute Deviation), computes means and percentage changes, and writes a structured JSON file. It also saves intermediate artifacts (`raw_data_*.json` and `mad_analysis_*.json`) so QE teams can cross-verify the analysis against source data. A prompt template is copied alongside the output.
 
-**Stage 2** (manual): Feed the JSON and prompt template into your preferred LLM (Claude, ChatGPT, or any other) to generate the final KB article.
+**Stage 2** (manual): Feed the JSON and a prompt template into your preferred LLM (Claude, ChatGPT, or any other) to generate the report. Use `prompt_template.md` for the customer-facing KB article, or `prompt_template_internal_detailed_regression.md` for the internal detailed regression report.
 
 ## Environment Variables
 
@@ -87,14 +87,17 @@ python generate_comparison.py --version-a 1.23
 
 Output: `output/benchmark_v1.23.json`
 
-## Generating the KB Article
+## Generating Reports
 
-Once you have the JSON output and prompt template from Stage 1:
+Once you have the JSON output and prompt templates from Stage 1:
 
-1. Open the prompt template (`output/prompt_template.md` or `output/prompt_template_benchmark.md`)
+1. Open the desired prompt template from `output/`:
+   - `prompt_template.md` — Customer-facing KB article (comparison mode)
+   - `prompt_template_benchmark.md` — Customer-facing benchmark report (benchmark mode)
+   - `prompt_template_internal_detailed_regression.md` — Internal detailed regression report (comparison mode)
 2. Copy the JSON data from the output file (e.g., `output/comparison_v1.22_vs_v1.23.json`)
 3. Feed both into your preferred LLM (Claude, ChatGPT, or any other AI assistant)
-4. The prompt template contains all tone/framing guidelines to produce a customer-facing KB article
+4. Each prompt template contains tone, framing, and output format guidelines specific to its report type
 
 ## CLI Reference
 
@@ -217,8 +220,9 @@ reports/
 ├── README.md                       # This file
 ├── config.yaml                     # Metric definitions, test IDs, thresholds
 ├── generate_comparison.py          # DB -> JSON (fetch, normalize, compare)
-├── prompt_template.md              # LLM prompt for comparison mode
+├── prompt_template.md              # LLM prompt for comparison mode (customer-facing KB)
 ├── prompt_template_benchmark.md    # LLM prompt for benchmark mode
+├── prompt_template_internal_detailed_regression.md  # LLM prompt for internal regression report
 ├── lib/
 │   ├── __init__.py
 │   ├── db.py                       # PostgreSQL fetcher (read-only)
@@ -229,7 +233,8 @@ reports/
     ├── mad_analysis_v1.22_vs_v1.23.json    # Outlier detection results
     ├── comparison_v1.22_vs_v1.23.json      # Final processed output
     ├── benchmark_v1.23.json
-    └── kb_article_v1.22_vs_v1.23.md
+    ├── kb_article_v1.22_vs_v1.23.md
+    └── regression_report_v1.22_vs_v1.23.md
 ```
 
 ## End-to-End Example

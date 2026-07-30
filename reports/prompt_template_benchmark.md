@@ -86,10 +86,18 @@ Write a markdown document with this structure:
 LEAD WITH STRENGTHS.]
 
 ## Test Environment
-- **Infrastructure**: [from data if available, otherwise say "AWS-based OpenShift clusters"]
-- **Configuration**: [3 control plane + 5 compute nodes, m6a.2xlarge]
-- **Pipelines Controller Resources**: [1 CPU, 2 GiB memory]
-- **Methodology**: [Automated CI with outlier-excluded means across N runs]
+- **Infrastructure**: AWS-based OpenShift cluster, 3 control plane + 5 compute nodes (m6a.2xlarge)
+- **Pipelines Controller Resources**: 1 CPU request/limit, 2 GiB memory request/limit
+- **Chains Controller Resources**: Default operator-managed
+- **Results API/Watcher Resources**: Default operator-managed
+- **Methodology**: Automated CI with MAD-based outlier exclusion across N runs
+
+### Test Scenarios
+| Component | Scenario | Description |
+|-----------|----------|-------------|
+| Pipelines Controller | [math](...) | 1,000 PipelineRuns, 4 parallel Tasks. Concurrency sweep: 12–20. |
+| Chains Controller | [signing-tr-tekton-bigbang](...) | Signs PipelineRuns/TaskRuns only (no artifacts). Tested at 500 and 1,000 scale. |
+| Tekton Results | [timebased-sign-pruner](...) | Constant-rate PR creation (5 Tasks, 10 steps, 15 log lines each). Phase 1: ingestion. Phase 2: Locust API load test. |
 
 ## Performance Profile
 
