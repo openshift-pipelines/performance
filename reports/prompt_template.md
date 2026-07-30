@@ -52,11 +52,11 @@ The performance tests are from the [openshift-pipelines/performance](https://git
 - **Chains Controller Resources**: Default operator-managed resources
 - **Results API/Watcher Resources**: Default operator-managed resources
 
-### Test Scenario: "math"
+### Pipelines Controller Test Scenario: "math"
 
 The [math scenario](https://github.com/openshift-pipelines/performance/tree/main/tests/scaling-pipelines/scenario/math) is designed to stress the Pipelines controller and OpenShift scheduler. It runs 1,000 PipelineRuns (`TEST_TOTAL=1000`) using a lightweight math Pipeline consisting of 4 parallel Tasks (sum, diff, mul, div). Each Task performs a trivial bash computation — the workload is intentionally minimal so that the bottleneck is the controller/scheduler, not the workload itself.
 
-### Concurrency Levels
+### Concurrency Levels (Pipelines)
 
 The `TEST_CONCURRENT` parameter controls how many PipelineRuns execute simultaneously. The tests sweep across concurrency levels (12, 14, 16, 18, 20) to measure how the controller scales under increasing parallel load. Higher concurrency stresses the controller's reconciliation loop, workqueue, and Kubernetes API interactions.
 
@@ -68,13 +68,15 @@ The `TEST_CONCURRENT` parameter controls how many PipelineRuns execute simultane
 - **QBT (non-HA)**: Single replica with tuned Kubernetes API QPS, burst, and thread-per-controller settings. Optimizes controller-to-API-server communication for higher throughput.
 - **HA + QBT**: Combines HA (multi-replica) with QBT tuning. Most aggressive configuration for maximum throughput at high scale.
 
-### Chains Tests
+### Chains Controller Test Scenario: "signing-tr-tekton-bigbang"
 
-Chains tests measure Tekton Chains signing performance at two scale levels: 500 and 1,000 total PipelineRuns. Key metrics are signing throughput (runs/s), signing duration, and unsigned PipelineRun count.
+The [signing-tr-tekton-bigbang scenario](https://github.com/openshift-pipelines/performance/tree/main/tests/scaling-pipelines/scenario/signing-tr-tekton-bigbang) is designed to stress the Chains controller by signing PipelineRuns and TaskRuns only — no artifact signing is involved. This isolates Chains signing performance from artifact-related overhead. Tests run at two scale levels: 500 and 1,000 total PipelineRuns (`TEST_TOTAL`). Key metrics are signing throughput (runs/s), signing duration, and unsigned PipelineRun count.
 
-### Results Tests
+### Results Test Scenario: "timebased-sign-pruner"
 
-Results tests measure Tekton Results ingestion performance (how fast the Watcher stores PipelineRun/TaskRun records) and API query performance under load (using Locust to generate concurrent `/record` and `/records` endpoint requests).
+The [timebased-sign-pruner scenario](https://github.com/openshift-pipelines/performance/tree/main/tests/scaling-pipelines/scenario/timebased-sign-pruner) stress tests Tekton Results by creating PipelineRuns/TaskRuns at a constant rate. Each Pipeline has 5 Tasks with 10 steps each, generating substantial log output (15 lines per step). The test has two phases:
+1. **Ingestion phase**: Measures how fast the Results Watcher stores PipelineRun/TaskRun records and logs into persistent storage.
+2. **API load test phase**: Uses Locust to run concurrent API queries — `fetch-log` and `fetch-records` — stressing the `/record` and `/records` endpoints under load.
 
 ## Your Input
 
@@ -134,12 +136,18 @@ Only mention limitations if they affect a major configuration, and frame as "are
 
 ## Test Environment
 - **Repository**: [openshift-pipelines/performance](https://github.com/openshift-pipelines/performance)
-- **Test Scenario**: [math](https://github.com/openshift-pipelines/performance/tree/main/tests/scaling-pipelines/scenario/math) — 1,000 PipelineRuns, 4 parallel Tasks each
 - **Infrastructure**: AWS-based OpenShift cluster, 3 control plane + 5 compute nodes (m6a.2xlarge)
 - **Pipelines Controller Resources**: 1 CPU, 2 GiB memory
 - **Chains Controller Resources**: Default operator-managed
 - **Results API/Watcher Resources**: Default operator-managed
 - **Methodology**: Automated CI with MAD-based outlier exclusion across 3 runs per version per concurrency level
+
+### Test Scenarios
+| Component | Scenario | Description |
+|-----------|----------|-------------|
+| Pipelines Controller | [math](...) | 1,000 PipelineRuns, 4 parallel Tasks. Concurrency sweep: 12–20. |
+| Chains Controller | [signing-tr-tekton-bigbang](...) | Signs PipelineRuns/TaskRuns only (no artifacts). Tested at 500 and 1,000 scale. |
+| Tekton Results | [timebased-sign-pruner](...) | Constant-rate PR creation (5 Tasks, 10 steps, 15 log lines each). Phase 1: ingestion. Phase 2: Locust API load test. |
 
 ## Key Performance Findings
 

@@ -307,15 +307,21 @@ def main():
         json.dump(output, f, indent=2, default=str)
     logger.info("Output written to %s", output_file)
 
-    # Copy prompt template alongside output
-    prompt_src = SCRIPT_DIR / prompt_name
-    if prompt_src.exists():
-        prompt_dst = output_dir / prompt_name
-        prompt_dst.write_text(prompt_src.read_text())
-        logger.info("Prompt template copied to %s", prompt_dst)
-        print(f"Next step: Feed {output_file} + {prompt_dst} to your LLM to generate the article.")
-    else:
-        logger.warning("Prompt template %s not found", prompt_src)
+    # Copy prompt template(s) alongside output
+    prompt_templates = [prompt_name]
+    if version_b:
+        prompt_templates.append("prompt_template_internal_detailed_regression.md")
+
+    for tmpl in prompt_templates:
+        prompt_src = SCRIPT_DIR / tmpl
+        if prompt_src.exists():
+            prompt_dst = output_dir / tmpl
+            prompt_dst.write_text(prompt_src.read_text())
+            logger.info("Prompt template copied to %s", prompt_dst)
+        else:
+            logger.warning("Prompt template %s not found", prompt_src)
+
+    print(f"Next step: Feed {output_file} + prompt template(s) in {output_dir} to your LLM to generate the report.")
 
 
 if __name__ == "__main__":
