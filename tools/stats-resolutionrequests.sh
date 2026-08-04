@@ -16,10 +16,10 @@ done
 items=$(printf '%s\n' "${object_jsons[@]}" | jq -s '{items: map(.items) | add}')
 object_lists=$(echo "$items" | jq '. += {"apiVersion":"v1", "kind": "List", "metadata": {}}')
 
-# Filter run details based on outcome 
-data_overall=$(echo "$object_jsons" | jq --raw-output '.items |= [.[] | . as $a | if . == null then [] else . end | $a ]')
-data_successful=$(echo "$object_jsons" | jq --raw-output '.items |= [.[] | . as $a | if . == null then [] else . end | select(.status.conditions[0].type == "Succeeded" and .status.conditions[0].status == "True") | $a ]')
-data_failed=$(echo "$object_jsons" | jq --raw-output '.items |= [.[] | . as $a | if . == null then [] else . end | select(.status.conditions[0].status == "False") | $a ]')
+# Filter run details based on outcome
+data_overall=$(echo "$object_lists" | jq --raw-output '.items |= [.[] | . as $a | if . == null then [] else . end | $a ]')
+data_successful=$(echo "$object_lists" | jq --raw-output '.items |= [.[] | . as $a | if . == null then [] else . end | select(.status.conditions[0].type == "Succeeded" and .status.conditions[0].status == "True") | $a ]')
+data_failed=$(echo "$object_lists" | jq --raw-output '.items |= [.[] | . as $a | if . == null then [] else . end | select(.status.conditions[0].status == "False") | $a ]')
 
 # In case the test doesn't contain ResolutionRequest, then terminate.
 req_overall=$(echo "$data_overall" | jq --raw-output '[.items[]] | length')
