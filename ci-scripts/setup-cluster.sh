@@ -257,6 +257,36 @@ EOF
     wait_for_entity_by_selector 300 openshift-pipelines pod app=tekton-pipelines-webhook
     kubectl -n openshift-pipelines wait --for=condition=ready --timeout=300s pod -l app=tekton-pipelines-webhook
 
+    info "Setup monitoring for tekton-pipelines-remote-resolvers"
+    # The operator doesn't ship a ServiceMonitor for the resolvers deployment (unlike every
+    # other Tekton component), even though its Service already exposes a http-metrics port.
+    # Without this, resolver reconcile/queue duration histograms never reach Prometheus/Thanos.
+    wait_for_entity_by_selector 300 openshift-pipelines pod app=tekton-pipelines-resolvers
+    kubectl -n openshift-pipelines wait --for=condition=ready --timeout=300s pod -l app=tekton-pipelines-resolvers
+    cat <<EOF | kubectl -n openshift-pipelines apply -f -
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  labels:
+    app: tekton-pipelines-resolvers
+  annotations:
+    networkoperator.openshift.io/ignore-errors: ""
+  name: tekton-pipelines-remote-resolvers-monitor
+  namespace: openshift-pipelines
+spec:
+  endpoints:
+    - interval: 10s
+      port: http-metrics
+  jobLabel: app
+  namespaceSelector:
+    matchNames:
+      - openshift-pipelines
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: resolvers
+      app.kubernetes.io/part-of: tekton-pipelines
+EOF
+
     info "Enable Pipeline performance options"
     pipelines_perf_options=""
     if [ -n "$pipelines_kube_api_qps" ]; then

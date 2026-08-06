@@ -113,6 +113,24 @@
   monitoring_query: sum(tekton_pipelines_controller_taskruns_pod_latency_milliseconds)
   monitoring_step: 15
 
+# Resolver (tekton-pipelines-remote-resolvers) queue metrics.
+# 1.23+ (OTel): kn_workqueue_* with name=TektonResolverFramework.*
+# 1.22  (OpenCensus): controller_workqueue_* with name=TektonResolverFramework.*
+# Reconcile duration is captured more accurately by ResolverLog in stats-resolutionrequests.sh.
+- name: measurements.resolver_queue_duration_p95
+  monitoring_query: |
+    histogram_quantile(0.95, sum(rate(kn_workqueue_queue_duration_seconds_bucket{name=~'TektonResolverFramework[.].*'}[1m])) by (le))
+    or
+    histogram_quantile(0.95, sum(rate(controller_workqueue_queue_latency_seconds_bucket{name=~'TektonResolverFramework[.].*'}[1m])) by (le))
+  monitoring_step: 15
+
+- name: measurements.resolver_workqueue_depth
+  monitoring_query: |
+    sum(kn_workqueue_depth{name=~'TektonResolverFramework[.].*'})
+    or
+    sum(controller_workqueue_depth{name=~'TektonResolverFramework[.].*'})
+  monitoring_step: 15
+
 
 
 # Cluster API server related metrics
