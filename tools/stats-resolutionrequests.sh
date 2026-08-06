@@ -13,48 +13,43 @@ do
 done
 
 # Generate Object List for ResolutionRequests
-items=$(printf '%s\n' "${object_jsons[@]}" | jq -s '{items: map(.items) | add}')
-object_lists=$(echo "$items" | jq '. += {"apiVersion":"v1", "kind": "List", "metadata": {}}')
-
-# Filter run details based on outcome
-data_overall=$(echo "$object_lists" | jq --raw-output '.items |= [.[] | . as $a | if . == null then [] else . end | $a ]')
-data_successful=$(echo "$object_lists" | jq --raw-output '.items |= [.[] | . as $a | if . == null then [] else . end | select(.status.conditions[0].type == "Succeeded" and .status.conditions[0].status == "True") | $a ]')
-data_failed=$(echo "$object_lists" | jq --raw-output '.items |= [.[] | . as $a | if . == null then [] else . end | select(.status.conditions[0].status == "False") | $a ]')
+object_lists=$(printf '%s\n' "${object_jsons[@]}" | jq -s '{apiVersion:"v1", kind:"List", metadata:{}, items: (map(.items) | add)}')
 
 # In case the test doesn't contain ResolutionRequest, then terminate.
-req_overall=$(echo "$data_overall" | jq --raw-output '[.items[]] | length')
+req_overall=$(echo "$object_lists" | jq --raw-output '.items | length')
 if [ "$req_overall" == "0" ]; then
     echo "DEBUG: No ResolutionRequests found."
     exit 0
 fi
 
-# [Overall] ResolutionRequest duration (.status.conditions[0].lastTransitionTime - .metadata.creationTimestamp)
-req_avg=$(echo "$data_overall" | jq --raw-output '[.items[] | ((.status.conditions[0].lastTransitionTime | fromdate) - (.metadata.creationTimestamp | fromdate))] | add / length')
-req_min=$(echo "$data_overall" | jq --raw-output '[.items[] | ((.status.conditions[0].lastTransitionTime | fromdate) - (.metadata.creationTimestamp | fromdate))] | min')
-req_max=$(echo "$data_overall" | jq --raw-output '[.items[] | ((.status.conditions[0].lastTransitionTime | fromdate) - (.metadata.creationTimestamp | fromdate))] | max')
-cat $output | jq '.results.ResolutionRequests.Overall.duration.min = '$req_min' | .results.ResolutionRequests.Overall.duration.avg = '$req_avg' | .results.ResolutionRequests.Overall.duration.max = '$req_max'' >"$$.json" && mv -f "$$.json" "$output"
+# Compute all duration stats (Overall/Success/Failed) in a single jq call and merge into output
+stats_json=$(echo "$object_lists" | jq --raw-output '
+  def duration_stats:
+    [.[] | ((.status.conditions[0].lastTransitionTime | fromdate) - (.metadata.creationTimestamp | fromdate))] |
+    if length == 0 then null
+    else {min: min, max: max, avg: (add / length)} end;
 
-# [Success] ResolutionRequest duration (.status.conditions[0].lastTransitionTime - .metadata.creationTimestamp)
-req_success=$(echo "$data_successful" | jq --raw-output '[.items[]] | length')
-if [ "$req_success" != "0" ]; then
-    req_avg=$(echo "$data_successful" | jq --raw-output '[.items[] | ((.status.conditions[0].lastTransitionTime | fromdate) - (.metadata.creationTimestamp | fromdate))] | add / length')
-    req_min=$(echo "$data_successful" | jq --raw-output '[.items[] | ((.status.conditions[0].lastTransitionTime | fromdate) - (.metadata.creationTimestamp | fromdate))] | min')
-    req_max=$(echo "$data_successful" | jq --raw-output '[.items[] | ((.status.conditions[0].lastTransitionTime | fromdate) - (.metadata.creationTimestamp | fromdate))] | max')
-    cat $output | jq '.results.ResolutionRequests.Success.duration.min = '$req_min' | .results.ResolutionRequests.Success.duration.avg = '$req_avg' | .results.ResolutionRequests.Success.duration.max = '$req_max'' >"$$.json" && mv -f "$$.json" "$output"
-else 
-    echo "DEBUG: No success runs found. Skipping success resolution run calculation..."
-fi
+  .items as $all |
+  ($all | [.[] | select(.status.conditions[0].type == "Succeeded" and .status.conditions[0].status == "True")]) as $success |
+  ($all | [.[] | select(.status.conditions[0].status == "False")]) as $failed |
+  {
+    overall: ($all | duration_stats),
+    overall_count: ($all | length),
+    success: ($success | duration_stats),
+    success_count: ($success | length),
+    failed: ($failed | duration_stats),
+    failed_count: ($failed | length)
+  }
+')
 
-# [Failed] ResolutionRequest duration (.status.conditions[0].lastTransitionTime - .metadata.creationTimestamp)
-req_failed=$(echo "$data_failed" | jq --raw-output '[.items[]] | length')
-if [ "$req_failed" != "0" ]; then
-    req_avg=$(echo "$data_failed" | jq --raw-output '[.items[] | ((.status.conditions[0].lastTransitionTime | fromdate) - (.metadata.creationTimestamp | fromdate))] | add / length')
-    req_min=$(echo "$data_failed" | jq --raw-output '[.items[] | ((.status.conditions[0].lastTransitionTime | fromdate) - (.metadata.creationTimestamp | fromdate))] | min')
-    req_max=$(echo "$data_failed" | jq --raw-output '[.items[] | ((.status.conditions[0].lastTransitionTime | fromdate) - (.metadata.creationTimestamp | fromdate))] | max')
-    cat $output | jq '.results.ResolutionRequests.Failed.duration.min = '$req_min' | .results.ResolutionRequests.Failed.duration.avg = '$req_avg' | .results.ResolutionRequests.Failed.duration.max = '$req_max'' >"$$.json" && mv -f "$$.json" "$output"
-else 
-    echo "DEBUG: No failed runs found. Skipping failed resolution run calculation..."
-fi
+echo "$stats_json" | jq -s --slurpfile base "$output" '
+  .[0] as $stats | $base[0] |
+  (if $stats.overall then .results.ResolutionRequests.Overall.duration = $stats.overall else . end) |
+  (if $stats.success then .results.ResolutionRequests.Success.duration = $stats.success else . end) |
+  (if $stats.failed then .results.ResolutionRequests.Failed.duration = $stats.failed else . end)
+' > "$$.json" && mv -f "$$.json" "$output"
+
+read -r req_success req_failed <<< "$(echo "$stats_json" | jq -r '[.success_count, .failed_count] | @tsv')"
 
 # Save result list
 echo "DEBUG: ResolutionRequest Total ($req_overall) | Success ($req_success) | Failed ($req_failed)"
@@ -83,22 +78,28 @@ if not items:
     sys.exit(0)
 
 def parse_k8s_timestamp(ts):
-    \"\"\"Parse Kubernetes timestamp (1-second granularity) to datetime.\"\"\"
-    for fmt in ('%Y-%m-%dT%H:%M:%SZ', '%Y-%m-%dT%H:%M:%S.%fZ'):
-        try:
-            return datetime.strptime(ts, fmt).replace(tzinfo=timezone.utc)
-        except ValueError:
-            continue
-    return None
+    \"\"\"Parse Kubernetes timestamp to epoch seconds (fast path for known format).\"\"\"
+    try:
+        return datetime(int(ts[0:4]), int(ts[5:7]), int(ts[8:10]),
+                        int(ts[11:13]), int(ts[14:16]), int(ts[17:19]),
+                        tzinfo=timezone.utc)
+    except (ValueError, IndexError):
+        return None
 
 def parse_log_timestamp(ts):
-    \"\"\"Parse resolver log timestamp (sub-second precision) to datetime.\"\"\"
-    for fmt in ('%Y-%m-%dT%H:%M:%S.%fZ', '%Y-%m-%dT%H:%M:%SZ'):
-        try:
-            return datetime.strptime(ts, fmt).replace(tzinfo=timezone.utc)
-        except ValueError:
-            continue
-    return None
+    \"\"\"Parse resolver log timestamp with sub-second precision (fast string slice).\"\"\"
+    try:
+        base = datetime(int(ts[0:4]), int(ts[5:7]), int(ts[8:10]),
+                        int(ts[11:13]), int(ts[14:16]), int(ts[17:19]),
+                        tzinfo=timezone.utc)
+        # Extract fractional seconds if present (between '.' and 'Z')
+        dot = ts.find('.', 19)
+        if dot != -1:
+            frac = ts[dot+1:-1]  # strip trailing 'Z'
+            base = base.replace(microsecond=int(frac.ljust(6, '0')[:6]))
+        return base
+    except (ValueError, IndexError):
+        return None
 
 # Build {key: creationTimestamp} — only count log entries at or after the RR was created
 key_creation_times = {}
@@ -119,6 +120,8 @@ failed_durations = []
 
 with open(log_file) as f:
     for line in f:
+        if 'Reconcile' not in line:
+            continue
         line = line.strip()
         if not line:
             continue
