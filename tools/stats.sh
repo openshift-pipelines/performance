@@ -21,6 +21,11 @@ horreum_test_name() {
         return
     fi
 
+    if [[ "${TEST_SCENARIO:-}" == *-resolver ]]; then
+        echo "Resolvers Performance test-standard"
+        return
+    fi
+
     if [[ "${TEST_SCENARIO:-}" == *signing* ]]; then
         local chains_ha_enabled=false
         if [[ "${DEPLOYMENT_CHAINS_CONTROLLER_HA_REPLICAS:-0}" != "0" ]]; then
