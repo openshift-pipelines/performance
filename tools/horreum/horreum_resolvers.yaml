@@ -1,0 +1,478 @@
+# Horreum Fields Configuration — Resolvers Performance Test
+# Shares the same schema as Pipelines/Chains/Results (same URI), but has its own
+# test definition and change detection variables for resolver-specific metrics.
+#
+# IMPORTANT: Run with CLEANUP_LABELS=false to avoid deleting other tests' labels
+# from the shared schema.
+
+# Global configuration
+global:
+  owner: "Openshift-pipelines-team"
+  access: "PUBLIC"
+
+# Global change detection defaults
+change_detection_defaults:
+  model: "relativeDifference"
+  window: 10
+  min_previous: 5
+  threshold: 0.10
+
+# Change detection groups for Resolvers test
+change_detection_groups:
+  "resolution_time":
+    description: "Resolver resolution latency (from controller logs)"
+    threshold: 0.20
+    window: 10
+    min_previous: 5
+    model: "relativeDifference"
+
+  "resolver_workqueue":
+    description: "Resolver workqueue depth and queue duration"
+    threshold: 0.30
+    window: 10
+    min_previous: 5
+    model: "relativeDifference"
+
+  "PipelineRuns_TaskRuns_duration":
+    description: "PipelineRun and TaskRun duration metrics"
+    threshold: 0.20
+    window: 10
+    min_previous: 5
+    model: "relativeDifference"
+
+  "PipelineRuns_Succeeded_count":
+    description: "Number of successful PipelineRuns"
+    model: "fixedThreshold"
+    fixed_threshold:
+      min_enabled: true
+      min_value: 990
+      min_inclusive: true
+      max_enabled: false
+
+  "TaskRuns_Succeeded_count":
+    description: "Number of successful TaskRuns"
+    model: "fixedThreshold"
+    fixed_threshold:
+      min_enabled: true
+      min_value: 990
+      min_inclusive: true
+      max_enabled: false
+
+  "resolver_cpu":
+    description: "Remote resolvers pod CPU usage"
+    model: "fixedThreshold"
+    fixed_threshold:
+      max_enabled: true
+      max_value: 0.95
+      max_inclusive: true
+      min_enabled: false
+
+  "resolver_memory":
+    description: "Remote resolvers pod memory usage"
+    model: "fixedThreshold"
+    fixed_threshold:
+      max_enabled: true
+      max_value: 3758096384  # ~3.5 GiB (limit is 4 GiB)
+      max_inclusive: true
+      min_enabled: false
+
+  "controller_cpu":
+    description: "Pipelines controller CPU usage"
+    model: "fixedThreshold"
+    fixed_threshold:
+      max_enabled: true
+      max_value: 0.95
+      max_inclusive: true
+      min_enabled: false
+
+  "controller_memory":
+    description: "Pipelines controller memory usage"
+    model: "fixedThreshold"
+    fixed_threshold:
+      max_enabled: true
+      max_value: 1932735283  # ~1.8 GiB (limit is 2 GiB)
+      max_inclusive: true
+      min_enabled: false
+
+  "restarts":
+    description: "Pod and container restart counts"
+    model: "fixedThreshold"
+    fixed_threshold:
+      max_enabled: true
+      max_value: 0
+      max_inclusive: true
+      min_enabled: false
+
+  "TaskRunsToPods_creation":
+    description: "TaskRun-to-Pod creation lag"
+    threshold: 0.20
+    window: 10
+    min_previous: 5
+    model: "relativeDifference"
+
+# Test definition
+test:
+  id: 437
+  access: "PUBLIC"
+  owner: "Openshift-pipelines-team"
+  name: "Resolvers Performance test-standard"
+  folder: "Openshift-pipelines"
+  description: "Remote resolver concurrency performance tests (git, bundle, cluster). Prow jobs: periodic-ci-openshift-pipelines-performance-main-max-concurrency-downstream-*-{gr,br,cr}"
+  datastoreId: 1
+  timelineLabels: ["started"]
+  timelineFunction: "value => new Date(value).getTime()"
+  fingerprintLabels:
+    - deployment_version
+    - parameters_test_concurrent
+    - metadata_env_TEST_SCENARIO
+  fingerprintFilter: "value => value !== null"
+  notificationsEnabled: true
+
+# Schema definition (shared with Pipelines/Chains/Results)
+schema:
+  access: "PUBLIC"
+  owner: "Openshift-pipelines-team"
+  uri: "urn:openshift-pipelines-perfscale-scalingPipelines:0.2"
+  name: "openshift-pipelines-perfscale-scalingPipelines-0.2"
+  description: "Schema for OpenShift Pipelines scalingPipelines performance test data"
+  json_schema:
+    $schema: "https://json-schema.org/draft/2020-12/schema"
+    $id: "urn:openshift-pipelines-perfscale-scalingPipelines:0.2"
+    title: "openshift-pipelines-perfscale-scalingPipelines-0.2"
+    description: "Schema for OpenShift Pipelines performance benchmark data generated from field configuration"
+
+# Field definitions
+fields:
+  # =========================================================================
+  # Metadata & identifiers
+  # =========================================================================
+  - name: "started"
+    jsonpath: "$.started"
+    description: "Run start timestamp"
+    filtering: false
+    metrics: true
+    change_detection_group: null
+
+  - name: "metadata_env_BUILD_ID"
+    jsonpath: "$.metadata.env.BUILD_ID"
+    description: "Prow build ID"
+    filtering: true
+    metrics: false
+    change_detection_group: null
+
+  - name: "metadata_env_SUBJOB_BUILD_ID"
+    jsonpath: "$.metadata.env.SUBJOB_BUILD_ID"
+    description: "Sub-job build ID (unique per concurrency level)"
+    filtering: true
+    metrics: false
+    change_detection_group: null
+
+  - name: "metadata_env_TEST_SCENARIO"
+    jsonpath: "$.metadata.env.TEST_SCENARIO"
+    description: "Test scenario / resolver type (git-resolver, bundle-resolver, cluster-resolver)"
+    filtering: true
+    metrics: false
+    change_detection_group: null
+
+  # =========================================================================
+  # Test parameters
+  # =========================================================================
+  - name: "parameters_test_concurrent"
+    jsonpath: "$.parameters.test.concurrent"
+    description: "Test concurrency level"
+    filtering: true
+    metrics: false
+    change_detection_group: null
+
+  - name: "parameters_test_total"
+    jsonpath: "$.parameters.test.total"
+    description: "Total PipelineRuns"
+    filtering: true
+    metrics: false
+    change_detection_group: null
+
+  # =========================================================================
+  # Deployment configuration
+  # =========================================================================
+  - name: "deployment_version"
+    jsonpath: "$.deployment.version"
+    description: "Deployment version"
+    filtering: true
+    metrics: false
+    change_detection_group: null
+
+  - name: "deployment_nightly"
+    jsonpath: "$.deployment.is_nightly_build"
+    description: "Whether this is a nightly build"
+    filtering: true
+    metrics: false
+    change_detection_group: null
+
+  - name: "deployment_ocpVersion"
+    jsonpath: "$.deployment.ocp_version"
+    description: "OpenShift cluster version"
+    filtering: true
+    metrics: false
+    change_detection_group: null
+
+  # =========================================================================
+  # Resolution Requests (from resolver controller logs)
+  # =========================================================================
+  - name: "results_ResolutionRequests_ResolverLog_Overall_avg"
+    jsonpath: "$.results.ResolutionRequests.ResolverLog.Overall.avg"
+    description: "Average resolution time from resolver logs (seconds)"
+    filtering: false
+    metrics: true
+    change_detection_group: "resolution_time"
+
+  - name: "results_ResolutionRequests_ResolverLog_Overall_p95"
+    jsonpath: "$.results.ResolutionRequests.ResolverLog.Overall.p95"
+    description: "P95 resolution time from resolver logs (seconds)"
+    filtering: false
+    metrics: true
+    change_detection_group: "resolution_time"
+
+  - name: "results_ResolutionRequests_ResolverLog_Overall_p99"
+    jsonpath: "$.results.ResolutionRequests.ResolverLog.Overall.p99"
+    description: "P99 resolution time from resolver logs (seconds)"
+    filtering: false
+    metrics: true
+    change_detection_group: "resolution_time"
+
+  - name: "results_ResolutionRequests_ResolverLog_Overall_max"
+    jsonpath: "$.results.ResolutionRequests.ResolverLog.Overall.max"
+    description: "Max resolution time from resolver logs (seconds)"
+    filtering: false
+    metrics: true
+    change_detection_group: null
+
+  - name: "results_ResolutionRequests_ResolverLog_Overall_count"
+    jsonpath: "$.results.ResolutionRequests.ResolverLog.Overall.count"
+    description: "Total number of resolution requests logged"
+    filtering: false
+    metrics: true
+    change_detection_group: null
+
+  # =========================================================================
+  # PipelineRuns
+  # =========================================================================
+  - name: "results_PipelineRuns_count_succeeded"
+    jsonpath: "$.results.PipelineRuns.count.succeeded"
+    description: "Number of successful PipelineRuns"
+    filtering: false
+    metrics: true
+    change_detection_group: "PipelineRuns_Succeeded_count"
+
+  - name: "results_PipelineRuns_count_failed"
+    jsonpath: "$.results.PipelineRuns.count.failed"
+    description: "Number of failed PipelineRuns"
+    filtering: false
+    metrics: true
+    change_detection_group: null
+
+  - name: "results_PipelineRuns_duration_avg"
+    jsonpath: "$.results.PipelineRuns.duration.avg"
+    description: "Average PipelineRun duration (seconds)"
+    filtering: false
+    metrics: true
+    change_detection_group: "PipelineRuns_TaskRuns_duration"
+
+  - name: "results_PipelineRuns_Success_duration_avg"
+    jsonpath: "$.results.PipelineRuns.Success.duration.avg"
+    description: "Average duration for successful PipelineRuns (seconds)"
+    filtering: false
+    metrics: true
+    change_detection_group: "PipelineRuns_TaskRuns_duration"
+
+  - name: "results_PipelineRuns_Success_pending_avg"
+    jsonpath: "$.results.PipelineRuns.Success.pending.avg"
+    description: "Average pending time for successful PipelineRuns (seconds)"
+    filtering: false
+    metrics: true
+    change_detection_group: "PipelineRuns_TaskRuns_duration"
+
+  - name: "results_PipelineRuns_Success_running_avg"
+    jsonpath: "$.results.PipelineRuns.Success.running.avg"
+    description: "Average running time for successful PipelineRuns (seconds)"
+    filtering: false
+    metrics: true
+    change_detection_group: "PipelineRuns_TaskRuns_duration"
+
+  # =========================================================================
+  # TaskRuns
+  # =========================================================================
+  - name: "results_TaskRuns_count_succeeded"
+    jsonpath: "$.results.TaskRuns.count.succeeded"
+    description: "Number of successful TaskRuns"
+    filtering: false
+    metrics: true
+    change_detection_group: "TaskRuns_Succeeded_count"
+
+  - name: "results_TaskRuns_count_failed"
+    jsonpath: "$.results.TaskRuns.count.failed"
+    description: "Number of failed TaskRuns"
+    filtering: false
+    metrics: true
+    change_detection_group: null
+
+  - name: "results_TaskRuns_duration_avg"
+    jsonpath: "$.results.TaskRuns.duration.avg"
+    description: "Average TaskRun duration (seconds)"
+    filtering: false
+    metrics: true
+    change_detection_group: "PipelineRuns_TaskRuns_duration"
+
+  - name: "results_TaskRuns_Success_duration_avg"
+    jsonpath: "$.results.TaskRuns.Success.duration.avg"
+    description: "Average duration for successful TaskRuns (seconds)"
+    filtering: false
+    metrics: true
+    change_detection_group: "PipelineRuns_TaskRuns_duration"
+
+  - name: "results_TaskRuns_Success_pending_avg"
+    jsonpath: "$.results.TaskRuns.Success.pending.avg"
+    description: "Average pending time for successful TaskRuns (seconds)"
+    filtering: false
+    metrics: true
+    change_detection_group: "PipelineRuns_TaskRuns_duration"
+
+  - name: "results_TaskRuns_Success_running_avg"
+    jsonpath: "$.results.TaskRuns.Success.running.avg"
+    description: "Average running time for successful TaskRuns (seconds)"
+    filtering: false
+    metrics: true
+    change_detection_group: "PipelineRuns_TaskRuns_duration"
+
+  # =========================================================================
+  # TaskRun-to-Pod scheduling
+  # =========================================================================
+  - name: "results_TaskRunsToPods_creationTimestampDiff_mean"
+    jsonpath: "$.results.TaskRuns_to_Pods.creationTimestamp_diff.mean"
+    description: "Mean time difference between TaskRun and Pod creation (seconds)"
+    filtering: false
+    metrics: true
+    change_detection_group: "TaskRunsToPods_creation"
+
+  - name: "results_TaskRunsToPods_creationTimestampDiff_max"
+    jsonpath: "$.results.TaskRuns_to_Pods.creationTimestamp_diff.max"
+    description: "Maximum time difference between TaskRun and Pod creation (seconds)"
+    filtering: false
+    metrics: true
+    change_detection_group: "TaskRunsToPods_creation"
+
+  # =========================================================================
+  # Remote Resolvers pod (tekton-pipelines-remote-resolvers)
+  # =========================================================================
+  - name: "measurements_tektonPipelinesRemoteResolvers_cpu_mean"
+    jsonpath: "$.measurements.\"tekton-pipelines-remote-resolvers\".cpu.mean"
+    description: "Mean CPU usage for remote resolvers pod"
+    filtering: false
+    metrics: true
+    change_detection_group: "resolver_cpu"
+
+  - name: "measurements_tektonPipelinesRemoteResolvers_cpu_max"
+    jsonpath: "$.measurements.\"tekton-pipelines-remote-resolvers\".cpu.max"
+    description: "Maximum CPU usage for remote resolvers pod"
+    filtering: false
+    metrics: true
+    change_detection_group: null
+
+  - name: "measurements_tektonPipelinesRemoteResolvers_memory_mean"
+    jsonpath: "$.measurements.\"tekton-pipelines-remote-resolvers\".memory.mean"
+    description: "Mean memory usage for remote resolvers pod (bytes)"
+    filtering: false
+    metrics: true
+    change_detection_group: "resolver_memory"
+
+  - name: "measurements_tektonPipelinesRemoteResolvers_memory_max"
+    jsonpath: "$.measurements.\"tekton-pipelines-remote-resolvers\".memory.max"
+    description: "Maximum memory usage for remote resolvers pod (bytes)"
+    filtering: false
+    metrics: true
+    change_detection_group: null
+
+  - name: "measurements_tektonPipelinesRemoteResolvers_restarts_range"
+    jsonpath: "$.measurements.\"tekton-pipelines-remote-resolvers\".restarts.range"
+    description: "Remote resolvers pod restart count"
+    filtering: false
+    metrics: true
+    change_detection_group: "restarts"
+
+  # =========================================================================
+  # Resolver workqueue metrics
+  # =========================================================================
+  - name: "measurements_resolverWorkqueueDepth_mean"
+    jsonpath: "$.measurements.resolver_workqueue_depth.mean"
+    description: "Mean resolver workqueue depth"
+    filtering: false
+    metrics: true
+    change_detection_group: "resolver_workqueue"
+
+  - name: "measurements_resolverWorkqueueDepth_max"
+    jsonpath: "$.measurements.resolver_workqueue_depth.max"
+    description: "Maximum resolver workqueue depth"
+    filtering: false
+    metrics: true
+    change_detection_group: null
+
+  - name: "measurements_resolverQueueDurationP95_mean"
+    jsonpath: "$.measurements.resolver_queue_duration_p95.mean"
+    description: "Mean resolver queue duration P95 (seconds)"
+    filtering: false
+    metrics: true
+    change_detection_group: "resolver_workqueue"
+
+  - name: "measurements_resolverQueueDurationP95_max"
+    jsonpath: "$.measurements.resolver_queue_duration_p95.max"
+    description: "Maximum resolver queue duration P95 (seconds)"
+    filtering: false
+    metrics: true
+    change_detection_group: null
+
+  # =========================================================================
+  # Pipelines controller
+  # =========================================================================
+  - name: "measurements_tektonPipelinesController_cpu_mean"
+    jsonpath: "$.measurements.\"tekton-pipelines-controller\".cpu.mean"
+    description: "Mean CPU usage for pipelines controller"
+    filtering: false
+    metrics: true
+    change_detection_group: "controller_cpu"
+
+  - name: "measurements_tektonPipelinesController_cpu_max"
+    jsonpath: "$.measurements.\"tekton-pipelines-controller\".cpu.max"
+    description: "Maximum CPU usage for pipelines controller"
+    filtering: false
+    metrics: true
+    change_detection_group: null
+
+  - name: "measurements_tektonPipelinesController_memory_mean"
+    jsonpath: "$.measurements.\"tekton-pipelines-controller\".memory.mean"
+    description: "Mean memory usage for pipelines controller (bytes)"
+    filtering: false
+    metrics: true
+    change_detection_group: "controller_memory"
+
+  - name: "measurements_tektonPipelinesController_memory_max"
+    jsonpath: "$.measurements.\"tekton-pipelines-controller\".memory.max"
+    description: "Maximum memory usage for pipelines controller (bytes)"
+    filtering: false
+    metrics: true
+    change_detection_group: null
+
+  - name: "measurements_tektonPipelinesController_restarts_range"
+    jsonpath: "$.measurements.\"tekton-pipelines-controller\".restarts.range"
+    description: "Pipelines controller restart count"
+    filtering: false
+    metrics: true
+    change_detection_group: "restarts"
+
+  # =========================================================================
+  # Controller workqueue depth
+  # =========================================================================
+  - name: "measurements_tektonTektonPipelinesControllerWorkqueueDepth_mean"
+    jsonpath: "$.measurements.tekton_tekton_pipelines_controller_workqueue_depth.mean"
+    description: "Mean pipelines controller workqueue depth"
+    filtering: false
+    metrics: true
+    change_detection_group: null
