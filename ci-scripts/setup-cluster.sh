@@ -85,9 +85,7 @@ fi
 info "Deploy pipelines $DEPLOYMENT_TYPE/$DEPLOYMENT_VERSION"
 if [ "$DEPLOYMENT_TYPE" == "downstream" ]; then
 
-    DEPLOYMENT_CSV_VERSION="$DEPLOYMENT_VERSION.0"
-    [ "$DEPLOYMENT_VERSION" == "1.11" ] && DEPLOYMENT_CSV_VERSION="1.11.1"
-    [ "$DEPLOYMENT_VERSION" == "1.14" ] && DEPLOYMENT_CSV_VERSION="1.14.3"
+    desired_csv=""
 
     if [ "$DEPLOYMENT_VERSION" == "nightly" ] || [ "$DEPLOYMENT_VERSION" == "custom" ] || version_gte "$DEPLOYMENT_VERSION" "5"; then
         # Set the image tag based on build type
@@ -138,6 +136,57 @@ spec:
 EOF
     else
 
+        if ! printf '%s' "$DEPLOYMENT_VERSION" | grep -Eq '^[0-9]+\.[0-9]+(\.[0-9]+)?$'; then
+            fatal "DEPLOYMENT_VERSION must be like 1.22 or 1.22.3, got: ${DEPLOYMENT_VERSION}"
+        fi
+        operator_channel="pipelines-$(printf '%s' "$DEPLOYMENT_VERSION" | cut -d. -f1,2)"
+        csv_pin=""
+        case "$DEPLOYMENT_VERSION" in
+            *.*.*) csv_pin="openshift-pipelines-operator-rh.v${DEPLOYMENT_VERSION}" ;;
+            1.11) csv_pin="openshift-pipelines-operator-rh.v1.11.1" ;;
+            1.14) csv_pin="openshift-pipelines-operator-rh.v1.14.3" ;;
+        esac
+
+        info "Resolve CSV for channel ${operator_channel}${csv_pin:+ (pin $csv_pin)}"
+        deadline=$(( $(date --utc +%s) + 120 ))
+        while true; do
+            desired_csv=$(kubectl get packagemanifests -n openshift-marketplace -o json | jq -r \
+                --arg channel "$operator_channel" \
+                --arg pin "$csv_pin" '
+                [.items[]
+                  | select(.metadata.name == "openshift-pipelines-operator-rh")
+                  | select(.status.catalogSource == "redhat-operators")
+                  | .status.channels[]?
+                  | select(.name == $channel)
+                ] | first
+                | if . == null then empty
+                  else
+                    ([.currentCSV] + [.entries[]?.name] | unique) as $csvs
+                    | if $pin == "" then
+                        (.currentCSV // empty)
+                      elif ($csvs | index($pin)) != null then
+                        $pin
+                      else
+                        "missing " + ($csvs | join(", "))
+                      end
+                  end
+            ' || true)
+            case "$desired_csv" in
+                missing\ *)
+                    fatal "CSV $csv_pin is not in ${operator_channel}. Available:${desired_csv#missing}"
+                    ;;
+            esac
+            if [ -n "$desired_csv" ] && [ "$desired_csv" != "null" ]; then
+                break
+            fi
+            if [[ $(date --utc +%s) -ge $deadline ]]; then
+                fatal "Could not resolve channel ${operator_channel} from redhat-operators"
+            fi
+            debug "Channel ${operator_channel} not in catalog yet, retrying"
+            sleep 3
+        done
+        info "Using CSV $desired_csv on ${operator_channel}"
+
         cat <<EOF | kubectl apply -f -
 apiVersion: operators.coreos.com/v1alpha1
 kind: Subscription
@@ -147,19 +196,61 @@ metadata:
   name: openshift-pipelines-operator-rh
   namespace: openshift-operators
 spec:
-  channel: pipelines-${DEPLOYMENT_VERSION}
+  channel: ${operator_channel}
   installPlanApproval: Manual
   name: openshift-pipelines-operator-rh
   source: redhat-operators
   sourceNamespace: openshift-marketplace
-  startingCSV: openshift-pipelines-operator-rh.v${DEPLOYMENT_CSV_VERSION}
+  startingCSV: ${desired_csv}
 EOF
     fi
 
-    info "Wait for installplan to appear"
-    wait_for_entity_by_selector 300 openshift-operators InstallPlan operators.coreos.com/openshift-pipelines-operator-rh.openshift-operators=
-    ip_name=$(kubectl -n openshift-operators get installplan -l operators.coreos.com/openshift-pipelines-operator-rh.openshift-operators= -o name)
-    kubectl -n openshift-operators patch -p '{"spec":{"approved":true}}' --type merge "$ip_name"
+    if [ -n "$desired_csv" ]; then
+        installed_csv=$(kubectl -n openshift-operators get subscription openshift-pipelines-operator-rh -o jsonpath='{.status.installedCSV}' 2>/dev/null || true)
+        if [ -n "$installed_csv" ] && [ "$installed_csv" != "$desired_csv" ]; then
+            if version_gte "${installed_csv#openshift-pipelines-operator-rh.v}" "${desired_csv#openshift-pipelines-operator-rh.v}"; then
+                fatal "Already installed $installed_csv; cannot move to $desired_csv (OLM does not downgrade)"
+            fi
+        fi
+
+        info "Wait until $desired_csv is installed"
+        deadline=$(( $(date --utc +%s) + 600 ))
+        csv_phase=""
+        while true; do
+            csv_phase=$(kubectl -n openshift-operators get csv "$desired_csv" -o jsonpath='{.status.phase}' 2>/dev/null || true)
+            if [ "$csv_phase" == "Succeeded" ]; then
+                break
+            fi
+            # Approve only a plan whose CSV list is exactly the requested version.
+            install_plan=$(kubectl -n openshift-operators get installplan -o json 2>/dev/null | jq -r --arg csv "$desired_csv" '
+                [.items[]
+                  | select(.spec.approved != true)
+                  | select((.spec.clusterServiceVersionNames // []) == [$csv])
+                  | .metadata.name
+                ] | first // empty
+            ' || true)
+            if [ -n "$install_plan" ]; then
+                info "Approving InstallPlan $install_plan"
+                kubectl -n openshift-operators patch installplan "$install_plan" --type merge -p '{"spec":{"approved":true}}'
+            elif [[ $(date --utc +%s) -ge $deadline ]]; then
+                pending=$(kubectl -n openshift-operators get installplan -o json | jq -r '
+                    .items[] | select(.spec.approved != true) |
+                    "\(.metadata.name) csvs=\(.spec.clusterServiceVersionNames)"
+                ')
+                fatal "Timed out waiting for $desired_csv (phase=${csv_phase:-missing}). Pending InstallPlans: ${pending}"
+            fi
+            sleep 3
+        done
+        installed_csv=$(kubectl -n openshift-operators get subscription openshift-pipelines-operator-rh -o jsonpath='{.status.installedCSV}' 2>/dev/null || true)
+        if [ -n "$installed_csv" ] && [ "$installed_csv" != "$desired_csv" ]; then
+            fatal "Requested $desired_csv but Subscription installedCSV is $installed_csv"
+        fi
+    else
+        info "Wait for installplan to appear"
+        wait_for_entity_by_selector 300 openshift-operators InstallPlan operators.coreos.com/openshift-pipelines-operator-rh.openshift-operators=
+        install_plan=$(kubectl -n openshift-operators get installplan -l operators.coreos.com/openshift-pipelines-operator-rh.openshift-operators= -o name)
+        kubectl -n openshift-operators patch -p '{"spec":{"approved":true}}' --type merge "$install_plan"
+    fi
 
     if [ "$DEPLOYMENT_VERSION" == "1.11" ]; then
         warning "Configure resources for tekton-pipelines-controller is supported since 1.12"
@@ -210,15 +301,13 @@ EOF
             kubectl patch TektonConfig/config --type merge --patch '{"spec":{"pipeline":{"options":{"'"$DEPLOYMENT_PIPELINES_CONTROLLER_TYPE"'":{"tekton-pipelines-controller":{"spec":{"replicas":'"$DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS"'}}}}}}}'
 
             # Wait for pods to come up
-            wait_for_entity_by_selector 300 openshift-pipelines pod app=tekton-pipelines-controller "$DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS"
-            kubectl -n openshift-pipelines wait --for=condition=ready pod -l app=tekton-pipelines-controller
+            wait_for_ready_pods 300 openshift-pipelines app=tekton-pipelines-controller "$DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS"
             
             if [ "$DEPLOYMENT_PIPELINES_CONTROLLER_TYPE" == "deployments" ]; then
               # Delete leases
               kubectl get leases -n openshift-pipelines -o name | awk '/tekton-pipelines-controller/' | xargs -r kubectl delete -n openshift-pipelines
               # Wait for pods to come up
-              wait_for_entity_by_selector 300 openshift-pipelines pod app=tekton-pipelines-controller "$DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS"
-              kubectl -n openshift-pipelines wait --for=condition=ready --timeout=300s pod -l app=tekton-pipelines-controller
+              wait_for_ready_pods 300 openshift-pipelines app=tekton-pipelines-controller "$DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS"
               # Check if all replicas were assigned some buckets
               for p in $( kubectl -n openshift-pipelines get pods -l app=tekton-pipelines-controller -o name ); do
                   info "Checking if $p successfully acquired leases - not failing if empty as a workaround"
@@ -235,14 +324,12 @@ EOF
             kubectl patch TektonConfig/config --type merge --patch '{"spec":{"chain":{"options":{"deployments":{"tekton-chains-controller":{"spec":{"replicas":'"$DEPLOYMENT_CHAINS_CONTROLLER_HA_REPLICAS"'}}},"configMaps":{"tekton-chains-config-leader-election":{"data":{"buckets":"'"$chains_controller_ha_buckets"'"}}}}}}}'
             # Wait for pods to come up
             sleep 60
-            wait_for_entity_by_selector 300 openshift-pipelines pod app=tekton-chains-controller "$DEPLOYMENT_CHAINS_CONTROLLER_HA_REPLICAS"
-            kubectl -n openshift-pipelines wait --for=condition=ready --timeout=300s pod -l app=tekton-chains-controller
+            wait_for_ready_pods 300 openshift-pipelines app=tekton-chains-controller "$DEPLOYMENT_CHAINS_CONTROLLER_HA_REPLICAS"
             # Delete leases
             kubectl get leases -n openshift-pipelines -o name | awk '/tektoncd.chains/' | xargs -r kubectl delete -n openshift-pipelines
             # Wait for pods to come up
             sleep 60
-            wait_for_entity_by_selector 300 openshift-pipelines pod app=tekton-chains-controller "$DEPLOYMENT_CHAINS_CONTROLLER_HA_REPLICAS"
-            kubectl -n openshift-pipelines wait --for=condition=ready --timeout=300s pod -l app=tekton-chains-controller
+            wait_for_ready_pods 300 openshift-pipelines app=tekton-chains-controller "$DEPLOYMENT_CHAINS_CONTROLLER_HA_REPLICAS"
             # Check if all replicas were assigned some buckets
             for p in $( kubectl -n openshift-pipelines get pods -l app=tekton-chains-controller -o name ); do
                 info "Checking if $p successfully acquired leases - not failing if empty as a workaround"
@@ -252,17 +339,14 @@ EOF
     fi
 
     info "Wait for deployment to finish"
-    wait_for_entity_by_selector 300 openshift-pipelines pod app=tekton-pipelines-controller
-    kubectl -n openshift-pipelines wait --for=condition=ready --timeout=300s pod -l app=tekton-pipelines-controller
-    wait_for_entity_by_selector 300 openshift-pipelines pod app=tekton-pipelines-webhook
-    kubectl -n openshift-pipelines wait --for=condition=ready --timeout=300s pod -l app=tekton-pipelines-webhook
+    wait_for_ready_pods 300 openshift-pipelines app=tekton-pipelines-controller
+    wait_for_ready_pods 300 openshift-pipelines app=tekton-pipelines-webhook
 
     info "Setup monitoring for tekton-pipelines-remote-resolvers"
     # The operator doesn't ship a ServiceMonitor for the resolvers deployment (unlike every
     # other Tekton component), even though its Service already exposes a http-metrics port.
     # Without this, resolver reconcile/queue duration histograms never reach Prometheus/Thanos.
-    wait_for_entity_by_selector 300 openshift-pipelines pod app=tekton-pipelines-resolvers
-    kubectl -n openshift-pipelines wait --for=condition=ready --timeout=300s pod -l app=tekton-pipelines-resolvers
+    wait_for_ready_pods 300 openshift-pipelines app=tekton-pipelines-resolvers
     cat <<EOF | kubectl -n openshift-pipelines apply -f -
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor

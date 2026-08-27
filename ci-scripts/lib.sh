@@ -81,6 +81,36 @@ function wait_for_entity_by_selector() {
     done
 }
 
+# Wait until pods matching a label are Ready, ignoring Terminating pods from a rollout.
+# kubectl wait -l ... waits for every matching pod, including ones being replaced, and times out.
+function wait_for_ready_pods() {
+    local timeout="$1"
+    local ns="$2"
+    local label="$3"
+    local expected="${4:-1}"
+    local before now counts ready not_ready
+
+    before=$(date --utc +%s)
+    while true; do
+        counts=$(kubectl -n "$ns" get pods -l "$label" -o json 2>/dev/null | jq -r '
+            [.items[] | select(.metadata.deletionTimestamp == null)] as $active
+            | ($active | map(select(any(.status.conditions[]?; .type == "Ready" and .status == "True"))) | length) as $ready
+            | "\($ready) \(($active | length) - $ready)"
+        ' || echo "0 0")
+        ready="${counts%% *}"
+        not_ready="${counts##* }"
+        if [ "${ready:-0}" -ge "$expected" ] && [ "${not_ready:-0}" -eq 0 ]; then
+            return 0
+        fi
+        now=$(date --utc +%s)
+        if [[ $(( now - before )) -ge "$timeout" ]]; then
+            fatal "Pods with label $label in $ns not ready before timeout (ready=${ready:-0} not_ready=${not_ready:-0} expected=$expected)"
+        fi
+        debug "Waiting for $label pods in $ns (ready=${ready:-0} not_ready=${not_ready:-0} expected=$expected, $(( now - before ))/$timeout)"
+        sleep 3
+    done
+}
+
 function capture_results_db_query(){
     local pg_user=$1
     local pg_pwd=$2
