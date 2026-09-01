@@ -44,6 +44,16 @@ if [ -n "$DEPLOYMENT_CHAINS_CONTROLLER_HA_REPLICAS" ]; then
     chains_controller_ha_buckets=$(( chains_controller_ha_buckets > 10 ? 10 : chains_controller_ha_buckets ))
 fi
 
+DEPLOYMENT_RESOLVERS_HA_REPLICAS="${DEPLOYMENT_RESOLVERS_HA_REPLICAS:-}"
+if [ -n "$DEPLOYMENT_RESOLVERS_HA_REPLICAS" ]; then
+    resolvers_ha_buckets=$(( DEPLOYMENT_RESOLVERS_HA_REPLICAS * 2 ))
+    resolvers_ha_buckets=$(( resolvers_ha_buckets > 10 ? 10 : resolvers_ha_buckets ))
+fi
+
+# Values: always | never | auto. Empty = operator default.
+# Currently applied to cluster-resolver-config only.
+DEPLOYMENT_RESOLVERS_CACHE_MODE="${DEPLOYMENT_RESOLVERS_CACHE_MODE:-}"
+
 pipelines_kube_api_qps="${DEPLOYMENT_PIPELINES_KUBE_API_QPS:-}"
 pipelines_kube_api_burst="${DEPLOYMENT_PIPELINES_KUBE_API_BURST:-}"
 pipelines_threads_per_controller="${DEPLOYMENT_PIPELINES_THREADS_PER_CONTROLLER:-}"
@@ -335,6 +345,32 @@ EOF
                 info "Checking if $p successfully acquired leases - not failing if empty as a workaround"
                 kubectl -n openshift-pipelines logs --prefix "$p" | grep 'successfully acquired lease' || true
             done
+        fi
+
+        info "Configure Resolvers HA: ${DEPLOYMENT_RESOLVERS_HA_REPLICAS:-no}"
+        if [ -n "$DEPLOYMENT_RESOLVERS_HA_REPLICAS" ]; then
+            wait_for_entity_by_selector 300 "" TektonConfig openshift-pipelines.tekton.dev/sa-created=true
+            kubectl patch TektonConfig/config --type merge --patch '{"spec":{"pipeline":{"options":{"deployments":{"tekton-pipelines-remote-resolvers":{"spec":{"replicas":'"$DEPLOYMENT_RESOLVERS_HA_REPLICAS"'}}},"configMaps":{"config-leader-election-resolvers":{"data":{"buckets":"'"$resolvers_ha_buckets"'"}}}}}}}'
+            sleep 30
+            wait_for_ready_pods 300 openshift-pipelines app=tekton-pipelines-resolvers "$DEPLOYMENT_RESOLVERS_HA_REPLICAS"
+            kubectl get leases -n openshift-pipelines -o name | awk '/tekton-pipelines-resolvers/' | xargs -r kubectl delete -n openshift-pipelines
+            sleep 30
+            wait_for_ready_pods 300 openshift-pipelines app=tekton-pipelines-resolvers "$DEPLOYMENT_RESOLVERS_HA_REPLICAS"
+            for p in $( kubectl -n openshift-pipelines get pods -l app=tekton-pipelines-resolvers -o name ); do
+                info "Checking if $p successfully acquired leases - not failing if empty as a workaround"
+                kubectl -n openshift-pipelines logs --prefix "$p" | grep 'successfully acquired lease' || true
+            done
+        fi
+
+        info "Configure resolvers cache mode: ${DEPLOYMENT_RESOLVERS_CACHE_MODE:-default}"
+        if [ -n "$DEPLOYMENT_RESOLVERS_CACHE_MODE" ]; then
+            case "$DEPLOYMENT_RESOLVERS_CACHE_MODE" in
+                always|never|auto) ;;
+                *) fatal "DEPLOYMENT_RESOLVERS_CACHE_MODE must be always, never, or auto (got: $DEPLOYMENT_RESOLVERS_CACHE_MODE)" ;;
+            esac
+            wait_for_entity_by_selector 300 "" TektonConfig openshift-pipelines.tekton.dev/sa-created=true
+            kubectl patch TektonConfig/config --type merge --patch '{"spec":{"pipeline":{"cluster-resolver-config":{"default-cache-mode":"'"$DEPLOYMENT_RESOLVERS_CACHE_MODE"'"}}}}'
+            info "cluster-resolver-config default-cache-mode set to '$DEPLOYMENT_RESOLVERS_CACHE_MODE'"
         fi
     fi
 
