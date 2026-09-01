@@ -24,3 +24,5 @@ build src/chains-version-comparison-v2.jsonnet generated/chains-version-comparis
 build src/results-dashboard.jsonnet generated/results-dashboard.json
 build src/results-comparison-dashboard.jsonnet generated/results-comparison-dashboard.json
 build src/results-version-comparison-v2.jsonnet generated/results-version-comparison-v2.json
+build src/resolvers-dashboard.jsonnet generated/resolvers-dashboard.json
+build src/resolvers-comparison-dashboard.jsonnet generated/resolvers-comparison-dashboard.json
