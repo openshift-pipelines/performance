@@ -128,11 +128,11 @@ else
     warning "Status data file $monitoring_collection_data not found, skipping nightly build info collection"
 fi
 
-info "Collecting HA and QBT configuration..."
+info "Collecting HA, QBT and Resolver configuration..."
 if [ -f "$monitoring_collection_data" ]; then
     capture_ha_qbt_config "$monitoring_collection_data"
 else
-    warning "Status data file $monitoring_collection_data not found, skipping HA and QBT configuration collection"
+    warning "Status data file $monitoring_collection_data not found, skipping HA, QBT and Resolver configuration collection"
 fi
 
 info "Collecting scenario name..."
