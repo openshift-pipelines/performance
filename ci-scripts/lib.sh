@@ -252,14 +252,15 @@ capture_nightly_build_info() {
 capture_ha_qbt_config() {
     local output_file=$1
 
-    info "Collecting HA and QBT configuration information"
+    info "Collecting HA, QBT and Resolver configuration information"
 
     (cat "$output_file" 2>/dev/null || echo "{}") | jq \
-        --arg ha_replicas "${DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS:-${DEPLOYMENT_CHAINS_CONTROLLER_HA_REPLICAS:-0}}" \
+        --arg ha_replicas "${DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS:-${DEPLOYMENT_CHAINS_CONTROLLER_HA_REPLICAS:-${DEPLOYMENT_RESOLVERS_HA_REPLICAS:-0}}}" \
         --arg controller_type "${DEPLOYMENT_PIPELINES_CONTROLLER_TYPE:-deployments}" \
         --arg qps "${DEPLOYMENT_PIPELINES_KUBE_API_QPS:-${DEPLOYMENT_CHAINS_KUBE_API_QPS:-}}" \
         --arg burst "${DEPLOYMENT_PIPELINES_KUBE_API_BURST:-${DEPLOYMENT_CHAINS_KUBE_API_BURST:-}}" \
         --arg threads "${DEPLOYMENT_PIPELINES_THREADS_PER_CONTROLLER:-${DEPLOYMENT_CHAINS_THREADS_PER_CONTROLLER:-}}" \
+        --arg resolver_cache_mode "${DEPLOYMENT_RESOLVERS_CACHE_MODE:-}" \
         --arg ocp_version "${OCP_VERSION:-$(oc get clusterversion version -o jsonpath='{.status.desired.version}' 2>/dev/null | cut -d. -f1,2)}" \
         '.deployment.ha_config = {
             ha_enabled: (($ha_replicas | tonumber) > 0),
@@ -272,9 +273,10 @@ capture_ha_qbt_config() {
             kube_api_burst: (if $burst != "" then ($burst | tonumber) else null end),
             threads_per_controller: (if $threads != "" then ($threads | tonumber) else null end)
         } |
+        .deployment.resolver_cache_mode = (if $resolver_cache_mode == "" then null else $resolver_cache_mode end) |
         .deployment.ocp_version = (if $ocp_version != "" then $ocp_version else null end)' > "${output_file}.tmp" && mv "${output_file}.tmp" "$output_file"
 
-    info "HA and QBT configuration collected"
+    info "HA, QBT and Resolver configuration collected"
 }
 
 capture_scenario_name() {
@@ -286,6 +288,8 @@ capture_scenario_name() {
     local base_name
     if [[ "${TEST_SCENARIO:-}" == *signing* ]]; then
         base_name="Chains controller signing performance"
+    elif [[ "${TEST_SCENARIO:-}" == *-resolver ]]; then
+        base_name="Remote resolvers with rising concurrency"
     else
         base_name="Pipelines controller with rising concurrency"
     fi
@@ -293,16 +297,18 @@ capture_scenario_name() {
     local scenario_name
     scenario_name=$(jq -n \
         --arg base "$base_name" \
-        --arg ha_replicas "${DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS:-${DEPLOYMENT_CHAINS_CONTROLLER_HA_REPLICAS:-0}}" \
+        --arg ha_replicas "${DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS:-${DEPLOYMENT_CHAINS_CONTROLLER_HA_REPLICAS:-${DEPLOYMENT_RESOLVERS_HA_REPLICAS:-0}}}" \
         --arg controller_type "${DEPLOYMENT_PIPELINES_CONTROLLER_TYPE:-deployments}" \
         --arg qps "${DEPLOYMENT_PIPELINES_KUBE_API_QPS:-${DEPLOYMENT_CHAINS_KUBE_API_QPS:-}}" \
         --arg burst "${DEPLOYMENT_PIPELINES_KUBE_API_BURST:-${DEPLOYMENT_CHAINS_KUBE_API_BURST:-}}" \
         --arg threads "${DEPLOYMENT_PIPELINES_THREADS_PER_CONTROLLER:-${DEPLOYMENT_CHAINS_THREADS_PER_CONTROLLER:-}}" \
+        --arg resolver_cache_mode "${DEPLOYMENT_RESOLVERS_CACHE_MODE:-}" \
         -r '
         [] |
         if ($ha_replicas | tonumber) > 0 then . + ["HA=\($ha_replicas)"] else . end |
         if $controller_type == "statefulsets" then . + ["statefulsets"] else . end |
         if ($qps != "" or $burst != "" or $threads != "") then . + ["QBT"] else . end |
+        if $resolver_cache_mode != "" then . + ["cache=\($resolver_cache_mode)"] else . end |
         if length > 0 then "\($base) with \(join(" ")) setup" else $base end
         ')
 

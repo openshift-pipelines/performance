@@ -22,7 +22,7 @@ _MAX_VER=23
 
 _PIPELINES_SUFFIXES=("" "-ha-10" "-ha-10-state" "-qbt" "-ha-10-qbt")
 _CHAINS_SUFFIXES=("" "-ha-10" "-qbt" "-ha-10-qbt")
-_RESOLVER_SUFFIXES=("-gr" "-br" "-cr")
+_RESOLVER_SUFFIXES=("-gr" "-br" "-cr" "-gr-ha-10" "-br-ha-10" "-cr-ha-10" "-cr-ha-10-cache")
 
 # ── Dependencies ──────────────────────────────────────────────────────────────
 
@@ -156,7 +156,7 @@ process_prow_jobs() {
 # Pipelines:  nightly + 1.{20..23}, each × 5 variants
 # Chains:     nightly + 1.{20..23}, each × 4 variants (no statefulSets)
 # Results:    nightly + 1.{20..23}, no variants
-# Resolvers:  nightly + 1.{21..23}, each × 3 resolver types (gr, br, cr)
+# Resolvers:  nightly + 1.{21..23}, each × 3 types (gr, br, cr) × standard + HA-10; cluster-resolver also has HA-10-cache
 
 PROW_JOBS=()
 register_prow_jobs PROW_JOBS "max-concurrency-downstream-" ""             "pipelines1-" $_MIN_VER $_MAX_VER _PIPELINES_SUFFIXES

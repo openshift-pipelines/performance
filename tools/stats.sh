@@ -22,7 +22,12 @@ horreum_test_name() {
     fi
 
     if [[ "${TEST_SCENARIO:-}" == *-resolver ]]; then
-        echo "Resolvers Performance test-standard"
+        local resolvers_ha_replicas="${DEPLOYMENT_RESOLVERS_HA_REPLICAS:-0}"
+        if [[ -n "${DEPLOYMENT_RESOLVERS_HA_REPLICAS:-}" && "${resolvers_ha_replicas}" != "0" ]]; then
+            echo "Resolvers Performance test-ha"
+        else
+            echo "Resolvers Performance test-standard"
+        fi
         return
     fi
 
