@@ -59,7 +59,7 @@ for USER in $(aws iam list-users --query 'Users[*].UserName' --output text); do
     done
 
     # Delete login profile (console password)
-    aws iam delete-login-profile --user-name "$USER" 2>/dev/null
+    aws iam delete-login-profile --user-name "$USER" 2>/dev/null || true
 
     # Delete MFA devices
     for MFA in $(aws iam list-mfa-devices --user-name "$USER" --query 'MFADevices[*].SerialNumber' --output text); do
