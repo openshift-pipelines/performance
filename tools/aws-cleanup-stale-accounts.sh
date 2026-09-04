@@ -30,7 +30,10 @@ for USER in $(aws iam list-users --query 'Users[*].UserName' --output text); do
 
   # Calculate inactivity
   if [ "$LAST_ACTIVITY_EPOCH" -eq 0 ]; then
-    DIFF_DAYS=9999  # Never been active
+    # Use user creation date as baseline
+    CREATE_DATE=$(aws iam get-user --user-name "$USER" --query 'User.CreateDate' --output text)
+    CREATE_EPOCH=$(date -d "$CREATE_DATE" +%s 2>/dev/null || echo 0)
+    DIFF_DAYS=$(( (TODAY - CREATE_EPOCH) / 86400 ))
   else
     DIFF_DAYS=$(( (TODAY - LAST_ACTIVITY_EPOCH) / 86400 ))
   fi
