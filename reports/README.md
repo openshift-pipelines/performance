@@ -133,13 +133,15 @@ All metric definitions, test IDs, thresholds, and component/variant mappings are
 
 ### Components and Variants
 
-The config defines three components, each with deployment variants and per-variant test IDs:
+The config defines four components, each with deployment variants and per-variant test IDs:
 
 **Pipelines** (grouped by `test_concurrent`): Standard (423), HA-Deployments (419), HA-StatefulSets (421), QBT (422), HA+QBT (420)
 
 **Chains** (grouped by `test_total`): Standard (427), HA (428), QBT (429), HA+QBT (430)
 
 **Results** (no grouping): Standard (425)
+
+**Resolvers** (grouped by resolver type + `test_concurrent`): Standard (437), HA (438), HA with Cache (438). Resolver type is a composite group dimension; cache mode uses `data_filter` on the `ha_cache` variant only.
 
 Each variant has a `new_test_id` and optionally a `legacy_test_id` with filters for backward compatibility with older data.
 
@@ -165,7 +167,26 @@ new_variant:
   new_test_id: 999           # Test ID for this variant
   legacy_test_id: null       # Optional: legacy test ID for older data
   legacy_filter: null        # Required if legacy_test_id is set
+  data_filter:               # Optional: exact-match filters on label_values
+    metadata_env_TEST_SCENARIO: git-resolver
+  data_filter_null:          # Optional: fields that must be absent or null
+    - deployment_resolverCacheMode
+  data_filter_present:       # Optional: fields that must be present and non-null
+    - deployment_resolverCacheMode
 ```
+
+Composite grouping (e.g. resolvers) uses a list for `group_by` and optional `group_labels`:
+
+```yaml
+group_by:
+  - metadata_env_TEST_SCENARIO
+  - parameters_test_concurrent
+group_labels:
+  - null
+  - "concurrent"
+```
+
+Group keys in output JSON look like `git-resolver|60` with labels like `git-resolver / 60 concurrent`.
 
 ## Outlier Detection
 

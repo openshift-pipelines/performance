@@ -672,6 +672,184 @@ components:
         lower_is_better: true
         category: etcd
 
+  resolvers:
+    display_name: "Remote Resolvers"
+    group_by:
+      - metadata_env_TEST_SCENARIO
+      - parameters_test_concurrent
+    group_labels:
+      - null
+      - "concurrent"
+    variants:
+      standard:
+        display_name: "Standard (Default)"
+        new_test_id: 437
+        legacy_test_id: null
+        legacy_filter: null
+      ha:
+        display_name: "HA"
+        new_test_id: 438
+        legacy_test_id: null
+        legacy_filter: null
+        data_filter_null:
+          - deployment_resolverCacheMode
+      ha_cache:
+        display_name: "HA with Cache (Cluster Resolver)"
+        new_test_id: 438
+        legacy_test_id: null
+        legacy_filter: null
+        data_filter:
+          metadata_env_TEST_SCENARIO: cluster-resolver
+        data_filter_present:
+          - deployment_resolverCacheMode
+    metrics:
+      # --- Resolution Requests ---
+      - key: results_ResolutionRequests_ResolverLog_Overall_avg
+        display: "Resolution Time (avg)"
+        unit: "s"
+        lower_is_better: true
+        category: resolution
+      - key: results_ResolutionRequests_ResolverLog_Overall_p95
+        display: "Resolution Time (p95)"
+        unit: "s"
+        lower_is_better: true
+        category: resolution
+      - key: results_ResolutionRequests_ResolverLog_Overall_p99
+        display: "Resolution Time (p99)"
+        unit: "s"
+        lower_is_better: true
+        category: resolution
+      - key: results_ResolutionRequests_ResolverLog_Overall_max
+        display: "Resolution Time (max)"
+        unit: "s"
+        lower_is_better: true
+        category: resolution
+      - key: results_ResolutionRequests_ResolverLog_Overall_count
+        display: "Resolution Requests"
+        unit: "count"
+        lower_is_better: false
+        category: resolution
+      # --- Pipeline Execution ---
+      - key: results_PipelineRuns_count_succeeded
+        display: "PipelineRun Succeeded"
+        unit: "count"
+        lower_is_better: false
+        category: pipeline_performance
+      - key: results_PipelineRuns_count_failed
+        display: "PipelineRun Failed"
+        unit: "count"
+        lower_is_better: true
+        category: pipeline_performance
+      - key: results_PipelineRuns_Success_duration_avg
+        display: "Succeeded PR Duration (avg)"
+        unit: "s"
+        lower_is_better: true
+        category: pipeline_performance
+      - key: results_PipelineRuns_Success_pending_avg
+        display: "Succeeded PR Pending (avg)"
+        unit: "s"
+        lower_is_better: true
+        category: pipeline_performance
+      - key: results_PipelineRuns_Success_running_avg
+        display: "Succeeded PR Running (avg)"
+        unit: "s"
+        lower_is_better: true
+        category: pipeline_performance
+      # --- TaskRun Execution ---
+      - key: results_TaskRuns_count_succeeded
+        display: "TaskRun Succeeded"
+        unit: "count"
+        lower_is_better: false
+        category: pipeline_performance
+      - key: results_TaskRuns_count_failed
+        display: "TaskRun Failed"
+        unit: "count"
+        lower_is_better: true
+        category: pipeline_performance
+      - key: results_TaskRuns_Success_duration_avg
+        display: "Succeeded TR Duration (avg)"
+        unit: "s"
+        lower_is_better: true
+        category: pipeline_performance
+      - key: results_TaskRunsToPods_creationTimestampDiff_mean
+        display: "TaskRun→Pod Creation Lag (mean)"
+        unit: "s"
+        lower_is_better: true
+        category: controller_health
+      - key: results_TaskRunsToPods_creationTimestampDiff_max
+        display: "TaskRun→Pod Creation Lag (max)"
+        unit: "s"
+        lower_is_better: true
+        category: controller_health
+      # --- Remote Resolvers Pod ---
+      - key: measurements_tektonPipelinesRemoteResolvers_cpu_mean
+        display: "Resolvers CPU (mean)"
+        unit: "cores"
+        lower_is_better: true
+        category: resolver_health
+      - key: measurements_tektonPipelinesRemoteResolvers_cpu_max
+        display: "Resolvers CPU (max)"
+        unit: "cores"
+        lower_is_better: true
+        category: resolver_health
+      - key: measurements_tektonPipelinesRemoteResolvers_memory_mean
+        display: "Resolvers Memory (mean)"
+        unit: "bytes"
+        lower_is_better: true
+        category: resolver_health
+      - key: measurements_tektonPipelinesRemoteResolvers_memory_max
+        display: "Resolvers Memory (max)"
+        unit: "bytes"
+        lower_is_better: true
+        category: resolver_health
+      - key: measurements_tektonPipelinesRemoteResolvers_restarts_range
+        display: "Resolvers Restarts"
+        unit: "count"
+        lower_is_better: true
+        category: stability
+      # --- Resolver Workqueue ---
+      - key: measurements_resolverWorkqueueDepth_mean
+        display: "Resolver Workqueue Depth (mean)"
+        unit: "count"
+        lower_is_better: true
+        category: resolver_health
+      - key: measurements_resolverWorkqueueDepth_max
+        display: "Resolver Workqueue Depth (max)"
+        unit: "count"
+        lower_is_better: true
+        category: resolver_health
+      - key: measurements_resolverQueueDurationP95_mean
+        display: "Resolver Queue Duration P95 (mean)"
+        unit: "s"
+        lower_is_better: true
+        category: resolver_health
+      - key: measurements_resolverQueueDurationP95_max
+        display: "Resolver Queue Duration P95 (max)"
+        unit: "s"
+        lower_is_better: true
+        category: resolver_health
+      # --- Pipelines Controller (shared) ---
+      - key: measurements_tektonPipelinesController_cpu_mean
+        display: "Controller CPU (mean)"
+        unit: "cores"
+        lower_is_better: true
+        category: controller_health
+      - key: measurements_tektonPipelinesController_memory_mean
+        display: "Controller Memory (mean)"
+        unit: "bytes"
+        lower_is_better: true
+        category: controller_health
+      - key: measurements_tektonPipelinesController_restarts_range
+        display: "Controller Restarts"
+        unit: "count"
+        lower_is_better: true
+        category: stability
+      - key: measurements_tektonTektonPipelinesControllerWorkqueueDepth_mean
+        display: "Workqueue Depth (mean)"
+        unit: "count"
+        lower_is_better: true
+        category: controller_health
+
 # Category display names for the output JSON
 categories:
   pipeline_performance:
@@ -680,6 +858,12 @@ categories:
   signing:
     display_name: "Signing Performance"
     description: "Tekton Chains signing throughput, duration, and completeness"
+  resolution:
+    display_name: "Resolution Performance"
+    description: "Remote resolver resolution latency from controller logs"
+  resolver_health:
+    display_name: "Resolver Controller Health"
+    description: "Remote resolvers pod CPU, memory, workqueue depth, and queue duration"
   ingestion:
     display_name: "Results Ingestion"
     description: "Results watcher ingestion throughput, latency, and reliability"

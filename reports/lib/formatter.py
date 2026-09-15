@@ -4,6 +4,38 @@ from collections import defaultdict
 from datetime import datetime, timezone
 
 
+def _group_sort_key(group_key):
+    """Sort composite keys (scenario|concurrency) with numeric concurrency."""
+    if group_key == "_all" or "|" not in group_key:
+        return (0, group_key)
+    scenario, _, concurrent = group_key.partition("|")
+    try:
+        return (1, scenario, int(concurrent))
+    except ValueError:
+        return (1, group_key)
+
+
+def _format_group_label(group_key, comp_config):
+    """Build a human-readable label for a group key."""
+    if group_key == "_all":
+        return "all runs"
+
+    group_by = comp_config.get("group_by")
+    if isinstance(group_by, list) and len(group_by) > 1:
+        parts = group_key.split("|")
+        labels = comp_config.get("group_labels") or []
+        formatted = []
+        for i, part in enumerate(parts):
+            suffix = labels[i] if i < len(labels) and labels[i] else None
+            formatted.append(f"{part} {suffix}" if suffix else part)
+        return " / ".join(formatted)
+
+    group_label = comp_config.get("group_label")
+    if group_label:
+        return f"{group_key} {group_label}"
+    return group_key
+
+
 def format_benchmark_data(all_benchmarks, config, version):
     """Structure benchmark results (single version) into the final output JSON."""
     thresholds = config["thresholds"]
@@ -25,8 +57,6 @@ def format_benchmark_data(all_benchmarks, config, version):
             "display_name": comp_config["display_name"],
             "variants": {},
         }
-        group_label = comp_config.get("group_label")
-
         for var_name, var_config in comp_config["variants"].items():
             var_output = {
                 "display_name": var_config["display_name"],
@@ -36,11 +66,10 @@ def format_benchmark_data(all_benchmarks, config, version):
             comp_benchmarks = all_benchmarks.get(comp_name, {})
             var_benchmarks = comp_benchmarks.get(var_name, {})
 
-            for group_key, benchmark in sorted(var_benchmarks.items()):
-                if group_label and group_key != "_all":
-                    label = f"{group_key} {group_label}"
-                else:
-                    label = "all runs"
+            for group_key, benchmark in sorted(
+                var_benchmarks.items(), key=lambda item: _group_sort_key(item[0])
+            ):
+                label = _format_group_label(group_key, comp_config)
 
                 categorized = defaultdict(dict)
                 for metric_key, metric_data in benchmark["metrics"].items():
@@ -108,8 +137,6 @@ def format_comparison_data(all_comparisons, config, version_a, version_b):
             "display_name": comp_config["display_name"],
             "variants": {},
         }
-        group_label = comp_config.get("group_label")
-
         for var_name, var_config in comp_config["variants"].items():
             var_output = {
                 "display_name": var_config["display_name"],
@@ -119,11 +146,10 @@ def format_comparison_data(all_comparisons, config, version_a, version_b):
             comp_comparisons = all_comparisons.get(comp_name, {})
             var_comparisons = comp_comparisons.get(var_name, {})
 
-            for group_key, comparison in sorted(var_comparisons.items()):
-                if group_label and group_key != "_all":
-                    label = f"{group_key} {group_label}"
-                else:
-                    label = "all runs"
+            for group_key, comparison in sorted(
+                var_comparisons.items(), key=lambda item: _group_sort_key(item[0])
+            ):
+                label = _format_group_label(group_key, comp_config)
 
                 categorized = defaultdict(dict)
                 for metric_key, metric_data in comparison["metrics"].items():

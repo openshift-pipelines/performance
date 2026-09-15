@@ -57,6 +57,7 @@ The performance tests are from the [openshift-pipelines/performance](https://git
 | Pipelines Controller | [math](https://github.com/openshift-pipelines/performance/tree/main/tests/scaling-pipelines/scenario/math) | 1,000 PipelineRuns with 4 parallel Tasks (sum, diff, mul, div). Lightweight workload stressing controller and scheduler. Concurrency sweep: 12, 14, 16, 18, 20. |
 | Chains Controller | [signing-tr-tekton-bigbang](https://github.com/openshift-pipelines/performance/tree/main/tests/scaling-pipelines/scenario/signing-tr-tekton-bigbang) | Signs PipelineRuns and TaskRuns only (no artifact signing). Tested at 500 and 1,000 total PipelineRuns. |
 | Tekton Results | [timebased-sign-pruner](https://github.com/openshift-pipelines/performance/tree/main/tests/scaling-pipelines/scenario/timebased-sign-pruner) | Constant-rate PipelineRun creation (5 Tasks, 10 steps each, 15 log lines per step). Phase 1: Results Watcher ingestion. Phase 2: Locust API load test on `/record` and `/records` endpoints. |
+| Remote Resolvers | [git-resolver](https://github.com/openshift-pipelines/performance/tree/main/tests/scaling-pipelines/scenario/git-resolver) / [bundle-resolver](https://github.com/openshift-pipelines/performance/tree/main/tests/scaling-pipelines/scenario/bundle-resolver) / [cluster-resolver](https://github.com/openshift-pipelines/performance/tree/main/tests/scaling-pipelines/scenario/cluster-resolver) | 1,000 PipelineRuns per run. Git, bundle, and cluster resolution. Concurrency sweep: 60, 70, 80, 90, 100. Standard (test 437), HA (test 438), and HA with cache for cluster-resolver. |
 
 ### Deployment Configurations (Pipelines)
 
@@ -65,6 +66,12 @@ The performance tests are from the [openshift-pipelines/performance](https://git
 - **HA - StatefulSets**: 10 controller replicas as a StatefulSet. Different leader election model.
 - **QBT (non-HA)**: Single replica with tuned Kubernetes API QPS, burst, and thread-per-controller.
 - **HA + QBT**: 10 replicas combined with QBT tuning. Most aggressive configuration.
+
+### Deployment Configurations (Remote Resolvers)
+
+- **Standard (Default)**: Single remote resolvers replica. Horreum test ID 437.
+- **HA**: 10 remote resolvers replicas with leader election. Horreum test ID 438.
+- **HA with Cache (cluster-resolver only)**: HA resolvers with cluster-resolver cache mode enabled. Horreum test ID 438.
 
 ## Cross-Metric Correlation Guide
 
@@ -88,6 +95,11 @@ Use these relationships to form root-cause hypotheses. Always label correlations
 - **Failure count up + Workqueue depth up** → Reconciliation timeouts from backlog.
 - **Failure count up + Workqueue depth stable** → Failures are not from backlog — check for API rejections or resource limits.
 
+### Remote Resolvers
+- **Resolution time up + Resolver workqueue depth up** → Resolver controller backlog.
+- **Resolution time up + PipelineRun duration stable** → Resolution overhead not propagating to end-to-end pipeline time — may be amortized or masked.
+- **Resolution time down + Resolvers CPU up** → Faster resolution using more compute — check if within pod limits (4 GiB / 1 CPU).
+
 ### Resource Ceiling Indicators
 - Controller CPU approaching 1.0 core (the configured limit) → risk of throttling
 - Controller memory approaching 2 GiB → risk of OOM
@@ -104,6 +116,8 @@ Each metric includes:
 - `verdict`: classification (stable, improvement, major_improvement, regression, major_regression, no_data)
 - `lower_is_better`: polarity (true = decreasing value is good)
 - `data_quality`: how many runs were used vs excluded
+
+For **Remote Resolvers**, groups use composite keys (e.g. `git-resolver|60`) under variants `standard`, `ha`, and `ha_cache`. Cite variant + group in regression tables.
 
 **Your task**: Extract ALL regressions (`verdict` = `regression` or `major_regression`) and analyze them using the methodology above.
 

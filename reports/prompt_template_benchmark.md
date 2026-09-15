@@ -35,7 +35,7 @@ This is a **customer-facing product article**, NOT an internal test report. The 
 
 ## Your Input
 
-Below is a JSON file containing performance benchmark data for version **{{VERSION}}** of OpenShift Pipelines. The data covers three components (Pipelines Controller, Chains Controller, Tekton Results) across multiple deployment configurations and concurrency/scale levels.
+Below is a JSON file containing performance benchmark data for version **{{VERSION}}** of OpenShift Pipelines. The data covers four components (Pipelines Controller, Chains Controller, Tekton Results, Remote Resolvers) across multiple deployment configurations and concurrency/scale levels.
 
 Each metric includes:
 - `mean`: average value after outlier exclusion
@@ -43,6 +43,8 @@ Each metric includes:
 - `unit`: measurement unit
 - `lower_is_better`: polarity (true = lower value is desirable)
 - `data_quality`: how many runs were used vs excluded
+
+For **Remote Resolvers**, read `components.resolvers.variants.standard|ha|ha_cache` — each has `groups` like `git-resolver|60` (label: `git-resolver / 60 concurrent`).
 
 ## Analysis Guidelines
 
@@ -71,6 +73,10 @@ Use these relationships to provide insight:
 - **High ingestion latency + high watcher CPU** → Watcher is active at this throughput level. Resource allocation guidance.
 - **High API latency under Locust load** → Backend tuning opportunity for high-load deployments.
 
+#### Remote Resolvers
+- **High resolution p95 + high resolver workqueue depth** → Resolver controller backlog at this concurrency level. Frame as capacity guidance at this scale.
+- **High resolution time + stable PipelineRun duration** → Resolution overhead isolated from end-to-end pipeline time.
+
 #### Infrastructure
 - **etcd request duration > 50ms** → etcd utilization is high. Consider cluster-level tuning for very high scale.
 
@@ -98,6 +104,7 @@ LEAD WITH STRENGTHS.]
 | Pipelines Controller | [math](...) | 1,000 PipelineRuns, 4 parallel Tasks. Concurrency sweep: 12–20. |
 | Chains Controller | [signing-tr-tekton-bigbang](...) | Signs PipelineRuns/TaskRuns only (no artifacts). Tested at 500 and 1,000 scale. |
 | Tekton Results | [timebased-sign-pruner](...) | Constant-rate PR creation (5 Tasks, 10 steps, 15 log lines each). Phase 1: ingestion. Phase 2: Locust API load test. |
+| Remote Resolvers | [git-resolver](...) / [bundle-resolver](...) / [cluster-resolver](...) | 1,000 PipelineRuns per run. Git, bundle, and cluster resolution. Concurrency sweep: 60–100. |
 
 ## Performance Profile
 
@@ -133,6 +140,18 @@ Lead with what this configuration delivers well.]
 
 ### Tekton Results API
 [Ingestion performance + API load test metrics]
+
+### Remote Resolvers
+
+#### Default Configuration
+[Characterize git-resolver, bundle-resolver, and cluster-resolver performance at each concurrency level (60–100).
+Report key metrics: resolution latency, PipelineRun duration, resolver CPU/memory, workqueue depth.]
+
+#### High Availability
+[Same structure. Characterize HA performance per resolver type and concurrency group.]
+
+#### HA with Cache (Cluster Resolver)
+[Use the `ha_cache` variant — cluster-resolver groups only.]
 
 ## Configuration Comparison
 

@@ -69,6 +69,57 @@ def _build_test_id_predicate(variant_config):
     return predicate
 
 
+def _build_data_filter(variant_config):
+    """Build optional SQL conditions from variant data_filter settings.
+
+    Supports:
+      data_filter: {field: value}           — exact match on label_values
+      data_filter_null: [field, ...]        — field absent or null
+      data_filter_present: [field, ...]     — field present and non-null
+    """
+    conditions = []
+
+    for field, value in variant_config.get("data_filter", {}).items():
+        conditions.append(f"(label_values->>'__{field}') = '{value}'")
+
+    for field in variant_config.get("data_filter_null", []):
+        conditions.append(
+            f"(NOT label_values ? '__{field}' "
+            f"OR label_values->>'__{field}' IS NULL)"
+        )
+
+    for field in variant_config.get("data_filter_present", []):
+        conditions.append(
+            f"(label_values ? '__{field}' "
+            f"AND label_values->>'__{field}' IS NOT NULL)"
+        )
+
+    return " AND ".join(conditions) if conditions else None
+
+
+def _normalize_group_by(group_by):
+    """Return a list of group-by field names, or None if ungrouped."""
+    if not group_by:
+        return None
+    if isinstance(group_by, str):
+        return [group_by]
+    return list(group_by)
+
+
+def _build_partition_exprs(group_by_fields):
+    """Build SQL expressions for composite PARTITION BY and group_key.
+
+    Single field: partition and group_key are the same column expression.
+    Multiple fields: partition on all columns; group_key is pipe-delimited.
+    """
+    cols = [f"(label_values->>'__{field}')" for field in group_by_fields]
+    if len(cols) == 1:
+        return cols[0], cols[0]
+    group_key_expr = " || '|' || ".join(cols)
+    partition_expr = ", ".join(cols)
+    return group_key_expr, partition_expr
+
+
 def _build_metric_extractions(metric_keys):
     """Build SQL expressions to extract metric values from JSONB."""
     extractions = []
@@ -87,25 +138,27 @@ def fetch_runs(conn, component_config, variant_name, variant_config,
     Returns list of dicts, one per run, with metric values and metadata.
     """
     test_id_pred = _build_test_id_predicate(variant_config)
-    group_by = component_config.get("group_by")
+    data_filter = _build_data_filter(variant_config)
+    where_extra = f" AND {data_filter}" if data_filter else ""
+    group_by_fields = _normalize_group_by(component_config.get("group_by"))
     extractions = _build_metric_extractions(metric_keys)
 
-    if group_by:
-        partition_col = f"(label_values->>'__{group_by}')"
+    if group_by_fields:
+        group_key_expr, partition_expr = _build_partition_exprs(group_by_fields)
         query = f"""
             SELECT * FROM (
                 SELECT
                     start,
                     (label_values->>'__metadata_env_BUILD_ID') AS build_id,
                     (label_values->>'__deployment_version') AS version,
-                    {partition_col} AS group_key,
+                    {group_key_expr} AS group_key,
                     {extractions},
                     ROW_NUMBER() OVER (
-                        PARTITION BY {partition_col}
+                        PARTITION BY {partition_expr}
                         ORDER BY start DESC
                     ) AS rn
                 FROM data
-                WHERE {test_id_pred}
+                WHERE {test_id_pred}{where_extra}
                   AND (
                     CASE
                       WHEN label_values ? '__deployment_nightly'
@@ -126,7 +179,7 @@ def fetch_runs(conn, component_config, variant_name, variant_config,
                 (label_values->>'__deployment_version') AS version,
                 {extractions}
             FROM data
-            WHERE {test_id_pred}
+            WHERE {test_id_pred}{where_extra}
               AND (
                 CASE
                   WHEN label_values ? '__deployment_nightly'
@@ -152,7 +205,7 @@ def fetch_runs(conn, component_config, variant_name, variant_config,
         run["_build_id"] = run.pop("build_id", "")
         run.pop("rn", None)
 
-        gk = str(run.pop("group_key", "_all")) if group_by else "_all"
+        gk = str(run.pop("group_key", "_all")) if group_by_fields else "_all"
 
         for key in metric_keys:
             col = key.replace(".", "_")
@@ -193,7 +246,7 @@ def fetch_all_data(conn, config, version_a, version_b, limit):
                 )
 
             all_data[comp_name][var_name] = {
-                "group_key": comp_config.get("group_by"),
+                "group_by": comp_config.get("group_by"),
                 "version_a": runs_a,
                 "version_b": runs_b,
             }

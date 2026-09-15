@@ -78,9 +78,23 @@ The [timebased-sign-pruner scenario](https://github.com/openshift-pipelines/perf
 1. **Ingestion phase**: Measures how fast the Results Watcher stores PipelineRun/TaskRun records and logs into persistent storage.
 2. **API load test phase**: Uses Locust to run concurrent API queries — `fetch-log` and `fetch-records` — stressing the `/record` and `/records` endpoints under load.
 
+### Remote Resolvers Test Scenarios
+
+The [git-resolver](https://github.com/openshift-pipelines/performance/tree/main/tests/scaling-pipelines/scenario/git-resolver), [bundle-resolver](https://github.com/openshift-pipelines/performance/tree/main/tests/scaling-pipelines/scenario/bundle-resolver), and [cluster-resolver](https://github.com/openshift-pipelines/performance/tree/main/tests/scaling-pipelines/scenario/cluster-resolver) scenarios stress remote resolver performance under rising concurrency. Each PipelineRun resolves its Task definition from Git, an OCI bundle, or the cluster respectively. Tests run 1,000 PipelineRuns (`TEST_TOTAL=1000`) per concurrency level.
+
+### Concurrency Levels (Remote Resolvers)
+
+The `TEST_CONCURRENT` parameter controls how many PipelineRuns execute simultaneously. The tests sweep across concurrency levels (60, 70, 80, 90, 100) to measure resolution latency, PipelineRun throughput, and resolver controller health under increasing parallel load.
+
+### Remote Resolvers Deployment Configurations
+
+- **Standard (Default)**: Single remote resolvers replica with default operator settings. Baseline configuration.
+- **HA**: High Availability with multiple remote resolvers replicas (10) and leader election. Distributes resolver reconciliation load across replicas.
+- **HA with Cache (cluster-resolver only)**: HA resolvers with cluster-resolver `default-cache-mode` enabled. Alternative configuration for cluster resolution workloads.
+
 ## Your Input
 
-Below is a JSON file containing a structured performance comparison between version **{{VERSION_A}}** and version **{{VERSION_B}}** of OpenShift Pipelines. The data covers three components (Pipelines Controller, Chains Controller, Tekton Results) across multiple deployment configurations and concurrency/scale levels.
+Below is a JSON file containing a structured performance comparison between version **{{VERSION_A}}** and version **{{VERSION_B}}** of OpenShift Pipelines. The data covers four components (Pipelines Controller, Chains Controller, Tekton Results, Remote Resolvers) across multiple deployment configurations and concurrency/scale levels.
 
 Each metric includes:
 - `version_a` / `version_b`: mean values after outlier exclusion
@@ -88,6 +102,8 @@ Each metric includes:
 - `verdict`: classification (stable, improvement, major_improvement, regression, major_regression)
 - `lower_is_better`: polarity (true = decreasing value is good)
 - `data_quality`: how many runs were used vs excluded
+
+For **Remote Resolvers**, data is under `components.resolvers.variants` (`standard`, `ha`, `ha_cache`). Each variant has `groups` keyed by resolver type and concurrency (e.g. `git-resolver|60`, labeled `git-resolver / 60 concurrent`). Compare `version_a` vs `version_b` within the same variant and group — do not mix groups or variants.
 
 ## Cross-Metric Correlation Rules
 
@@ -123,6 +139,13 @@ When analyzing results, correlate metrics to explain *why* changes occurred — 
 - **Cluster CPU increased across all components** → General infrastructure load increase. Often correlates with higher throughput — present as context, not a problem.
 - **Any restart count > 0** → Mention factually if it occurred, but don't use alarmist language.
 
+### Remote Resolvers
+- **Resolution time improved + Resolvers CPU stable/decreased** → More efficient resolution path. Strong positive signal.
+- **Resolution time improved + Resolvers CPU increased** → Faster resolution at the cost of more CPU. Acceptable if within resource limits.
+- **Resolution time increased + Workqueue depth increased** → Resolver controller falling behind. Frame as "may benefit from tuning" rather than a defect.
+- **PipelineRun duration improved + Resolution time stable** → End-to-end improvement not driven by resolver latency alone — controller or scheduling gains.
+- **Memory decreased + Resolution time stable/improved** → Memory optimization without performance cost. Strong positive signal.
+
 ## Output Format
 
 Write a markdown document with this structure:
@@ -148,6 +171,7 @@ Only mention limitations if they affect a major configuration, and frame as "are
 | Pipelines Controller | [math](...) | 1,000 PipelineRuns, 4 parallel Tasks. Concurrency sweep: 12–20. |
 | Chains Controller | [signing-tr-tekton-bigbang](...) | Signs PipelineRuns/TaskRuns only (no artifacts). Tested at 500 and 1,000 scale. |
 | Tekton Results | [timebased-sign-pruner](...) | Constant-rate PR creation (5 Tasks, 10 steps, 15 log lines each). Phase 1: ingestion. Phase 2: Locust API load test. |
+| Remote Resolvers | [git-resolver](...) / [bundle-resolver](...) / [cluster-resolver](...) | 1,000 PipelineRuns per run. Git, bundle, and cluster resolution. Concurrency sweep: 60–100. |
 
 ## Key Performance Findings
 
@@ -186,6 +210,18 @@ and recommend the best-performing alternative configuration.]
 [Analyze ingestion + API load test metrics. Lead with throughput improvements.
 If store failures increased, present the actual failure rate (%), not just the % increase,
 and note the net stored records change.]
+
+### Remote Resolvers Performance
+
+#### Default Configuration
+[Analyze git-resolver, bundle-resolver, and cluster-resolver metrics per concurrency level (60–100).
+Lead with the most impactful improvement. Group related metrics into findings.]
+
+#### High Availability
+[Same structure. Highlight HA-specific improvements per resolver type and concurrency group.]
+
+#### HA with Cache (Cluster Resolver)
+[Use the `ha_cache` variant only — groups are cluster-resolver at each concurrency level.]
 
 ## Deployment Recommendations
 
