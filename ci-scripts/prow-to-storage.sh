@@ -81,8 +81,6 @@ download_and_upload() {
     local label="${run_id}${subjob:+/$subjob}"
     local tmp_out="${out}.tmp"
 
-    [[ -f "$out" ]] && jq empty "$out" 2>/dev/null && { debug "Cached: $out"; return 0; }
-
     rm -f "$tmp_out"
 
     prow_download "$prow_job" "$run_id" "$prow_run" "$artifact_path" "$tmp_out" "jobLink" 2>/dev/null
