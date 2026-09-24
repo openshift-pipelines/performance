@@ -21,6 +21,7 @@ INSTALL_RESULTS="${INSTALL_RESULTS:-false}"
 STORE_LOGS_IN_S3="${STORE_LOGS_IN_S3:-false}"
 DEPLOYMENT_TYPE_RESULTS="${DEPLOYMENT_TYPE_RESULTS:-downstream}"
 DEPLOYMENT_RESULTS_UPSTREAM_VERSION="${DEPLOYMENT_RESULTS_UPSTREAM_VERSION:-latest}"
+DEPLOYMENT_RESULTS_WATCHER_CONTROLLER_TYPE="${DEPLOYMENT_RESULTS_WATCHER_CONTROLLER_TYPE:-deployments}" # deployments / statefulSets
 
 # Loki stack configuration: https://access.redhat.com/solutions/7006859
 LOKI_STACK_SIZE="1x.demo" # Other options: 1x.demo, 1x.small, 1x.extra-small
@@ -50,6 +51,12 @@ if [ -n "$DEPLOYMENT_RESOLVERS_HA_REPLICAS" ]; then
     resolvers_ha_buckets=$(( resolvers_ha_buckets > 10 ? 10 : resolvers_ha_buckets ))
 fi
 
+DEPLOYMENT_RESULTS_WATCHER_HA_REPLICAS="${DEPLOYMENT_RESULTS_WATCHER_HA_REPLICAS:-}"
+if [ -n "$DEPLOYMENT_RESULTS_WATCHER_HA_REPLICAS" ]; then
+    results_watcher_ha_buckets=$(( DEPLOYMENT_RESULTS_WATCHER_HA_REPLICAS * 2 ))
+    results_watcher_ha_buckets=$(( results_watcher_ha_buckets > 10 ? 10 : results_watcher_ha_buckets ))
+fi
+
 # Values: always | never | auto. Empty = operator default.
 # Currently applied to cluster-resolver-config only.
 DEPLOYMENT_RESOLVERS_CACHE_MODE="${DEPLOYMENT_RESOLVERS_CACHE_MODE:-}"
@@ -67,6 +74,12 @@ results_watcher_kube_api_qps="${DEPLOYMENT_RESULTS_WATCHER_KUBE_API_QPS:-}"
 results_watcher_kube_api_burst="${DEPLOYMENT_RESULTS_WATCHER_KUBE_API_BURST:-}"
 results_watcher_threadiness="${DEPLOYMENT_RESULTS_WATCHER_THREADINESS:-}"
 results_watcher_disable_storing_incomplete_runs="${DEPLOYMENT_RESULTS_WATCHER_DISABLE_STORING_INCOMPLETE_RUNS:-}"
+
+case "$DEPLOYMENT_RESULTS_WATCHER_CONTROLLER_TYPE" in
+    deployments) results_watcher_other_controller_type="statefulSets" ;;
+    statefulSets) results_watcher_other_controller_type="deployments" ;;
+    *) fatal "DEPLOYMENT_RESULTS_WATCHER_CONTROLLER_TYPE must be deployments or statefulSets (got: $DEPLOYMENT_RESULTS_WATCHER_CONTROLLER_TYPE)" ;;
+esac
 
 # Results API performance tuning parameters (defaults are optimized values from performance testing)
 results_api_kube_api_qps="${DEPLOYMENT_RESULTS_API_KUBE_API_QPS:-50}"
@@ -828,6 +841,42 @@ EOF
           info "Enabling Tekton-Result in Tekton Operator"
           kubectl patch TektonConfig/config --type merge --patch '{"spec":{"result":{"disabled":false,"auth_disable":true,"loki_stack_name":"logging-loki","loki_stack_namespace":"openshift-logging"}}}'
 
+          info "Configure Results Watcher performance: ${DEPLOYMENT_RESULTS_WATCHER_HA_REPLICAS:-no HA}, type=$DEPLOYMENT_RESULTS_WATCHER_CONTROLLER_TYPE"
+          results_watcher_performance_options=""
+          # These fields are not translated to valid flags by the OSP 1.23
+          # Results operator. Remove them if a previous setup left them behind;
+          # the supported watcher flags are configured below through options.
+          if [ -n "$results_watcher_kube_api_qps" ]; then
+              results_watcher_performance_options+="\"kube-api-qps\":null,"
+          fi
+          if [ -n "$results_watcher_kube_api_burst" ]; then
+              results_watcher_performance_options+="\"kube-api-burst\":null,"
+          fi
+          if [ -n "$results_watcher_threadiness" ]; then
+              results_watcher_performance_options+="\"threads-per-controller\":null,"
+          fi
+          if [ -n "$DEPLOYMENT_RESULTS_WATCHER_HA_REPLICAS" ]; then
+              results_watcher_performance_options+="\"replicas\":$DEPLOYMENT_RESULTS_WATCHER_HA_REPLICAS,"
+              if [ "$DEPLOYMENT_RESULTS_WATCHER_CONTROLLER_TYPE" == "statefulSets" ]; then
+                  # StatefulSet ordinal mode requires buckets and replicas to match.
+                  results_watcher_performance_options+="\"buckets\":$DEPLOYMENT_RESULTS_WATCHER_HA_REPLICAS,"
+              else
+                  results_watcher_performance_options+="\"buckets\":$results_watcher_ha_buckets,"
+              fi
+          fi
+          if [ "$DEPLOYMENT_RESULTS_WATCHER_CONTROLLER_TYPE" == "statefulSets" ]; then
+              results_watcher_performance_options+="\"statefulset-ordinals\":true,"
+              if [ -z "$DEPLOYMENT_RESULTS_WATCHER_HA_REPLICAS" ]; then
+                  results_watcher_performance_options+="\"replicas\":1,\"buckets\":1,"
+              fi
+          fi
+          if [[ -n "$results_watcher_performance_options" ]]; then
+              # disable-ha is required by the PerformanceProperties schema.
+              results_watcher_performance_options="\"disable-ha\":false,${results_watcher_performance_options}"
+              results_watcher_performance_options="${results_watcher_performance_options%,}"
+              kubectl patch TektonConfig/config --type merge --patch '{"spec":{"result":{"performance":{'"$results_watcher_performance_options"'}}}}'
+          fi
+
           info "Configure Results Watcher performance options"
           results_watcher_perf_options=""
           if [ -n "$results_watcher_kube_api_qps" ]; then
@@ -844,10 +893,29 @@ EOF
           fi
           if [[ -n "$results_watcher_perf_options" ]]; then
               results_watcher_perf_options="${results_watcher_perf_options%,}"
-              kubectl patch TektonConfig/config --type merge --patch '{"spec":{"result":{"options":{"deployments":{"tekton-results-watcher":{"spec":{"template":{"spec":{"containers":[{"name":"watcher","args":['"$results_watcher_perf_options"']}]}}}}}}}}}'
+              kubectl patch TektonConfig/config --type merge --patch '{"spec":{"result":{"options":{"'"$results_watcher_other_controller_type"'":null,"'"$DEPLOYMENT_RESULTS_WATCHER_CONTROLLER_TYPE"'":{"tekton-results-watcher":{"spec":{"template":{"spec":{"containers":[{"name":"watcher","args":['"$results_watcher_perf_options"']}]}}}}}}}}}'
           fi
       else
           info "Installing Tekton-Result Operator"
+
+          # Build Results watcher HA configuration when the standalone Results CR is used.
+          results_watcher_performance_yaml=""
+          if [ -n "$DEPLOYMENT_RESULTS_WATCHER_HA_REPLICAS" ]; then
+              results_watcher_performance_yaml+="  performance:\n"
+              results_watcher_performance_yaml+="    disable-ha: false\n"
+              results_watcher_performance_yaml+="    replicas: $DEPLOYMENT_RESULTS_WATCHER_HA_REPLICAS\n"
+              if [ "$DEPLOYMENT_RESULTS_WATCHER_CONTROLLER_TYPE" == "statefulSets" ]; then
+                  results_watcher_performance_yaml+="    buckets: $DEPLOYMENT_RESULTS_WATCHER_HA_REPLICAS\n"
+              else
+                  results_watcher_performance_yaml+="    buckets: $results_watcher_ha_buckets\n"
+              fi
+          fi
+          if [ "$DEPLOYMENT_RESULTS_WATCHER_CONTROLLER_TYPE" == "statefulSets" ]; then
+              if [ -z "$results_watcher_performance_yaml" ]; then
+                  results_watcher_performance_yaml+="  performance:\n    disable-ha: false\n    replicas: 1\n    buckets: 1\n"
+              fi
+              results_watcher_performance_yaml+="    statefulset-ordinals: true\n"
+          fi
 
           # Build results watcher args if specified
           results_watcher_args=""
@@ -876,8 +944,9 @@ spec:
   targetNamespace: openshift-pipelines
   loki_stack_name: logging-loki
   loki_stack_namespace: openshift-logging
+$(echo -e "$results_watcher_performance_yaml")
   options:
-    deployments:
+    $DEPLOYMENT_RESULTS_WATCHER_CONTROLLER_TYPE:
       tekton-results-watcher:
         spec:
           template:
@@ -893,11 +962,12 @@ apiVersion: operator.tekton.dev/v1alpha1
 kind: TektonResult
 metadata:
     name: result
-spec
+spec:
   auth_disable: true
   targetNamespace: openshift-pipelines
   loki_stack_name: logging-loki
   loki_stack_namespace: openshift-logging
+$(echo -e "$results_watcher_performance_yaml")
 EOF
           fi
       fi
