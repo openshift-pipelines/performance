@@ -56,6 +56,13 @@ if [ -n "$DEPLOYMENT_RESULTS_WATCHER_HA_REPLICAS" ]; then
     if ! [[ "$DEPLOYMENT_RESULTS_WATCHER_HA_REPLICAS" =~ ^[1-9][0-9]*$ ]]; then
         fatal "DEPLOYMENT_RESULTS_WATCHER_HA_REPLICAS must be positive integer (got: $DEPLOYMENT_RESULTS_WATCHER_HA_REPLICAS)"
     fi
+    # Knative leader election caps buckets at 10 (MaxBuckets), enforced by the
+    # operator admission webhook. In statefulSets ordinal mode buckets must equal
+    # replicas, so replicas cannot exceed 10 there. In deployments mode extra
+    # replicas beyond the bucket count are simply idle standbys, so it is allowed.
+    if [ "$DEPLOYMENT_RESULTS_WATCHER_CONTROLLER_TYPE" == "statefulSets" ] && [ "$DEPLOYMENT_RESULTS_WATCHER_HA_REPLICAS" -gt 10 ]; then
+        fatal "DEPLOYMENT_RESULTS_WATCHER_HA_REPLICAS cannot exceed 10 in statefulSets mode (buckets must equal replicas, max buckets is 10); got: $DEPLOYMENT_RESULTS_WATCHER_HA_REPLICAS"
+    fi
     results_watcher_ha_buckets=$(( DEPLOYMENT_RESULTS_WATCHER_HA_REPLICAS * 2 ))
     results_watcher_ha_buckets=$(( results_watcher_ha_buckets > 10 ? 10 : results_watcher_ha_buckets ))
 fi
