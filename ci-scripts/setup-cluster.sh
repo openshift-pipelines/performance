@@ -23,13 +23,6 @@ DEPLOYMENT_TYPE_RESULTS="${DEPLOYMENT_TYPE_RESULTS:-downstream}"
 DEPLOYMENT_RESULTS_UPSTREAM_VERSION="${DEPLOYMENT_RESULTS_UPSTREAM_VERSION:-latest}"
 DEPLOYMENT_RESULTS_WATCHER_CONTROLLER_TYPE="${DEPLOYMENT_RESULTS_WATCHER_CONTROLLER_TYPE:-deployments}" # deployments / statefulSets
 
-# AWS S3 credentials for Results and Loki storage (required if STORE_LOGS_IN_S3=true)
-AWS_BUCKET_NAME="${AWS_BUCKET_NAME:-dummy-bucket}"
-AWS_ENDPOINT="${AWS_ENDPOINT:-https://s3.amazonaws.com}"
-AWS_REGION="${AWS_REGION:-us-east-1}"
-AWS_ACCESS_ID="${AWS_ACCESS_ID:-dummy-access-id}"
-AWS_SECRET_KEY="${AWS_SECRET_KEY:-dummy-secret-key}"
-
 # Loki stack configuration: https://access.redhat.com/solutions/7006859
 LOKI_STACK_SIZE="1x.demo" # Other options: 1x.demo, 1x.small, 1x.extra-small
 
@@ -664,12 +657,15 @@ metadata:
     openshift.io/cluster-monitoring: "true"
 EOF
 
-        oc get secret logging-loki-s3 -n openshift-logging >/dev/null 2>&1 || oc -n openshift-logging create secret generic logging-loki-s3 \
+        if [ "$STORE_LOGS_IN_S3" == "true" ]; then
+          info "Creating Loki S3 credentials secret"
+          oc get secret logging-loki-s3 -n openshift-logging >/dev/null 2>&1 || oc -n openshift-logging create secret generic logging-loki-s3 \
   --from-literal=bucketnames="${AWS_BUCKET_NAME}" \
   --from-literal=endpoint="${AWS_ENDPOINT}" \
   --from-literal=region="${AWS_REGION}" \
   --from-literal=access_key_id="${AWS_ACCESS_ID}" \
   --from-literal=access_key_secret="${AWS_SECRET_KEY}"
+        fi
 
         oc get ns openshift-operators-redhat >/dev/null 2>&1 || oc create namespace openshift-operators-redhat
 
