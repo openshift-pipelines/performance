@@ -23,6 +23,13 @@ DEPLOYMENT_TYPE_RESULTS="${DEPLOYMENT_TYPE_RESULTS:-downstream}"
 DEPLOYMENT_RESULTS_UPSTREAM_VERSION="${DEPLOYMENT_RESULTS_UPSTREAM_VERSION:-latest}"
 DEPLOYMENT_RESULTS_WATCHER_CONTROLLER_TYPE="${DEPLOYMENT_RESULTS_WATCHER_CONTROLLER_TYPE:-deployments}" # deployments / statefulSets
 
+# AWS S3 credentials for Results and Loki storage (required if STORE_LOGS_IN_S3=true)
+AWS_BUCKET_NAME="${AWS_BUCKET_NAME:-dummy-bucket}"
+AWS_ENDPOINT="${AWS_ENDPOINT:-https://s3.amazonaws.com}"
+AWS_REGION="${AWS_REGION:-us-east-1}"
+AWS_ACCESS_ID="${AWS_ACCESS_ID:-dummy-access-id}"
+AWS_SECRET_KEY="${AWS_SECRET_KEY:-dummy-secret-key}"
+
 # Loki stack configuration: https://access.redhat.com/solutions/7006859
 LOKI_STACK_SIZE="1x.demo" # Other options: 1x.demo, 1x.small, 1x.extra-small
 
@@ -53,6 +60,9 @@ fi
 
 DEPLOYMENT_RESULTS_WATCHER_HA_REPLICAS="${DEPLOYMENT_RESULTS_WATCHER_HA_REPLICAS:-}"
 if [ -n "$DEPLOYMENT_RESULTS_WATCHER_HA_REPLICAS" ]; then
+    if ! [[ "$DEPLOYMENT_RESULTS_WATCHER_HA_REPLICAS" =~ ^[1-9][0-9]*$ ]]; then
+        fatal "DEPLOYMENT_RESULTS_WATCHER_HA_REPLICAS must be positive integer (got: $DEPLOYMENT_RESULTS_WATCHER_HA_REPLICAS)"
+    fi
     results_watcher_ha_buckets=$(( DEPLOYMENT_RESULTS_WATCHER_HA_REPLICAS * 2 ))
     results_watcher_ha_buckets=$(( results_watcher_ha_buckets > 10 ? 10 : results_watcher_ha_buckets ))
 fi
@@ -891,9 +901,15 @@ EOF
           if [ -n "$results_watcher_disable_storing_incomplete_runs" ]; then
               results_watcher_perf_options+="\"--disable_storing_incomplete_runs=$results_watcher_disable_storing_incomplete_runs\","
           fi
-          if [[ -n "$results_watcher_perf_options" ]]; then
-              results_watcher_perf_options="${results_watcher_perf_options%,}"
-              kubectl patch TektonConfig/config --type merge --patch '{"spec":{"result":{"options":{"'"$results_watcher_other_controller_type"'":null,"'"$DEPLOYMENT_RESULTS_WATCHER_CONTROLLER_TYPE"'":{"tekton-results-watcher":{"spec":{"template":{"spec":{"containers":[{"name":"watcher","args":['"$results_watcher_perf_options"']}]}}}}}}}}}'
+          # Patch controller type structure if perf options set or non-default controller type
+          if [[ -n "$results_watcher_perf_options" ]] || [ "$DEPLOYMENT_RESULTS_WATCHER_CONTROLLER_TYPE" != "deployments" ]; then
+              if [[ -n "$results_watcher_perf_options" ]]; then
+                  results_watcher_perf_options="${results_watcher_perf_options%,}"
+                  kubectl patch TektonConfig/config --type merge --patch '{"spec":{"result":{"options":{"'"$results_watcher_other_controller_type"'":null,"'"$DEPLOYMENT_RESULTS_WATCHER_CONTROLLER_TYPE"'":{"tekton-results-watcher":{"spec":{"template":{"spec":{"containers":[{"name":"watcher","args":['"$results_watcher_perf_options"']}]}}}}}}}}}'
+              else
+                  # No args to set, but ensure correct controller type structure exists and clean up opposite type
+                  kubectl patch TektonConfig/config --type merge --patch '{"spec":{"result":{"options":{"'"$results_watcher_other_controller_type"'":null,"'"$DEPLOYMENT_RESULTS_WATCHER_CONTROLLER_TYPE"'":{"tekton-results-watcher":{}}}}}}'
+              fi
           fi
       else
           info "Installing Tekton-Result Operator"
