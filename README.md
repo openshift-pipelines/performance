@@ -39,7 +39,10 @@ Setup the OpenShift cluster (assuming `oc login ...` happened already):
     # export DEPLOYMENT_RESULTS_WATCHER_KUBE_API_QPS="50.0"           # API QPS limit for Results Watcher
     # export DEPLOYMENT_RESULTS_WATCHER_KUBE_API_BURST="100"          # API burst limit for Results Watcher
     # export DEPLOYMENT_RESULTS_WATCHER_THREADINESS="16"              # Number of worker threads for Results Watcher
+    # export DEPLOYMENT_RESULTS_WATCHER_HA_REPLICAS="2"               # Results Watcher replicas; buckets are calculated automatically
+    # export DEPLOYMENT_RESULTS_WATCHER_CONTROLLER_TYPE="deployments"  # deployments or statefulSets; statefulSets enables StatefulSet ordinals
     # export DEPLOYMENT_RESULTS_WATCHER_DISABLE_STORING_INCOMPLETE_RUNS="true"  # Disable storing incomplete runs (improves performance)
+    # Results Watcher HA and StatefulSet settings are experimental; validate them against the installed Results/operator version.
 
 
     # export DEPLOYMENT_VERSION="1.14"
