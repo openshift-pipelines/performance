@@ -17,8 +17,8 @@ DRY_RUN="${DRY_RUN:-false}"
 # shellcheck disable=SC2034
 DEBUG="${DEBUG:-true}"
 
-_MIN_VER=21
-_MAX_VER=23
+_MIN_VER=22
+_MAX_VER=24
 
 _PIPELINES_SUFFIXES=("" "-ha-10" "-ha-10-state" "-qbt" "-ha-10-qbt")
 _CHAINS_SUFFIXES=("" "-ha-10" "-qbt" "-ha-10-qbt")
