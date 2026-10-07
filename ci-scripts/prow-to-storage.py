@@ -148,7 +148,7 @@ def load_labels(labels_file: Path, mirror_dir: Path, test_id: int, run_id: int,
                 dataset_id: int, started: str, subjob_id: str) -> str:
     db_args = connection_args()
     password = os.environ["POSTGRES_PIPELINE_DB_PASSWORD"]
-    # First try Konflux's date/time IDs. Negative IDs provide separate slots
+    # First try IDs from the UTC start date/time. Negative IDs provide separate slots
     # if distinct artifacts with the same test ID start in the same second.
     for attempt in range(1000):
         candidate = dataset_id if attempt == 0 else -(dataset_id * 1000 + attempt)
