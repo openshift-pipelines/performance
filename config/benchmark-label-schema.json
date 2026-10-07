@@ -1,0 +1,1263 @@
+{
+  "id": 0,
+  "name": "openshift-pipelines-perfscale-scalingPipelines-0.2",
+  "uri": "urn:openshift-pipelines-perfscale-scalingPipelines:0.2",
+  "labels": [
+    {
+      "name": "__deployment_haConfig_controllerType",
+      "extractors": [
+        {
+          "jsonpath": "$.deployment.ha_config.controller_type"
+        }
+      ]
+    },
+    {
+      "name": "__deployment_haConfig_haEnabled",
+      "extractors": [
+        {
+          "jsonpath": "$.deployment.ha_config.ha_enabled"
+        }
+      ]
+    },
+    {
+      "name": "__deployment_haConfig_haReplicas",
+      "extractors": [
+        {
+          "jsonpath": "$.deployment.ha_config.ha_replicas"
+        }
+      ]
+    },
+    {
+      "name": "__deployment_nightly",
+      "extractors": [
+        {
+          "jsonpath": "$.deployment.is_nightly_build"
+        }
+      ]
+    },
+    {
+      "name": "__deployment_nightlyBuild_pipelinesControllerGitCommit",
+      "extractors": [
+        {
+          "jsonpath": "$.deployment.nightly_build.pipelines_controller_git_commit"
+        }
+      ]
+    },
+    {
+      "name": "__deployment_ocpVersion",
+      "extractors": [
+        {
+          "jsonpath": "$.deployment.ocp_version"
+        }
+      ]
+    },
+    {
+      "name": "__deployment_qbtConfig_kubeApiBurst",
+      "extractors": [
+        {
+          "jsonpath": "$.deployment.qbt_config.kube_api_burst"
+        }
+      ]
+    },
+    {
+      "name": "__deployment_qbtConfig_kubeApiQps",
+      "extractors": [
+        {
+          "jsonpath": "$.deployment.qbt_config.kube_api_qps"
+        }
+      ]
+    },
+    {
+      "name": "__deployment_qbtConfig_qbtEnabled",
+      "extractors": [
+        {
+          "jsonpath": "$.deployment.qbt_config.qbt_enabled"
+        }
+      ]
+    },
+    {
+      "name": "__deployment_qbtConfig_threadsPerController",
+      "extractors": [
+        {
+          "jsonpath": "$.deployment.qbt_config.threads_per_controller"
+        }
+      ]
+    },
+    {
+      "name": "__deployment_resolverCacheMode",
+      "extractors": [
+        {
+          "jsonpath": "$.deployment.resolver_cache_mode"
+        }
+      ]
+    },
+    {
+      "name": "__deployment_version",
+      "extractors": [
+        {
+          "jsonpath": "$.deployment.version"
+        }
+      ]
+    },
+    {
+      "name": "__measurements_apiserverRequestTotalRate_mean",
+      "extractors": [
+        {
+          "jsonpath": "$.measurements.apiserver_request_total_rate.mean"
+        }
+      ]
+    },
+    {
+      "name": "__measurements_apiserver_cpu_max",
+      "extractors": [
+        {
+          "jsonpath": "$.measurements.apiserver.cpu.max"
+        }
+      ]
+    },
+    {
+      "name": "__measurements_apiserver_cpu_mean",
+      "extractors": [
+        {
+          "jsonpath": "$.measurements.apiserver.cpu.mean"
+        }
+      ]
+    },
+    {
+      "name": "__measurements_apiserver_memory_max",
+      "extractors": [
+        {
+          "jsonpath": "$.measurements.apiserver.memory.max"
+        }
+      ]
+    },
+    {
+      "name": "__measurements_apiserver_memory_mean",
+      "extractors": [
+        {
+          "jsonpath": "$.measurements.apiserver.memory.mean"
+        }
+      ]
+    },
+    {
+      "name": "__measurements_apiserver_restarts_range",
+      "extractors": [
+        {
+          "jsonpath": "$.measurements.apiserver.restarts.range"
+        }
+      ]
+    },
+    {
+      "name": "__measurements_clusterCpuUsageSecondsTotalRate_max",
+      "extractors": [
+        {
+          "jsonpath": "$.measurements.cluster_cpu_usage_seconds_total_rate.max"
+        }
+      ]
+    },
+    {
+      "name": "__measurements_clusterCpuUsageSecondsTotalRate_mean",
+      "extractors": [
+        {
+          "jsonpath": "$.measurements.cluster_cpu_usage_seconds_total_rate.mean"
+        }
+      ]
+    },
+    {
+      "name": "__measurements_clusterMemoryUsageRssTotal_max",
+      "extractors": [
+        {
+          "jsonpath": "$.measurements.cluster_memory_usage_rss_total.max"
+        }
+      ]
+    },
+    {
+      "name": "__measurements_clusterMemoryUsageRssTotal_mean",
+      "extractors": [
+        {
+          "jsonpath": "$.measurements.cluster_memory_usage_rss_total.mean"
+        }
+      ]
+    },
+    {
+      "name": "__measurements_etcdMvccDbTotalSizeInBytesAverage_max",
+      "extractors": [
+        {
+          "jsonpath": "$.measurements.etcd_mvcc_db_total_size_in_bytes_average.max"
+        }
+      ]
+    },
+    {
+      "name": "__measurements_etcdMvccDbTotalSizeInBytesAverage_mean",
+      "extractors": [
+        {
+          "jsonpath": "$.measurements.etcd_mvcc_db_total_size_in_bytes_average.mean"
+        }
+      ]
+    },
+    {
+      "name": "__measurements_etcdMvccDbTotalSizeInUseInBytesAverage_max",
+      "extractors": [
+        {
+          "jsonpath": "$.measurements.etcd_mvcc_db_total_size_in_use_in_bytes_average.max"
+        }
+      ]
+    },
+    {
+      "name": "__measurements_etcdMvccDbTotalSizeInUseInBytesAverage_mean",
+      "extractors": [
+        {
+          "jsonpath": "$.measurements.etcd_mvcc_db_total_size_in_use_in_bytes_average.mean"
+        }
+      ]
+    },
+    {
+      "name": "__measurements_etcdRequestDurationSecondsAverage_max",
+      "extractors": [
+        {
+          "jsonpath": "$.measurements.etcd_request_duration_seconds_average.max"
+        }
+      ]
+    },
+    {
+      "name": "__measurements_etcdRequestDurationSecondsAverage_mean",
+      "extractors": [
+        {
+          "jsonpath": "$.measurements.etcd_request_duration_seconds_average.mean"
+        }
+      ]
+    },
+    {
+      "name": "__measurements_etcd_restarts_range",
+      "extractors": [
+        {
+          "jsonpath": "$.measurements.etcd.restarts.range"
+        }
+      ]
+    },
+    {
+      "name": "__measurements_kubeApiserver_cpu_max",
+      "extractors": [
+        {
+          "jsonpath": "$.measurements.\"kube-apiserver\".cpu.max"
+        }
+      ]
+    },
+    {
+      "name": "__measurements_kubeApiserver_cpu_mean",
+      "extractors": [
+        {
+          "jsonpath": "$.measurements.\"kube-apiserver\".cpu.mean"
+        }
+      ]
+    },
+    {
+      "name": "__measurements_kubeApiserver_memory_max",
+      "extractors": [
+        {
+          "jsonpath": "$.measurements.\"kube-apiserver\".memory.max"
+        }
+      ]
+    },
+    {
+      "name": "__measurements_kubeApiserver_memory_mean",
+      "extractors": [
+        {
+          "jsonpath": "$.measurements.\"kube-apiserver\".memory.mean"
+        }
+      ]
+    },
+    {
+      "name": "__measurements_kubeApiserver_restarts_range",
+      "extractors": [
+        {
+          "jsonpath": "$.measurements.\"kube-apiserver\".restarts.range"
+        }
+      ]
+    },
+    {
+      "name": "__measurements_pipelinesAsCodeController_restarts_range",
+      "extractors": [
+        {
+          "jsonpath": "$.measurements.\"pipelines-as-code-controller\".restarts.range"
+        }
+      ]
+    },
+    {
+      "name": "__measurements_pipelinesAsCodeWatcher_restarts_range",
+      "extractors": [
+        {
+          "jsonpath": "$.measurements.\"pipelines-as-code-watcher\".restarts.range"
+        }
+      ]
+    },
+    {
+      "name": "__measurements_resolverQueueDurationP95_max",
+      "extractors": [
+        {
+          "jsonpath": "$.measurements.resolver_queue_duration_p95.max"
+        }
+      ]
+    },
+    {
+      "name": "__measurements_resolverQueueDurationP95_mean",
+      "extractors": [
+        {
+          "jsonpath": "$.measurements.resolver_queue_duration_p95.mean"
+        }
+      ]
+    },
+    {
+      "name": "__measurements_resolverWorkqueueDepth_max",
+      "extractors": [
+        {
+          "jsonpath": "$.measurements.resolver_workqueue_depth.max"
+        }
+      ]
+    },
+    {
+      "name": "__measurements_resolverWorkqueueDepth_mean",
+      "extractors": [
+        {
+          "jsonpath": "$.measurements.resolver_workqueue_depth.mean"
+        }
+      ]
+    },
+    {
+      "name": "__measurements_schedulerPendingPodsCount_range",
+      "extractors": [
+        {
+          "jsonpath": "$.measurements.scheduler_pending_pods_count.range"
+        }
+      ]
+    },
+    {
+      "name": "__measurements_tektonChainsControllerWorkqueueDepth_max",
+      "extractors": [
+        {
+          "jsonpath": "$.measurements.tekton_tekton_chains_controller_workqueue_depth.max"
+        }
+      ]
+    },
+    {
+      "name": "__measurements_tektonChainsControllerWorkqueueDepth_mean",
+      "extractors": [
+        {
+          "jsonpath": "$.measurements.tekton_tekton_chains_controller_workqueue_depth.mean"
+        }
+      ]
+    },
+    {
+      "name": "__measurements_tektonChainsController_cpu_max",
+      "extractors": [
+        {
+          "jsonpath": "$.measurements.\"tekton-chains-controller\".cpu.max"
+        }
+      ]
+    },
+    {
+      "name": "__measurements_tektonChainsController_cpu_mean",
+      "extractors": [
+        {
+          "jsonpath": "$.measurements.\"tekton-chains-controller\".cpu.mean"
+        }
+      ]
+    },
+    {
+      "name": "__measurements_tektonChainsController_memory_max",
+      "extractors": [
+        {
+          "jsonpath": "$.measurements.\"tekton-chains-controller\".memory.max"
+        }
+      ]
+    },
+    {
+      "name": "__measurements_tektonChainsController_memory_mean",
+      "extractors": [
+        {
+          "jsonpath": "$.measurements.\"tekton-chains-controller\".memory.mean"
+        }
+      ]
+    },
+    {
+      "name": "__measurements_tektonChainsController_restarts_range",
+      "extractors": [
+        {
+          "jsonpath": "$.measurements.\"tekton-chains-controller\".restarts.range"
+        }
+      ]
+    },
+    {
+      "name": "__measurements_tektonEventsController_restarts_range",
+      "extractors": [
+        {
+          "jsonpath": "$.measurements.\"tekton-events-controller\".restarts.range"
+        }
+      ]
+    },
+    {
+      "name": "__measurements_tektonOperatorProxyWebhook_cpu_max",
+      "extractors": [
+        {
+          "jsonpath": "$.measurements.\"tekton-operator-proxy-webhook\".cpu.max"
+        }
+      ]
+    },
+    {
+      "name": "__measurements_tektonOperatorProxyWebhook_cpu_mean",
+      "extractors": [
+        {
+          "jsonpath": "$.measurements.\"tekton-operator-proxy-webhook\".cpu.mean"
+        }
+      ]
+    },
+    {
+      "name": "__measurements_tektonOperatorProxyWebhook_memory_max",
+      "extractors": [
+        {
+          "jsonpath": "$.measurements.\"tekton-operator-proxy-webhook\".memory.max"
+        }
+      ]
+    },
+    {
+      "name": "__measurements_tektonOperatorProxyWebhook_memory_mean",
+      "extractors": [
+        {
+          "jsonpath": "$.measurements.\"tekton-operator-proxy-webhook\".memory.mean"
+        }
+      ]
+    },
+    {
+      "name": "__measurements_tektonOperatorProxyWebhook_restarts_range",
+      "extractors": [
+        {
+          "jsonpath": "$.measurements.\"tekton-operator-proxy-webhook\".restarts.range"
+        }
+      ]
+    },
+    {
+      "name": "__measurements_tektonPipelinesControllerClientLatencyAverage_max",
+      "extractors": [
+        {
+          "jsonpath": "$.measurements.tekton_pipelines_controller_client_latency_average.max"
+        }
+      ]
+    },
+    {
+      "name": "__measurements_tektonPipelinesControllerClientLatencyAverage_mean",
+      "extractors": [
+        {
+          "jsonpath": "$.measurements.tekton_pipelines_controller_client_latency_average.mean"
+        }
+      ]
+    },
+    {
+      "name": "__measurements_tektonPipelinesController_cpu_max",
+      "extractors": [
+        {
+          "jsonpath": "$.measurements.\"tekton-pipelines-controller\".cpu.max"
+        }
+      ]
+    },
+    {
+      "name": "__measurements_tektonPipelinesController_cpu_mean",
+      "extractors": [
+        {
+          "jsonpath": "$.measurements.\"tekton-pipelines-controller\".cpu.mean"
+        }
+      ]
+    },
+    {
+      "name": "__measurements_tektonPipelinesController_memory_max",
+      "extractors": [
+        {
+          "jsonpath": "$.measurements.\"tekton-pipelines-controller\".memory.max"
+        }
+      ]
+    },
+    {
+      "name": "__measurements_tektonPipelinesController_memory_mean",
+      "extractors": [
+        {
+          "jsonpath": "$.measurements.\"tekton-pipelines-controller\".memory.mean"
+        }
+      ]
+    },
+    {
+      "name": "__measurements_tektonPipelinesController_restarts_range",
+      "extractors": [
+        {
+          "jsonpath": "$.measurements.\"tekton-pipelines-controller\".restarts.range"
+        }
+      ]
+    },
+    {
+      "name": "__measurements_tektonPipelinesRemoteResolvers_cpu_max",
+      "extractors": [
+        {
+          "jsonpath": "$.measurements.\"tekton-pipelines-remote-resolvers\".cpu.max"
+        }
+      ]
+    },
+    {
+      "name": "__measurements_tektonPipelinesRemoteResolvers_cpu_mean",
+      "extractors": [
+        {
+          "jsonpath": "$.measurements.\"tekton-pipelines-remote-resolvers\".cpu.mean"
+        }
+      ]
+    },
+    {
+      "name": "__measurements_tektonPipelinesRemoteResolvers_memory_max",
+      "extractors": [
+        {
+          "jsonpath": "$.measurements.\"tekton-pipelines-remote-resolvers\".memory.max"
+        }
+      ]
+    },
+    {
+      "name": "__measurements_tektonPipelinesRemoteResolvers_memory_mean",
+      "extractors": [
+        {
+          "jsonpath": "$.measurements.\"tekton-pipelines-remote-resolvers\".memory.mean"
+        }
+      ]
+    },
+    {
+      "name": "__measurements_tektonPipelinesRemoteResolvers_restarts_range",
+      "extractors": [
+        {
+          "jsonpath": "$.measurements.\"tekton-pipelines-remote-resolvers\".restarts.range"
+        }
+      ]
+    },
+    {
+      "name": "__measurements_tektonPipelinesWebhook_cpu_max",
+      "extractors": [
+        {
+          "jsonpath": "$.measurements.\"tekton-pipelines-webhook\".cpu.max"
+        }
+      ]
+    },
+    {
+      "name": "__measurements_tektonPipelinesWebhook_cpu_mean",
+      "extractors": [
+        {
+          "jsonpath": "$.measurements.\"tekton-pipelines-webhook\".cpu.mean"
+        }
+      ]
+    },
+    {
+      "name": "__measurements_tektonPipelinesWebhook_memory_max",
+      "extractors": [
+        {
+          "jsonpath": "$.measurements.\"tekton-pipelines-webhook\".memory.max"
+        }
+      ]
+    },
+    {
+      "name": "__measurements_tektonPipelinesWebhook_memory_mean",
+      "extractors": [
+        {
+          "jsonpath": "$.measurements.\"tekton-pipelines-webhook\".memory.mean"
+        }
+      ]
+    },
+    {
+      "name": "__measurements_tektonPipelinesWebhook_restarts_range",
+      "extractors": [
+        {
+          "jsonpath": "$.measurements.\"tekton-pipelines-webhook\".restarts.range"
+        }
+      ]
+    },
+    {
+      "name": "__measurements_tektonResultsApi_cpu_max",
+      "extractors": [
+        {
+          "jsonpath": "$.measurements.\"tekton-results-api\".cpu.max"
+        }
+      ]
+    },
+    {
+      "name": "__measurements_tektonResultsApi_cpu_mean",
+      "extractors": [
+        {
+          "jsonpath": "$.measurements.\"tekton-results-api\".cpu.mean"
+        }
+      ]
+    },
+    {
+      "name": "__measurements_tektonResultsApi_memory_max",
+      "extractors": [
+        {
+          "jsonpath": "$.measurements.\"tekton-results-api\".memory.max"
+        }
+      ]
+    },
+    {
+      "name": "__measurements_tektonResultsApi_memory_mean",
+      "extractors": [
+        {
+          "jsonpath": "$.measurements.\"tekton-results-api\".memory.mean"
+        }
+      ]
+    },
+    {
+      "name": "__measurements_tektonResultsApi_restarts_range",
+      "extractors": [
+        {
+          "jsonpath": "$.measurements.\"tekton-results-api\".restarts.range"
+        }
+      ]
+    },
+    {
+      "name": "__measurements_tektonResultsWatcher_cpu_max",
+      "extractors": [
+        {
+          "jsonpath": "$.measurements.\"tekton-results-watcher\".cpu.max"
+        }
+      ]
+    },
+    {
+      "name": "__measurements_tektonResultsWatcher_cpu_mean",
+      "extractors": [
+        {
+          "jsonpath": "$.measurements.\"tekton-results-watcher\".cpu.mean"
+        }
+      ]
+    },
+    {
+      "name": "__measurements_tektonResultsWatcher_memory_max",
+      "extractors": [
+        {
+          "jsonpath": "$.measurements.\"tekton-results-watcher\".memory.max"
+        }
+      ]
+    },
+    {
+      "name": "__measurements_tektonResultsWatcher_memory_mean",
+      "extractors": [
+        {
+          "jsonpath": "$.measurements.\"tekton-results-watcher\".memory.mean"
+        }
+      ]
+    },
+    {
+      "name": "__measurements_tektonResultsWatcher_restarts_range",
+      "extractors": [
+        {
+          "jsonpath": "$.measurements.\"tekton-results-watcher\".restarts.range"
+        }
+      ]
+    },
+    {
+      "name": "__measurements_tektonTektonPipelinesControllerWorkqueueDepth_mean",
+      "extractors": [
+        {
+          "jsonpath": "$.measurements.tekton_tekton_pipelines_controller_workqueue_depth.mean"
+        }
+      ]
+    },
+    {
+      "name": "__measurements_tektonTriggersController_restarts_range",
+      "extractors": [
+        {
+          "jsonpath": "$.measurements.\"tekton-triggers-controller\".restarts.range"
+        }
+      ]
+    },
+    {
+      "name": "__measurements_tektonTriggersCoreInterceptors_restarts_range",
+      "extractors": [
+        {
+          "jsonpath": "$.measurements.\"tekton-triggers-core-interceptors\".restarts.range"
+        }
+      ]
+    },
+    {
+      "name": "__measurements_tektonTriggersWebhook_restarts_range",
+      "extractors": [
+        {
+          "jsonpath": "$.measurements.\"tekton-triggers-webhook\".restarts.range"
+        }
+      ]
+    },
+    {
+      "name": "__measurements_tknCliServe_restarts_range",
+      "extractors": [
+        {
+          "jsonpath": "$.measurements.\"tkn-cli-serve\".restarts.range"
+        }
+      ]
+    },
+    {
+      "name": "__measurements_workersAvgCpuUsagePercentage_max",
+      "extractors": [
+        {
+          "jsonpath": "$.measurements.workers_avg_cpu_usage_percentage.max"
+        }
+      ]
+    },
+    {
+      "name": "__measurements_workersAvgCpuUsagePercentage_mean",
+      "extractors": [
+        {
+          "jsonpath": "$.measurements.workers_avg_cpu_usage_percentage.mean"
+        }
+      ]
+    },
+    {
+      "name": "__metadata_env_BUILD_ID",
+      "extractors": [
+        {
+          "jsonpath": "$.metadata.env.BUILD_ID"
+        }
+      ]
+    },
+    {
+      "name": "__metadata_env_LOCUST_USERS",
+      "extractors": [
+        {
+          "jsonpath": "$.metadata.env.LOCUST_USERS"
+        }
+      ]
+    },
+    {
+      "name": "__metadata_env_LOCUST_WORKERS",
+      "extractors": [
+        {
+          "jsonpath": "$.metadata.env.LOCUST_WORKERS"
+        }
+      ]
+    },
+    {
+      "name": "__metadata_env_SUBJOB_BUILD_ID",
+      "extractors": [
+        {
+          "jsonpath": "$.metadata.env.SUBJOB_BUILD_ID"
+        }
+      ]
+    },
+    {
+      "name": "__metadata_env_TEST_SCENARIO",
+      "extractors": [
+        {
+          "jsonpath": "$.metadata.env.TEST_SCENARIO"
+        }
+      ]
+    },
+    {
+      "name": "__parameters_test_concurrent",
+      "extractors": [
+        {
+          "jsonpath": "$.parameters.test.concurrent"
+        }
+      ]
+    },
+    {
+      "name": "__parameters_test_total",
+      "extractors": [
+        {
+          "jsonpath": "$.parameters.test.total"
+        }
+      ]
+    },
+    {
+      "name": "__prow_job",
+      "extractors": [
+        {
+          "jsonpath": "$._storage.prow_job"
+        }
+      ]
+    },
+    {
+      "name": "__prow_run_id",
+      "extractors": [
+        {
+          "jsonpath": "$._storage.prow_run_id"
+        }
+      ]
+    },
+    {
+      "name": "__prow_subjob",
+      "extractors": [
+        {
+          "jsonpath": "$._storage.prow_subjob"
+        }
+      ]
+    },
+    {
+      "name": "__resolver_type",
+      "extractors": [
+        {
+          "jsonpath": "$._storage.resolver_type"
+        }
+      ]
+    },
+    {
+      "name": "__results_PipelineRuns_Success_duration_avg",
+      "extractors": [
+        {
+          "jsonpath": "$.results.PipelineRuns.Success.duration.avg"
+        }
+      ]
+    },
+    {
+      "name": "__results_PipelineRuns_Success_pending_avg",
+      "extractors": [
+        {
+          "jsonpath": "$.results.PipelineRuns.Success.pending.avg"
+        }
+      ]
+    },
+    {
+      "name": "__results_PipelineRuns_Success_running_avg",
+      "extractors": [
+        {
+          "jsonpath": "$.results.PipelineRuns.Success.running.avg"
+        }
+      ]
+    },
+    {
+      "name": "__results_PipelineRuns_count_failed",
+      "extractors": [
+        {
+          "jsonpath": "$.results.PipelineRuns.count.failed"
+        }
+      ]
+    },
+    {
+      "name": "__results_PipelineRuns_count_succeeded",
+      "extractors": [
+        {
+          "jsonpath": "$.results.PipelineRuns.count.succeeded"
+        }
+      ]
+    },
+    {
+      "name": "__results_PipelineRuns_duration_avg",
+      "extractors": [
+        {
+          "jsonpath": "$.results.PipelineRuns.duration.avg"
+        }
+      ]
+    },
+    {
+      "name": "__results_PipelineRuns_ingestion_count_ingested",
+      "extractors": [
+        {
+          "jsonpath": "$.results.PipelineRuns.results_ingestion.count.ingested"
+        }
+      ]
+    },
+    {
+      "name": "__results_PipelineRuns_ingestion_count_stored_false",
+      "extractors": [
+        {
+          "jsonpath": "$.results.PipelineRuns.results_ingestion.count.stored_false"
+        }
+      ]
+    },
+    {
+      "name": "__results_PipelineRuns_ingestion_count_stored_true",
+      "extractors": [
+        {
+          "jsonpath": "$.results.PipelineRuns.results_ingestion.count.stored_true"
+        }
+      ]
+    },
+    {
+      "name": "__results_PipelineRuns_ingestion_duration",
+      "extractors": [
+        {
+          "jsonpath": "$.results.PipelineRuns.results_ingestion.duration"
+        }
+      ]
+    },
+    {
+      "name": "__results_PipelineRuns_ingestion_latency_avg",
+      "extractors": [
+        {
+          "jsonpath": "$.results.PipelineRuns.results_ingestion.latency.avg"
+        }
+      ]
+    },
+    {
+      "name": "__results_PipelineRuns_ingestion_latency_max",
+      "extractors": [
+        {
+          "jsonpath": "$.results.PipelineRuns.results_ingestion.latency.max"
+        }
+      ]
+    },
+    {
+      "name": "__results_PipelineRuns_ingestion_throughput",
+      "extractors": [
+        {
+          "jsonpath": "$.results.PipelineRuns.results_ingestion.throughput"
+        }
+      ]
+    },
+    {
+      "name": "__results_PipelineRuns_signing_count_signed_false",
+      "extractors": [
+        {
+          "jsonpath": "$.results.PipelineRuns.signing.count.signed_false"
+        }
+      ]
+    },
+    {
+      "name": "__results_PipelineRuns_signing_count_signed_true",
+      "extractors": [
+        {
+          "jsonpath": "$.results.PipelineRuns.signing.count.signed_true"
+        }
+      ]
+    },
+    {
+      "name": "__results_PipelineRuns_signing_count_unsigned",
+      "extractors": [
+        {
+          "jsonpath": "$.results.PipelineRuns.signing.count.unsigned"
+        }
+      ]
+    },
+    {
+      "name": "__results_PipelineRuns_signing_duration",
+      "extractors": [
+        {
+          "jsonpath": "$.results.PipelineRuns.signing.duration"
+        }
+      ]
+    },
+    {
+      "name": "__results_PipelineRuns_signing_throughput",
+      "extractors": [
+        {
+          "jsonpath": "$.results.PipelineRuns.signing.throughput"
+        }
+      ]
+    },
+    {
+      "name": "__results_ResolutionRequests_ResolverLog_Overall_avg",
+      "extractors": [
+        {
+          "jsonpath": "$.results.ResolutionRequests.ResolverLog.Overall.avg"
+        }
+      ]
+    },
+    {
+      "name": "__results_ResolutionRequests_ResolverLog_Overall_count",
+      "extractors": [
+        {
+          "jsonpath": "$.results.ResolutionRequests.ResolverLog.Overall.count"
+        }
+      ]
+    },
+    {
+      "name": "__results_ResolutionRequests_ResolverLog_Overall_max",
+      "extractors": [
+        {
+          "jsonpath": "$.results.ResolutionRequests.ResolverLog.Overall.max"
+        }
+      ]
+    },
+    {
+      "name": "__results_ResolutionRequests_ResolverLog_Overall_p95",
+      "extractors": [
+        {
+          "jsonpath": "$.results.ResolutionRequests.ResolverLog.Overall.p95"
+        }
+      ]
+    },
+    {
+      "name": "__results_ResolutionRequests_ResolverLog_Overall_p99",
+      "extractors": [
+        {
+          "jsonpath": "$.results.ResolutionRequests.ResolverLog.Overall.p99"
+        }
+      ]
+    },
+    {
+      "name": "__results_ResultsAPI_record_count",
+      "extractors": [
+        {
+          "jsonpath": "$.results.ResultsAPI.\"/record\".count"
+        }
+      ]
+    },
+    {
+      "name": "__results_ResultsAPI_record_failures",
+      "extractors": [
+        {
+          "jsonpath": "$.results.ResultsAPI.\"/record\".failures"
+        }
+      ]
+    },
+    {
+      "name": "__results_ResultsAPI_record_latency_avg",
+      "extractors": [
+        {
+          "jsonpath": "$.results.ResultsAPI.\"/record\".latency_ms.avg"
+        }
+      ]
+    },
+    {
+      "name": "__results_ResultsAPI_record_latency_max",
+      "extractors": [
+        {
+          "jsonpath": "$.results.ResultsAPI.\"/record\".latency_ms.max"
+        }
+      ]
+    },
+    {
+      "name": "__results_ResultsAPI_record_rps",
+      "extractors": [
+        {
+          "jsonpath": "$.results.ResultsAPI.\"/record\".rps"
+        }
+      ]
+    },
+    {
+      "name": "__results_ResultsAPI_records_count",
+      "extractors": [
+        {
+          "jsonpath": "$.results.ResultsAPI.\"/records\".count"
+        }
+      ]
+    },
+    {
+      "name": "__results_ResultsAPI_records_failures",
+      "extractors": [
+        {
+          "jsonpath": "$.results.ResultsAPI.\"/records\".failures"
+        }
+      ]
+    },
+    {
+      "name": "__results_ResultsAPI_records_latency_avg",
+      "extractors": [
+        {
+          "jsonpath": "$.results.ResultsAPI.\"/records\".latency_ms.avg"
+        }
+      ]
+    },
+    {
+      "name": "__results_ResultsAPI_records_latency_max",
+      "extractors": [
+        {
+          "jsonpath": "$.results.ResultsAPI.\"/records\".latency_ms.max"
+        }
+      ]
+    },
+    {
+      "name": "__results_ResultsAPI_records_rps",
+      "extractors": [
+        {
+          "jsonpath": "$.results.ResultsAPI.\"/records\".rps"
+        }
+      ]
+    },
+    {
+      "name": "__results_ResultsDB_records_PipelineRun_count",
+      "extractors": [
+        {
+          "jsonpath": "$.results.ResultsDB.queries[0].result[?(@.type=='tekton.dev/v1.PipelineRun')].count"
+        }
+      ]
+    },
+    {
+      "name": "__results_ResultsDB_records_TaskRun_count",
+      "extractors": [
+        {
+          "jsonpath": "$.results.ResultsDB.queries[0].result[?(@.type=='tekton.dev/v1.TaskRun')].count"
+        }
+      ]
+    },
+    {
+      "name": "__results_TaskRunsToPods_creationTimestampDiff_max",
+      "extractors": [
+        {
+          "jsonpath": "$.results.TaskRuns_to_Pods.creationTimestamp_diff.max"
+        }
+      ]
+    },
+    {
+      "name": "__results_TaskRunsToPods_creationTimestampDiff_mean",
+      "extractors": [
+        {
+          "jsonpath": "$.results.TaskRuns_to_Pods.creationTimestamp_diff.mean"
+        }
+      ]
+    },
+    {
+      "name": "__results_TaskRuns_Success_duration_avg",
+      "extractors": [
+        {
+          "jsonpath": "$.results.TaskRuns.Success.duration.avg"
+        }
+      ]
+    },
+    {
+      "name": "__results_TaskRuns_Success_pending_avg",
+      "extractors": [
+        {
+          "jsonpath": "$.results.TaskRuns.Success.pending.avg"
+        }
+      ]
+    },
+    {
+      "name": "__results_TaskRuns_Success_running_avg",
+      "extractors": [
+        {
+          "jsonpath": "$.results.TaskRuns.Success.running.avg"
+        }
+      ]
+    },
+    {
+      "name": "__results_TaskRuns_count_failed",
+      "extractors": [
+        {
+          "jsonpath": "$.results.TaskRuns.count.failed"
+        }
+      ]
+    },
+    {
+      "name": "__results_TaskRuns_count_succeeded",
+      "extractors": [
+        {
+          "jsonpath": "$.results.TaskRuns.count.succeeded"
+        }
+      ]
+    },
+    {
+      "name": "__results_TaskRuns_duration_avg",
+      "extractors": [
+        {
+          "jsonpath": "$.results.TaskRuns.duration.avg"
+        }
+      ]
+    },
+    {
+      "name": "__results_TaskRuns_ingestion_count_ingested",
+      "extractors": [
+        {
+          "jsonpath": "$.results.TaskRuns.results_ingestion.count.ingested"
+        }
+      ]
+    },
+    {
+      "name": "__results_TaskRuns_ingestion_count_stored_false",
+      "extractors": [
+        {
+          "jsonpath": "$.results.TaskRuns.results_ingestion.count.stored_false"
+        }
+      ]
+    },
+    {
+      "name": "__results_TaskRuns_ingestion_count_stored_true",
+      "extractors": [
+        {
+          "jsonpath": "$.results.TaskRuns.results_ingestion.count.stored_true"
+        }
+      ]
+    },
+    {
+      "name": "__results_TaskRuns_ingestion_duration",
+      "extractors": [
+        {
+          "jsonpath": "$.results.TaskRuns.results_ingestion.duration"
+        }
+      ]
+    },
+    {
+      "name": "__results_TaskRuns_ingestion_latency_avg",
+      "extractors": [
+        {
+          "jsonpath": "$.results.TaskRuns.results_ingestion.latency.avg"
+        }
+      ]
+    },
+    {
+      "name": "__results_TaskRuns_ingestion_latency_max",
+      "extractors": [
+        {
+          "jsonpath": "$.results.TaskRuns.results_ingestion.latency.max"
+        }
+      ]
+    },
+    {
+      "name": "__results_TaskRuns_ingestion_throughput",
+      "extractors": [
+        {
+          "jsonpath": "$.results.TaskRuns.results_ingestion.throughput"
+        }
+      ]
+    },
+    {
+      "name": "__results_TaskRuns_signing_count_signed_false",
+      "extractors": [
+        {
+          "jsonpath": "$.results.TaskRuns.signing.count.signed_false"
+        }
+      ]
+    },
+    {
+      "name": "__results_TaskRuns_signing_count_signed_true",
+      "extractors": [
+        {
+          "jsonpath": "$.results.TaskRuns.signing.count.signed_true"
+        }
+      ]
+    },
+    {
+      "name": "__results_TaskRuns_signing_count_unsigned",
+      "extractors": [
+        {
+          "jsonpath": "$.results.TaskRuns.signing.count.unsigned"
+        }
+      ]
+    },
+    {
+      "name": "__results_TaskRuns_signing_duration",
+      "extractors": [
+        {
+          "jsonpath": "$.results.TaskRuns.signing.duration"
+        }
+      ]
+    },
+    {
+      "name": "__results_TaskRuns_signing_throughput",
+      "extractors": [
+        {
+          "jsonpath": "$.results.TaskRuns.signing.throughput"
+        }
+      ]
+    },
+    {
+      "name": "__started",
+      "extractors": [
+        {
+          "jsonpath": "$.started"
+        }
+      ]
+    },
+    {
+      "name": "__test_family",
+      "extractors": [
+        {
+          "jsonpath": "$._storage.test_family"
+        }
+      ]
+    },
+    {
+      "name": "__test_variant",
+      "extractors": [
+        {
+          "jsonpath": "$._storage.test_variant"
+        }
+      ]
+    }
+  ]
+}
