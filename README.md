@@ -127,22 +127,21 @@ Test code is in `tests/scalingPipelines/` directory. See readme in that director
 
 Every hour we run a CI puller script (see `ci-scripts/prow-to-storage.sh`) via [Jenkins job](https://jenkins-csb-perf-master.dno.corp.redhat.com/job/PipelinesCI_puller/). There is a [Jenkinsfile](https://gitlab.cee.redhat.com/redhat-performance/ci-configs/-/blob/master/jenkins/PipelinesCI_puller.groovy) and [JobDSL](https://gitlab.cee.redhat.com/redhat-performance/ci-configs/-/blob/master/src/jobs/PipelinesCI_pullerJob.groovy?ref_type=heads) file for this job.
 
-Script `ci-scripts/prow-to-storage.sh` lists N recent Prow builds of the job and if not pushed already, pushes their results JSON file to Horreum and OpenSearch. After uploading to Horreum, script checks if change detection detected some change, and if so, adds a "result" key to the JSON with "FAIL" value, otherwise "PASS". Upload to OpenSearch happens with this value in place.
+`ci-scripts/prow-to-storage.sh` lists recent nightly and per-version Prow builds for Pipelines, Chains, Results, and Resolvers, including their variants and subjobs. For each artifact, `ci-scripts/prow-to-storage.py` downloads and enriches `benchmark-tekton.json` with timestamps, `SUBJOB_BUILD_ID`, schema URI, and temporary `PASS` result. It runs `compute_labels.py` from `horreum-data-mirror` against the single definition in `config/benchmark-label-schema.json`, omits labels with missing values to match historical PostgreSQL rows, then calls its `labels_to_postgresql.py` to insert into the existing PostgreSQL `data` table. The complete benchmark JSON remains in Prow; PostgreSQL receives the extracted labels. The Python script passes `--check-label __metadata_env_SUBJOB_BUILD_ID`, so repeated and historically mirrored Prow runs are skipped. It also sends the enriched JSON to Results Dashboard and automatically removes its temporary files.
 
-### Horreum
+The puller calls `shovel.py` for Prow discovery and Results Dashboard uploads. The Python script downloads Prow JSON with `requests` and checks its HTTP status, JSON content, and required fields before computing labels. Missing artifacts (HTTP 404) are skipped; other HTTP failures fail the job. Results Dashboard uses `SUBJOB_BUILD_ID` as its result ID, so separate subjobs have separate entries. The job no longer clones or sources `script-mate`.
 
-Horreum instance we are using is: <https://horreum.corp.redhat.com/> (managed by Horreum team: [Horreum Google Chat space](https://chat.google.com/room/AAAALGqIRVQ?cls=7)). It is meant to help spot failing test by comparing it with historical data.
+The PostgreSQL table retains its historical column names (`horreum_testid`, `horreum_runid`, `horreum_datasetid`). New rows use the existing per-variant test IDs needed by current reports and Grafana queries. The run and dataset IDs are the UTC start date (`YYYYMMDD`) and time (`HHMMSS`), as in Konflux. If two different runs share that second, the Python script retries with a negative dataset ID; a true repeat is identified by `SUBJOB_BUILD_ID`. `__test_family`, `__test_variant`, `__resolver_type`, and Prow provenance labels distinguish the records. The Jenkins job passes the PostgreSQL connection through `POSTGRES_PIPELINE_DB_HOST`, `POSTGRES_PIPELINE_DB_PORT`, `POSTGRES_PIPELINE_DB_USER`, `POSTGRES_PIPELINE_DB_NAME`, and `POSTGRES_PIPELINE_DB_PASSWORD`.
 
-You can browse data and graphs without login, but to change the configuration, you will need an account. In Horreum we have a team `Openshift-pipelines`. Ping @johara in above linked Google Chat space to create you a user and then @kbaig or @jhutar to add you to the team.
+Run `DRY_RUN=true bash ci-scripts/prow-to-storage.sh` to list and download Prow artifacts, validate them, compute labels, and preview PostgreSQL and Results Dashboard writes without connecting to PostgreSQL or uploading. When running outside Jenkins, activate the project virtual environment and set `HDM_DIR` to a local `horreum-data-mirror` checkout. The label schema is shared; separate YAML files are not needed for ingestion.
 
-Current test configuration:
+To inspect the exact `label_values` JSONB object for one artifact, call `ci-scripts/prow-to-storage.py` with `--dry-run --show-label-values` and the Prow job name, build ID, run name, and artifact directory. This prints the fetched URL and only the labels with values; it does not need PostgreSQL credentials.
 
- * JSON schema: [urn:openshift-pipelines-perfscale-scalingPipelines:0.1](https://horreum.corp.redhat.com/schema/177)
- * Test definition and changes detection configuration: [openshift-pipelines-perfscale-scalingPipelines](https://horreum.corp.redhat.com/test/295) (in `Openshift-pipelines` folder)
- * Test runs: [openshift-pipelines-perfscale-scalingPipelines Runs](https://horreum.corp.redhat.com/run/list/295)
- * Change detection: [openshift-pipelines-perfscale-scalingPipelines Changes](https://horreum.corp.redhat.com/changes?test=openshift-pipelines-perfscale-scalingPipelines&fingerprint=%7B%22.parameters.test.run%22%3A%22.%2Frun.yaml%22%2C%22.parameters.test.total%22%3A1000%2C%22.parameters.test.concurrent%22%3A100%7D)
+The hourly run uses `shovel.py prow list`, which returns the latest 10 builds per job.
 
-Check test change detection settings to understand under which circumstances Horreum tags new result as a "change".
+### Regression alerts
+
+The YAML files under `tools/horreum/` remain as the source for historical safe bounds and change detection settings. The direct PostgreSQL ingestion path does not evaluate these rules yet. Until a PostgreSQL-based alerting script is connected to the job, new Results Dashboard entries are marked `PASS` as a temporary default; this is not the result of a regression check. Porting the rules, establishing a comparable-run baseline, and wiring notifications are the remaining alerting work in the Horreum retirement.
 
 ### OpenSearch
 

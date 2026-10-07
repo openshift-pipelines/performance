@@ -1,21 +1,20 @@
-#!/bin/bash -eu
+#!/bin/bash
 #
-# Download benchmark artifacts from Prow and upload to Horreum + Results Dashboard.
+# Find benchmark runs in Prow and send each artifact to the storage worker.
 #
 # Usage:
-#   bash ci-scripts/prow-to-storage.sh                  # upload for real
-#   DRY_RUN=true  bash ci-scripts/prow-to-storage.sh    # preview without uploading
+#   ci-scripts/prow-to-storage.sh                  # upload for real
+#   DRY_RUN=true ci-scripts/prow-to-storage.sh     # preview without uploading
+
+set -euo pipefail
 
 # ── Configuration ─────────────────────────────────────────────────────────────
 
-CACHE_DIR="prow-to-es-cache-dir"
 PROW_JOB_PREFIX="periodic-ci-openshift-pipelines-performance-main-"
-SCHEMA_URI="urn:openshift-pipelines-perfscale-scalingPipelines:0.2"
+PROW_GCSWEB_HOST="${PROW_GCSWEB_HOST:-https://gcsweb-ci.apps.ci.l2s4.p1.openshiftapps.com}"
+PROW_LOGS_URL="${PROW_GCSWEB_HOST%/}/gcs/test-platform-results-public/logs"
 
-# shellcheck disable=SC2034
 DRY_RUN="${DRY_RUN:-false}"
-# shellcheck disable=SC2034
-DEBUG="${DEBUG:-true}"
 
 _MIN_VER=22
 _MAX_VER=24
@@ -24,36 +23,58 @@ _PIPELINES_SUFFIXES=("" "-ha-10" "-ha-10-state" "-qbt" "-ha-10-qbt")
 _CHAINS_SUFFIXES=("" "-ha-10" "-qbt" "-ha-10-qbt")
 _RESOLVER_SUFFIXES=("-gr" "-br" "-cr" "-gr-ha-10" "-br-ha-10" "-cr-ha-10" "-cr-ha-10-cache")
 
-# ── Dependencies ──────────────────────────────────────────────────────────────
+# ── Mirror checkout ───────────────────────────────────────────────────────────
 
-[ -e script-mate/ ] || git clone --depth=1 https://github.com/redhat-performance/script-mate.git
-source script-mate/src/opl_shovel.sh
+[[ -n "${HDM_DIR:-}" && -d "$HDM_DIR" ]] || {
+    echo "HDM_DIR must point to horreum-data-mirror" >&2
+    exit 1
+}
 
 # ── Functions ─────────────────────────────────────────────────────────────────
+
+log() {
+    printf '%s %s\n' "$(date -u +%FT%TZ)" "$*" >&2
+}
+
+prow_list() {
+    shovel.py prow --base-url "$PROW_LOGS_URL" --job-name "$1" list
+}
+
+prow_subjob_list() {
+    local job="$1" build_id="$2" run="$3" artifact_dir="$4" link
+    shovel.py html links \
+        --url "$PROW_LOGS_URL/$job/$build_id/artifacts/$run/$artifact_dir" \
+        --regexp '.*/run-[^/]+/' |
+        while IFS= read -r link; do
+            link="${link%/}"
+            printf '%s\n' "${link##*/}"
+        done
+}
 
 # Build the list of Prow job names: one nightly + one per version in
 # [min, max], each crossed with every variant suffix.
 #
-# $1 - nameref to target array
-# $2 - base prefix    (e.g. "max-concurrency-downstream-")
-# $3 - tag            (e.g. "" or "-sign-tkn-bb")
-# $4 - version prefix (e.g. "pipelines1-" or "1-")
-# $5 - min version    $6 - max version
-# $7 - nameref to suffix array (optional — omit for no variants)
+# $1 - base prefix    (e.g. "max-concurrency-downstream-")
+# $2 - tag            (e.g. "" or "-sign-tkn-bb")
+# $3 - version prefix (e.g. "pipelines1-" or "1-")
+# $4 - min version    $5 - max version
+# $6... - variant suffixes (optional; defaults to the standard variant)
 register_prow_jobs() {
-    local -n _target=$1
-    local prefix="$2" tag="$3" ver_prefix="$4"
-    local min_ver="$5" max_ver="$6"
-    local _none=("")
-    local -n _suffixes="${7:-_none}"
+    local prefix="$1" tag="$2" ver_prefix="$3"
+    local min_ver="$4" max_ver="$5"
+    shift 5
+    local suffixes=("$@")
+    if (( ${#suffixes[@]} == 0 )); then
+        suffixes=("")
+    fi
 
     local sfx pv
-    for sfx in "${_suffixes[@]}"; do
-        _target+=("${prefix}nightly${tag}${sfx}")
+    for sfx in "${suffixes[@]}"; do
+        PROW_JOBS+=("${prefix}nightly${tag}${sfx}")
     done
-    for pv in $(seq "$min_ver" "$max_ver"); do
-        for sfx in "${_suffixes[@]}"; do
-            _target+=("${prefix}${ver_prefix}${pv}${tag}${sfx}")
+    for ((pv = min_ver; pv <= max_ver; pv++)); do
+        for sfx in "${suffixes[@]}"; do
+            PROW_JOBS+=("${prefix}${ver_prefix}${pv}${tag}${sfx}")
         done
     done
 }
@@ -66,83 +87,49 @@ artifact_path_for() {
     esac
 }
 
-# jq expressions for setting timestamps and SUBJOB_BUILD_ID
-_JQ_ENRICH='.started = .results.started | .ended = .results.ended'
-_JQ_NO_SUBJOB="$_JQ_ENRICH"' | .metadata.env.SUBJOB_BUILD_ID = .metadata.env.BUILD_ID'
-_JQ_WITH_SUBJOB="$_JQ_ENRICH"' | .metadata.env.SUBJOB_BUILD_ID = .metadata.env.BUILD_ID + $sj'
-
-# Download a single artifact, validate, enrich, and upload.
-#
-# $1 - output file   $2 - prow job   $3 - run ID   $4 - prow_run short name
-# $5 - artifact path $6 - jq expr    $7 - subjob name (optional)
-download_and_upload() {
-    local out="$1" prow_job="$2" run_id="$3" prow_run="$4"
-    local artifact_path="$5" jq_expr="$6" subjob="${7:-}"
-    local label="${run_id}${subjob:+/$subjob}"
-    local tmp_out="${out}.tmp"
-
-    rm -f "$tmp_out"
-
-    prow_download "$prow_job" "$run_id" "$prow_run" "$artifact_path" "$tmp_out" "jobLink" 2>/dev/null
-    if ! jq empty "$tmp_out" 2>/dev/null; then
-        info "No valid artifact for $label, skipping"
-        rm -f "$tmp_out"
-        return 1
+# Process one benchmark artifact with the Python storage worker.
+# $1 - Prow job   $2 - build ID   $3 - run name
+# $4 - artifact directory   $5 - subjob name (optional)
+process_artifact() {
+    local args=(
+        --prow-logs-url "$PROW_LOGS_URL" --prow-job "$1" --job-run-id "$2"
+        --prow-run "$3" --artifact-dir "$4" --subjob "${5:-}"
+    )
+    if [[ "$DRY_RUN" == true ]]; then
+        args+=(--dry-run)
     fi
-
-    if ! jq --arg sj "$subjob" "$jq_expr" "$tmp_out" > "${tmp_out}.enriched"; then
-        rm -f "$tmp_out" "${tmp_out}.enriched"
-        return 1
-    fi
-    mv -f "${tmp_out}.enriched" "$tmp_out"
-
-    json_complete "$tmp_out" || { rm -f "$tmp_out"; return 1; }
-
-    # shellcheck disable=SC2016
-    enritch_stuff "$tmp_out" '."$schema"' "$SCHEMA_URI"
-
-    local upload_errors=0
-    horreum_upload "$tmp_out" "metadata.env.SUBJOB_BUILD_ID" "__metadata_env_SUBJOB_BUILD_ID" \
-        "Openshift-pipelines-team" "PUBLIC" || ((upload_errors+=1))
-    resultsdashboard_upload "$tmp_out" "Developer" "OpenShift Pipelines" "$( date --utc -Idate )" \
-        "@metadata.env.SUBJOB_BUILD_ID" || ((upload_errors+=1))
-
-    if [[ $upload_errors -eq 0 ]]; then
-        mv -f "$tmp_out" "$out"
-    else
-        errors=$((errors + upload_errors))
-        rm -f "$tmp_out"
-        return 1
+    if ! python3 ci-scripts/prow-to-storage.py "${args[@]}"; then
+        errors=$((errors + 1))
     fi
 }
 
 # Iterate all registered jobs: list Prow runs, download artifacts, upload.
 process_prow_jobs() {
-    local -n _jobs=$1
-
-    for prow_run in "${_jobs[@]}"; do
+    local prow_run
+    for prow_run in "${PROW_JOBS[@]}"; do
         local job_path prow_job
         job_path="$(artifact_path_for "$prow_run")"
         prow_job="${PROW_JOB_PREFIX}${prow_run}"
-        info "Processing: $prow_run"
+        log "Processing: $prow_run"
 
-        for run_id in $(prow_list "$prow_job"); do
-            local subjobs
-            subjobs=$(prow_subjob_list "$prow_job" "$run_id" "$prow_run" "$job_path") || true
+        local run_ids run_id subjobs subjob
+        if ! run_ids="$(prow_list "$prow_job")"; then
+            log "Failed to list Prow runs for $prow_run"
+            errors=$((errors + 1))
+            continue
+        fi
+        for run_id in $run_ids; do
+            if ! subjobs="$(prow_subjob_list "$prow_job" "$run_id" "$prow_run" "$job_path")"; then
+                log "Failed to list subjobs for $prow_run/$run_id"
+                errors=$((errors + 1))
+                continue
+            fi
 
             if [[ -z "$subjobs" ]]; then
-                download_and_upload \
-                    "$CACHE_DIR/${run_id}.benchmark-tekton.json" \
-                    "$prow_job" "$run_id" "$prow_run" \
-                    "$job_path/benchmark-tekton.json" \
-                    "$_JQ_NO_SUBJOB" || continue
+                process_artifact "$prow_job" "$run_id" "$prow_run" "$job_path"
             else
                 for subjob in $subjobs; do
-                    download_and_upload \
-                        "$CACHE_DIR/${run_id}-${subjob}.benchmark-tekton.json" \
-                        "$prow_job" "$run_id" "$prow_run" \
-                        "$job_path/$subjob/benchmark-tekton.json" \
-                        "$_JQ_WITH_SUBJOB" "$subjob" || continue
+                    process_artifact "$prow_job" "$run_id" "$prow_run" "$job_path" "$subjob"
                 done
             fi
         done
@@ -151,22 +138,25 @@ process_prow_jobs() {
 
 # ── Job Registration ──────────────────────────────────────────────────────────
 #
-# Pipelines:  nightly + 1.{20..23}, each × 5 variants
-# Chains:     nightly + 1.{20..23}, each × 4 variants (no statefulSets)
-# Results:    nightly + 1.{20..23}, no variants
-# Resolvers:  nightly + 1.{21..23}, each × 3 types (gr, br, cr) × standard + HA-10; cluster-resolver also has HA-10-cache
+# Pipelines:  nightly + 1.{22..24}, each × 5 variants
+# Chains:     nightly + 1.{22..24}, each × 4 variants (no statefulSets)
+# Results:    nightly + 1.{22..24}, no variants
+# Resolvers:  nightly + 1.{22..24}, each × 3 types (gr, br, cr) × standard + HA-10; cluster-resolver also has HA-10-cache
 
 PROW_JOBS=()
-register_prow_jobs PROW_JOBS "max-concurrency-downstream-" ""             "pipelines1-" $_MIN_VER $_MAX_VER _PIPELINES_SUFFIXES
-register_prow_jobs PROW_JOBS "max-concurrency-downstream-" "-sign-tkn-bb" "1-"          $_MIN_VER $_MAX_VER _CHAINS_SUFFIXES
-register_prow_jobs PROW_JOBS "tkn-res-downstream-"         ""             "pipelines1-" $_MIN_VER $_MAX_VER
-register_prow_jobs PROW_JOBS "max-concurrency-downstream-" ""             "1-"          $_MIN_VER $_MAX_VER _RESOLVER_SUFFIXES
+register_prow_jobs "max-concurrency-downstream-" ""             "pipelines1-" $_MIN_VER $_MAX_VER "${_PIPELINES_SUFFIXES[@]}"
+register_prow_jobs "max-concurrency-downstream-" "-sign-tkn-bb" "1-"          $_MIN_VER $_MAX_VER "${_CHAINS_SUFFIXES[@]}"
+register_prow_jobs "tkn-res-downstream-"         ""             "pipelines1-" $_MIN_VER $_MAX_VER
+register_prow_jobs "max-concurrency-downstream-" ""             "1-"          $_MIN_VER $_MAX_VER "${_RESOLVER_SUFFIXES[@]}"
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
-mkdir -p "$CACHE_DIR"
 errors=0
 
-process_prow_jobs PROW_JOBS
+process_prow_jobs
 
-exit $errors
+if (( errors > 0 )); then
+    log "Finished with $errors failed listings or uploads"
+    exit 1
+fi
+log "Finished without errors"
