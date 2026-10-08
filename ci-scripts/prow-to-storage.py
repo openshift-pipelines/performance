@@ -105,7 +105,7 @@ def prepare(document: dict, prow_run: str, prow_job: str, job_run_id: str, subjo
 def mirror_command(mirror_dir: Path, script: str, *args: str) -> list[str]:
     if not (mirror_dir / script).is_file():
         raise ValueError(f"Missing {mirror_dir / script}")
-    return ["uv", "run", "--locked", "python", script, *args]
+    return ["uv", "run", "--locked", "--no-active", "python", script, *args]
 
 
 def compute_labels(source: Path, labels_file: Path, mirror_dir: Path) -> dict:
