@@ -1,5 +1,7 @@
 # Horreum Integration
 
+> Historical reference: the Jenkins Prow puller now writes labels directly to PostgreSQL using `config/benchmark-label-schema.json`. These YAML files are retained for their safe bounds and change detection rules while PostgreSQL-based alerting is developed; they are not loaded by the ingestion job.
+
 This directory (`tools/horreum/`) contains configuration and tooling for managing [Horreum](https://horreum.hyperfoil.io/) test definitions, schema labels, and change detection variables for OpenShift Pipelines performance tests.
 
 ## Files
