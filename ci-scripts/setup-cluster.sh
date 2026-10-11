@@ -75,6 +75,23 @@ pipelines_kube_api_qps="${DEPLOYMENT_PIPELINES_KUBE_API_QPS:-}"
 pipelines_kube_api_burst="${DEPLOYMENT_PIPELINES_KUBE_API_BURST:-}"
 pipelines_threads_per_controller="${DEPLOYMENT_PIPELINES_THREADS_PER_CONTROLLER:-}"
 
+# imagePullBackOff timeout: temporary mitigation for the HA+QBT PipelineRun
+# image-pull failure regression (see reg_analysis/root_cause_analysis_ha_qbt_success_rate.md).
+# Tekton's default is 0 (fail-fast): the v1.23 TaskRunImagePullFailed feature kills
+# TaskRuns on the first transient CRI-O "pull QPS exceeded" signal instead of letting
+# Kubernetes retry. Only HA+QBT hits this, because 10 replicas x many threads drain the
+# workqueue and create pods in bursts that exceed CRI-O's image pull QPS. Setting a
+# non-zero timeout lets the transient error self-heal, restoring v1.23 to v1.22 parity.
+# Auto-set to 60s only when HA and QBT are both enabled; all other configs keep the
+# default fail-fast behaviour. Override (or disable with "0") via the env var.
+# Remove once the upstream tektoncd/pipeline fix (transient-error classification) ships.
+pipelines_imagepullbackoff_timeout="${DEPLOYMENT_PIPELINES_IMAGEPULLBACKOFF_TIMEOUT:-}"
+if [ -z "$pipelines_imagepullbackoff_timeout" ] && \
+   [ -n "$DEPLOYMENT_PIPELINES_CONTROLLER_HA_REPLICAS" ] && \
+   { [ -n "$pipelines_kube_api_qps" ] || [ -n "$pipelines_kube_api_burst" ] || [ -n "$pipelines_threads_per_controller" ]; }; then
+    pipelines_imagepullbackoff_timeout="60s"
+fi
+
 chains_kube_api_qps="${DEPLOYMENT_CHAINS_KUBE_API_QPS:-}"
 chains_kube_api_burst="${DEPLOYMENT_CHAINS_KUBE_API_BURST:-}"
 chains_threads_per_controller="${DEPLOYMENT_CHAINS_THREADS_PER_CONTROLLER:-}"
@@ -445,6 +462,13 @@ EOF
     if [[ -n "$pipelines_perf_options" ]]; then
         pipelines_perf_options="${pipelines_perf_options%,}"
         kubectl patch TektonConfig/config --type merge --patch '{"spec":{"pipeline":{"performance":{'"$pipelines_perf_options"'}}}}'
+    fi
+
+    info "Configure imagePullBackOff timeout: ${pipelines_imagepullbackoff_timeout:-default (fail-fast)}"
+    if [ -n "$pipelines_imagepullbackoff_timeout" ]; then
+        # Sets config-defaults' default-imagepullbackoff-timeout so the controller waits
+        # (and lets Kubernetes retry) before TaskRunImagePullFailed terminates a TaskRun.
+        kubectl patch TektonConfig/config --type merge --patch '{"spec":{"pipeline":{"options":{"configMaps":{"config-defaults":{"data":{"default-imagepullbackoff-timeout":"'"$pipelines_imagepullbackoff_timeout"'"}}}}}}}'
     fi
 
     info "Enable Chains performance options"
