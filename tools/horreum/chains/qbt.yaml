@@ -1,0 +1,148 @@
+# PostgreSQL Prow alert rules; metric values come from stored labels.
+change_detection_defaults:
+  model: relativeDifference
+  window: 10
+  min_previous: 5
+  threshold: 0.1
+change_detection_groups:
+  chains_cpu:
+    model: fixedThreshold
+    fixed_threshold:
+      max_enabled: true
+      max_value: 4.8575
+      max_inclusive: true
+      min_enabled: false
+    metrics:
+      - measurements_tektonChainsController_cpu_mean
+  chains_memory:
+    model: fixedThreshold
+    fixed_threshold:
+      max_enabled: true
+      max_value: 8914783437
+      max_inclusive: true
+      min_enabled: false
+    metrics:
+      - measurements_tektonChainsController_memory_mean
+  chains_workqueue:
+    model: fixedThreshold
+    fixed_threshold:
+      max_enabled: true
+      max_value: 7065.09195
+      max_inclusive: true
+      min_enabled: false
+    metrics:
+      - measurements_tektonChainsControllerWorkqueueDepth_mean
+  etcd_database_size:
+    model: fixedThreshold
+    fixed_threshold:
+      max_enabled: true
+      max_value: 558052147
+      max_inclusive: true
+      min_enabled: false
+    metrics:
+      - measurements_etcdMvccDbTotalSizeInBytesAverage_mean
+  etcd_request_duration:
+    model: fixedThreshold
+    fixed_threshold:
+      max_enabled: true
+      max_value: 0.0061173
+      max_inclusive: true
+      min_enabled: false
+    metrics:
+      - measurements_etcdRequestDurationSecondsAverage_mean
+  cluster_cpu_usage_seconds_total_rate:
+    model: fixedThreshold
+    fixed_threshold:
+      max_enabled: true
+      max_value: 23.038
+      max_inclusive: true
+      min_enabled: false
+    metrics:
+      - measurements_clusterCpuUsageSecondsTotalRate_mean
+  PipelineRuns_Succeeded_count:
+    model: fixedThreshold
+    fixed_threshold:
+      min_enabled: true
+      min_value: 3700
+      min_inclusive: true
+      max_enabled: false
+    metrics:
+      - results_PipelineRuns_count_succeeded
+  TaskRuns_Succeeded_count:
+    model: fixedThreshold
+    fixed_threshold:
+      min_enabled: true
+      min_value: 3700
+      min_inclusive: true
+      max_enabled: false
+    metrics:
+      - results_TaskRuns_count_succeeded
+  signing_count:
+    model: fixedThreshold
+    fixed_threshold:
+      min_enabled: true
+      min_value: 4625.7
+      min_inclusive: true
+      max_enabled: false
+    metrics:
+      - results_PipelineRuns_signing_count_signed_true
+      - results_TaskRuns_signing_count_signed_true
+  signing_duration:
+    model: fixedThreshold
+    fixed_threshold:
+      max_enabled: true
+      max_value: 703.15288
+      max_inclusive: true
+      min_enabled: false
+    metrics:
+      - results_PipelineRuns_signing_duration
+      - results_TaskRuns_signing_duration
+  signing_throughput:
+    model: fixedThreshold
+    fixed_threshold:
+      min_enabled: true
+      min_value: 10.35909
+      min_inclusive: true
+      max_enabled: false
+    metrics:
+      - results_PipelineRuns_signing_throughput
+      - results_TaskRuns_signing_throughput
+  signing_unsigned_count:
+    model: fixedThreshold
+    fixed_threshold:
+      max_enabled: true
+      max_value: 0
+      max_inclusive: true
+      min_enabled: false
+    metrics:
+      - results_PipelineRuns_signing_count_signed_false
+      - results_PipelineRuns_signing_count_unsigned
+      - results_TaskRuns_signing_count_signed_false
+      - results_TaskRuns_signing_count_unsigned
+  PipelineRuns_TaskRuns_Failed_count:
+    model: fixedThreshold
+    fixed_threshold:
+      max_enabled: true
+      max_value: 0
+      max_inclusive: true
+      min_enabled: false
+    metrics:
+      - results_PipelineRuns_count_failed
+      - results_TaskRuns_count_failed
+  restarts:
+    model: fixedThreshold
+    fixed_threshold:
+      max_enabled: true
+      max_value: 0
+      max_inclusive: true
+      min_enabled: false
+    metrics:
+      - measurements_apiserver_restarts_range
+      - measurements_etcd_restarts_range
+      - measurements_kubeApiserver_restarts_range
+      - measurements_tektonChainsController_restarts_range
+test:
+  fingerprintLabels:
+    - deployment_version
+    - parameters_test_total
+    - metadata_env_TEST_SCENARIO
