@@ -1,0 +1,114 @@
+# PostgreSQL Prow alert rules; metric values come from stored labels.
+change_detection_defaults:
+  model: relativeDifference
+  window: 10
+  min_previous: 5
+  threshold: 0.1
+change_detection_groups:
+  ingestion_latency:
+    threshold: 0.2
+    window: 10
+    min_previous: 5
+    model: relativeDifference
+    metrics:
+      - results_PipelineRuns_ingestion_latency_avg
+      - results_TaskRuns_ingestion_latency_avg
+  ingestion_throughput:
+    threshold: 0.2
+    window: 10
+    min_previous: 5
+    model: relativeDifference
+    metrics:
+      - results_PipelineRuns_ingestion_throughput
+      - results_TaskRuns_ingestion_throughput
+  api_latency:
+    threshold: 0.2
+    window: 10
+    min_previous: 5
+    model: relativeDifference
+    metrics:
+      - results_ResultsAPI_record_latency_avg
+      - results_ResultsAPI_records_latency_avg
+  api_throughput:
+    threshold: 0.2
+    window: 10
+    min_previous: 5
+    model: relativeDifference
+    metrics:
+      - results_ResultsAPI_record_rps
+      - results_ResultsAPI_records_rps
+  api_failures:
+    model: fixedThreshold
+    fixed_threshold:
+      max_enabled: true
+      max_value: 0
+      max_inclusive: true
+      min_enabled: false
+    metrics:
+      - results_ResultsAPI_record_failures
+      - results_ResultsAPI_records_failures
+  results_watcher_cpu:
+    threshold: 0.1
+    window: 5
+    min_previous: 5
+    model: relativeDifference
+    metrics:
+      - measurements_tektonResultsWatcher_cpu_mean
+  results_watcher_memory:
+    threshold: 0.1
+    window: 5
+    min_previous: 5
+    metrics:
+      - measurements_tektonResultsWatcher_memory_mean
+  results_api_cpu:
+    threshold: 0.1
+    window: 5
+    min_previous: 5
+    model: relativeDifference
+    metrics:
+      - measurements_tektonResultsApi_cpu_mean
+  results_api_memory:
+    threshold: 0.1
+    window: 5
+    min_previous: 5
+    metrics:
+      - measurements_tektonResultsApi_memory_mean
+  PipelineRuns_Succeeded_count:
+    model: relativeDifference
+    threshold: 0.01
+    window: 5
+    min_previous: 3
+    metrics:
+      - results_PipelineRuns_count_succeeded
+  TaskRuns_Succeeded_count:
+    model: relativeDifference
+    threshold: 0.01
+    window: 5
+    min_previous: 3
+    metrics:
+      - results_TaskRuns_count_succeeded
+  PipelineRuns_TaskRuns_Failed_count:
+    model: fixedThreshold
+    fixed_threshold:
+      max_enabled: true
+      max_value: 0
+      max_inclusive: true
+      min_enabled: false
+    metrics:
+      - results_PipelineRuns_count_failed
+      - results_TaskRuns_count_failed
+  restarts:
+    model: fixedThreshold
+    fixed_threshold:
+      max_enabled: true
+      max_value: 0
+      max_inclusive: true
+      min_enabled: false
+    metrics:
+      - measurements_tektonResultsWatcher_restarts_range
+      - measurements_tektonResultsApi_restarts_range
+test:
+  fingerprintLabels:
+    - deployment_version
+    - parameters_test_concurrent
+    - metadata_env_TEST_SCENARIO

@@ -1,0 +1,115 @@
+# PostgreSQL Prow alert rules; metric values come from stored labels.
+change_detection_defaults:
+  model: relativeDifference
+  window: 10
+  min_previous: 5
+  threshold: 0.1
+change_detection_groups:
+  resolution_time:
+    threshold: 0.2
+    window: 10
+    min_previous: 5
+    model: relativeDifference
+    metrics:
+      - results_ResolutionRequests_ResolverLog_Overall_avg
+      - results_ResolutionRequests_ResolverLog_Overall_p95
+      - results_ResolutionRequests_ResolverLog_Overall_p99
+  resolver_workqueue:
+    threshold: 0.3
+    window: 10
+    min_previous: 5
+    model: relativeDifference
+    metrics:
+      - measurements_resolverWorkqueueDepth_mean
+      - measurements_resolverQueueDurationP95_mean
+  PipelineRuns_TaskRuns_duration:
+    threshold: 0.2
+    window: 10
+    min_previous: 5
+    model: relativeDifference
+    metrics:
+      - results_PipelineRuns_duration_avg
+      - results_PipelineRuns_Success_duration_avg
+      - results_PipelineRuns_Success_pending_avg
+      - results_PipelineRuns_Success_running_avg
+      - results_TaskRuns_duration_avg
+      - results_TaskRuns_Success_duration_avg
+      - results_TaskRuns_Success_pending_avg
+      - results_TaskRuns_Success_running_avg
+  PipelineRuns_Succeeded_count:
+    model: fixedThreshold
+    fixed_threshold:
+      min_enabled: true
+      min_value: 990
+      min_inclusive: true
+      max_enabled: false
+    metrics:
+      - results_PipelineRuns_count_succeeded
+  TaskRuns_Succeeded_count:
+    model: fixedThreshold
+    fixed_threshold:
+      min_enabled: true
+      min_value: 990
+      min_inclusive: true
+      max_enabled: false
+    metrics:
+      - results_TaskRuns_count_succeeded
+  resolver_cpu:
+    model: fixedThreshold
+    fixed_threshold:
+      max_enabled: true
+      max_value: 0.95
+      max_inclusive: true
+      min_enabled: false
+    metrics:
+      - measurements_tektonPipelinesRemoteResolvers_cpu_mean
+  resolver_memory:
+    model: fixedThreshold
+    fixed_threshold:
+      max_enabled: true
+      max_value: 3758096384
+      max_inclusive: true
+      min_enabled: false
+    metrics:
+      - measurements_tektonPipelinesRemoteResolvers_memory_mean
+  controller_cpu:
+    model: fixedThreshold
+    fixed_threshold:
+      max_enabled: true
+      max_value: 0.95
+      max_inclusive: true
+      min_enabled: false
+    metrics:
+      - measurements_tektonPipelinesController_cpu_mean
+  controller_memory:
+    model: fixedThreshold
+    fixed_threshold:
+      max_enabled: true
+      max_value: 1932735283
+      max_inclusive: true
+      min_enabled: false
+    metrics:
+      - measurements_tektonPipelinesController_memory_mean
+  restarts:
+    model: fixedThreshold
+    fixed_threshold:
+      max_enabled: true
+      max_value: 0
+      max_inclusive: true
+      min_enabled: false
+    metrics:
+      - measurements_tektonPipelinesRemoteResolvers_restarts_range
+      - measurements_tektonPipelinesController_restarts_range
+  TaskRunsToPods_creation:
+    threshold: 0.2
+    window: 10
+    min_previous: 5
+    model: relativeDifference
+    metrics:
+      - results_TaskRunsToPods_creationTimestampDiff_mean
+test:
+  fingerprintLabels:
+    - deployment_version
+    - parameters_test_concurrent
+    - metadata_env_TEST_SCENARIO
+    - deployment_resolverCacheMode

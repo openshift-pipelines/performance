@@ -236,6 +236,10 @@ def main() -> None:
     )
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument(
+        "--alert-manifest", type=Path,
+        help="append newly inserted run IDs for one post-collection alert summary",
+    )
+    parser.add_argument(
         "--show-label-values", action="store_true",
         help="print the PostgreSQL label_values object during a dry run",
     )
@@ -284,6 +288,14 @@ def main() -> None:
             labels_file, mirror_dir, test_id, run_id, dataset_id, started, subjob_id
         )
         print(f"{result.capitalize()}: {args.prow_run} {subjob_id}")
+        if result == "inserted" and args.alert_manifest:
+            with args.alert_manifest.open("a") as manifest:
+                manifest.write(json.dumps({
+                    "test_id": test_id,
+                    "subjob_id": subjob_id,
+                    "prow_run": args.prow_run,
+                    "prow_run_id": args.job_run_id,
+                }) + "\n")
         subprocess.run(dashboard_command(source_file, args.dashboard_url), check=True)
 
 

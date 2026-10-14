@@ -97,6 +97,8 @@ process_artifact() {
     )
     if [[ "$DRY_RUN" == true ]]; then
         args+=(--dry-run)
+    else
+        args+=(--alert-manifest "$alert_manifest")
     fi
     if ! python3 ci-scripts/prow-to-storage.py "${args[@]}"; then
         errors=$((errors + 1))
@@ -153,10 +155,26 @@ register_prow_jobs "max-concurrency-downstream-" ""             "1-"          $_
 
 errors=0
 
+if [[ "$DRY_RUN" != true ]]; then
+    alert_manifest="$(mktemp)"
+    trap 'rm -f "$alert_manifest"' EXIT
+fi
+
 process_prow_jobs
 
+if [[ "$DRY_RUN" != true ]]; then
+    if ! python3 ci-scripts/check-prow-alerts.py \
+        --manifest "$alert_manifest" \
+        --collection-errors "$errors" \
+        --output prow-alert-summary.txt \
+        --notifications-json prow-alert-messages.json; then
+        log "Post-collection alert check failed"
+        errors=$((errors + 1))
+    fi
+fi
+
 if (( errors > 0 )); then
-    log "Finished with $errors failed listings or uploads"
+    log "Finished with $errors failed operations"
     exit 1
 fi
 log "Finished without errors"

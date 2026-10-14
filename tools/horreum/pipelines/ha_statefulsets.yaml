@@ -1,0 +1,137 @@
+# PostgreSQL Prow alert rules; metric values come from stored labels.
+change_detection_defaults:
+  model: relativeDifference
+  window: 10
+  min_previous: 5
+  threshold: 0.1
+change_detection_groups:
+  PipelineRuns_Succeeded_count:
+    model: fixedThreshold
+    fixed_threshold:
+      min_enabled: true
+      min_value: 990
+      min_inclusive: true
+      max_enabled: false
+    metrics:
+      - results_PipelineRuns_count_succeeded
+  TaskRuns_Succeeded_count:
+    model: fixedThreshold
+    fixed_threshold:
+      min_enabled: true
+      min_value: 3960
+      min_inclusive: true
+      max_enabled: false
+    metrics:
+      - results_TaskRuns_count_succeeded
+  PipelineRuns_TaskRuns_duration:
+    threshold: 0.2
+    window: 10
+    min_previous: 5
+    model: relativeDifference
+    metrics:
+      - measurements_tektonPipelinesControllerClientLatencyAverage_mean
+      - results_PipelineRuns_duration_avg
+      - results_TaskRuns_duration_avg
+      - results_TaskRuns_Success_pending_avg
+      - results_TaskRuns_Success_running_avg
+      - results_TaskRuns_Success_duration_avg
+      - results_PipelineRuns_Success_duration_avg
+      - results_PipelineRuns_Success_pending_avg
+      - results_PipelineRuns_Success_running_avg
+  restarts:
+    model: fixedThreshold
+    fixed_threshold:
+      max_enabled: true
+      max_value: 0
+      max_inclusive: true
+      min_enabled: false
+    metrics:
+      - measurements_apiserver_restarts_range
+      - measurements_etcd_restarts_range
+      - measurements_kubeApiserver_restarts_range
+      - measurements_tektonPipelinesController_restarts_range
+      - measurements_tektonPipelinesWebhook_restarts_range
+  TaskRunsToPods_creation:
+    threshold: 0.2
+    window: 10
+    min_previous: 5
+    model: relativeDifference
+    metrics:
+      - results_TaskRunsToPods_creationTimestampDiff_mean
+  controller_cpu:
+    model: fixedThreshold
+    fixed_threshold:
+      max_enabled: true
+      max_value: 1.11088
+      max_inclusive: true
+      min_enabled: false
+    metrics:
+      - measurements_tektonPipelinesController_cpu_mean
+  controller_memory:
+    model: fixedThreshold
+    fixed_threshold:
+      max_enabled: true
+      max_value: 6938436403
+      max_inclusive: true
+      min_enabled: false
+    metrics:
+      - measurements_tektonPipelinesController_memory_mean
+  webhook_cpu:
+    model: fixedThreshold
+    fixed_threshold:
+      max_enabled: true
+      max_value: 0.33219
+      max_inclusive: true
+      min_enabled: false
+    metrics:
+      - measurements_tektonPipelinesWebhook_cpu_mean
+  webhook_memory:
+    model: fixedThreshold
+    fixed_threshold:
+      max_enabled: true
+      max_value: 340367770
+      max_inclusive: true
+      min_enabled: false
+    metrics:
+      - measurements_tektonPipelinesWebhook_memory_mean
+  workqueue_depth:
+    model: fixedThreshold
+    fixed_threshold:
+      max_enabled: true
+      max_value: 505
+      max_inclusive: true
+      min_enabled: false
+    metrics:
+      - measurements_tektonTektonPipelinesControllerWorkqueueDepth_mean
+  etcd_database_size:
+    model: fixedThreshold
+    fixed_threshold:
+      max_enabled: true
+      max_value: 1025507328
+      max_inclusive: true
+      min_enabled: false
+    metrics:
+      - measurements_etcdMvccDbTotalSizeInBytesAverage_mean
+  etcd_request_duration:
+    model: fixedThreshold
+    fixed_threshold:
+      max_enabled: true
+      max_value: 0.0090585
+      max_inclusive: true
+      min_enabled: false
+    metrics:
+      - measurements_etcdRequestDurationSecondsAverage_mean
+  cluster_cpu_usage_seconds_total_rate:
+    model: fixedThreshold
+    fixed_threshold:
+      max_enabled: true
+      max_value: 21.484
+      max_inclusive: true
+      min_enabled: false
+    metrics:
+      - measurements_clusterCpuUsageSecondsTotalRate_mean
+test:
+  fingerprintLabels:
+    - deployment_version
+    - parameters_test_concurrent
+    - parameters_test_total
