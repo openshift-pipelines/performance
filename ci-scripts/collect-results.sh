@@ -231,3 +231,57 @@ if results:
 else
     info "Skipping Results-API log data"
 fi
+
+# The echo scenario has known log lines, so verify every run and TaskRun log.
+# Other scenarios can opt in once their expected log lines are defined.
+# This is the direct ingestion gate for Citi Results scale testing: every
+# expected PipelineRun/TaskRun UID must land complete in PostgreSQL, and every
+# expected TaskRun log must be retrievable with the exact echo markers.
+if [ -z "${VERIFY_RESULTS_INGESTION:-}" ]; then
+    if [ "${TEST_SCENARIO:-}" == "timebased-sign-pruner" ]; then
+        VERIFY_RESULTS_INGESTION=true
+    else
+        VERIFY_RESULTS_INGESTION=false
+    fi
+fi
+
+if [ "$INSTALL_RESULTS" == "true" ] && [ "$VERIFY_RESULTS_INGESTION" == "true" ]; then
+    info "Verifying Tekton Results ingestion..."
+    ingestion_report="$ARTIFACT_DIR/results-ingestion-verification.json"
+    db_records_csv="$ARTIFACT_DIR/results-ingestion-db-records.csv"
+    manifest_src="tests/scaling-pipelines/scenario/${TEST_SCENARIO}/pipeline.yaml"
+    manifest_dst="$ARTIFACT_DIR/results-ingestion-pipeline.yaml"
+    if [ -f "$manifest_src" ]; then
+        cp "$manifest_src" "$manifest_dst"
+    elif [ ! -f "$manifest_dst" ]; then
+        fatal "Generated pipeline manifest not found at $manifest_src or $manifest_dst"
+    fi
+    db_query_failed=false
+    if ! oc -n openshift-pipelines exec -i tekton-results-postgres-0 -- \
+        env "PGPASSWORD=$pg_pwd" psql -X -q -t --csv -d tekton-results -U "$pg_user" \
+        -c "SELECT parent, type, name, COALESCE(data #>> '{status,completionTime}', data #>> '{value,status,completionTime}') FROM records WHERE parent LIKE 'benchmark%'" \
+        > "$db_records_csv"; then
+        db_query_failed=true
+    fi
+    results_route=$(oc -n openshift-pipelines get route tekton-results-api-service \
+        -o jsonpath='{.spec.host}' 2>/dev/null || true)
+    verifier_args=(
+        --benchmark-output "$ARTIFACT_DIR/benchmark-output.json"
+        --status-data "$monitoring_collection_data"
+        --pipelineruns "$ARTIFACT_DIR/pipelineruns.json"
+        --taskruns "$ARTIFACT_DIR/taskruns.json"
+        --db-records "$db_records_csv"
+        --manifest "$manifest_dst"
+        --api-url "${results_route:+https://$results_route}"
+        --output "$ingestion_report"
+    )
+    if [ "$db_query_failed" == "true" ]; then
+        verifier_args+=(--db-query-failed)
+    fi
+    # Count-based runs know the planned PipelineRun total. Time-based runs
+    # (TOTAL_TIMEOUT set) ignore TEST_TOTAL, so do not enforce it here.
+    if [ -z "${TOTAL_TIMEOUT:-}" ] && [ "${TEST_TOTAL:-0}" -gt 0 ] 2>/dev/null; then
+        verifier_args+=(--expected-pipelineruns "$TEST_TOTAL")
+    fi
+    python3 tools/verify-results-ingestion.py "${verifier_args[@]}"
+fi

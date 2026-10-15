@@ -108,10 +108,18 @@ case "$DEPLOYMENT_RESULTS_WATCHER_CONTROLLER_TYPE" in
     *) fatal "DEPLOYMENT_RESULTS_WATCHER_CONTROLLER_TYPE must be deployments or statefulSets (got: $DEPLOYMENT_RESULTS_WATCHER_CONTROLLER_TYPE)" ;;
 esac
 
-# Results API performance tuning parameters (defaults are optimized values from performance testing)
-results_api_kube_api_qps="${DEPLOYMENT_RESULTS_API_KUBE_API_QPS:-50}"
-results_api_kube_api_burst="${DEPLOYMENT_RESULTS_API_KUBE_API_BURST:-100}"
-results_api_disable_storing_incomplete_runs="${DEPLOYMENT_RESULTS_API_DISABLE_STORING_INCOMPLETE_RUNS:-true}"
+# Empty means the Results API keeps its product default (QPS 5, burst 10).
+results_api_kube_api_qps="${DEPLOYMENT_RESULTS_API_KUBE_API_QPS:-}"
+results_api_kube_api_burst="${DEPLOYMENT_RESULTS_API_KUBE_API_BURST:-}"
+if [ "$INSTALL_RESULTS" == "true" ] && [ -n "${DEPLOYMENT_RESULTS_API_DISABLE_STORING_INCOMPLETE_RUNS:-}" ]; then
+    fatal "DEPLOYMENT_RESULTS_API_DISABLE_STORING_INCOMPLETE_RUNS is a watcher setting; use DEPLOYMENT_RESULTS_WATCHER_DISABLE_STORING_INCOMPLETE_RUNS"
+fi
+if [ -n "$results_api_kube_api_qps" ] && ! [[ "$results_api_kube_api_qps" =~ ^[1-9][0-9]*$ ]]; then
+    fatal "DEPLOYMENT_RESULTS_API_KUBE_API_QPS must be a positive integer (got: $results_api_kube_api_qps)"
+fi
+if [ -n "$results_api_kube_api_burst" ] && ! [[ "$results_api_kube_api_burst" =~ ^[1-9][0-9]*$ ]]; then
+    fatal "DEPLOYMENT_RESULTS_API_KUBE_API_BURST must be a positive integer (got: $results_api_kube_api_burst)"
+fi
 
 OCP_VERSION="${OCP_VERSION:-$(oc get clusterversion version -o jsonpath='{.status.desired.version}'|cut -d. -f1,2)}"
 
@@ -1071,17 +1079,46 @@ EOF
         fatal "Unknown deployment type '$DEPLOYMENT_TYPE_RESULTS'"
     fi
 
-    # Configure Results API performance options (K8S_QPS=50, K8S_BURST=100, disableStoringIncompleteRuns=true)
-    # This is common for both downstream and upstream deployments
-    info "Configuring Results API with optimized performance settings"
-    # Wait for ConfigMap to be created by the operator (up to 60 seconds)
-    for i in {1..30}; do kubectl get configmap tekton-results-api-config -n $TEKTON_RESULTS_NS >/dev/null 2>&1 && break || sleep 2; done
-    kubectl patch configmap tekton-results-api-config -n $TEKTON_RESULTS_NS --type merge -p "{\"data\":{\"K8S_QPS\":\"$results_api_kube_api_qps\",\"K8S_BURST\":\"$results_api_kube_api_burst\",\"DISABLE_STORING_INCOMPLETE_RUNS\":\"$results_api_disable_storing_incomplete_runs\"}}"
+    # A fresh baseline keeps the Results API defaults. Tune only when requested.
+    if [ -n "$results_api_kube_api_qps" ] || [ -n "$results_api_kube_api_burst" ]; then
+        if [ "$DEPLOYMENT_TYPE_RESULTS" == "downstream" ]; then
+            if [ "$DEPLOYMENT_VERSION" == "1.15" ] || { [ "$DEPLOYMENT_VERSION" != "nightly" ] && [ "$DEPLOYMENT_VERSION" != "custom" ] && ! version_gte "$DEPLOYMENT_VERSION" "1.18"; }; then
+                results_api_resource="TektonResult/result"
+                results_api_path='["spec","options","deployments","tekton-results-api","spec","template","spec","containers"]'
+            else
+                results_api_resource="TektonConfig/config"
+                results_api_path='["spec","result","options","deployments","tekton-results-api","spec","template","spec","containers"]'
+            fi
+            results_api_patch=$(jq -cn --argjson path "$results_api_path" \
+                --arg qps "$results_api_kube_api_qps" --arg burst "$results_api_kube_api_burst" '
+                [if $qps != "" then {name:"K8S_QPS",value:$qps} else empty end,
+                 if $burst != "" then {name:"K8S_BURST",value:$burst} else empty end] as $env
+                | setpath($path; [{name:"api",env:$env}])')
+            kubectl patch "$results_api_resource" -n "$TEKTON_RESULTS_NS" --type merge --patch "$results_api_patch"
+        else
+            # The upstream release manifest has no operator CR.
+            results_api_env_args=()
+            [ -z "$results_api_kube_api_qps" ] || results_api_env_args+=("K8S_QPS=$results_api_kube_api_qps")
+            [ -z "$results_api_kube_api_burst" ] || results_api_env_args+=("K8S_BURST=$results_api_kube_api_burst")
+            kubectl set env deployment/tekton-results-api -n "$TEKTON_RESULTS_NS" --containers=api "${results_api_env_args[@]}"
+        fi
 
-    # Restart Results API deployment to pick up new config
-    info "Restarting Results API deployment to apply configuration"
-    kubectl rollout restart deployment/tekton-results-api -n $TEKTON_RESULTS_NS
-    kubectl rollout status deployment/tekton-results-api -n $TEKTON_RESULTS_NS --timeout=300s
+        # Wait for the Deployment template to contain the requested values.
+        results_api_env_applied=false
+        for i in {1..60}; do
+            if kubectl get deployment/tekton-results-api -n "$TEKTON_RESULTS_NS" -o json | \
+                jq -e --arg qps "$results_api_kube_api_qps" --arg burst "$results_api_kube_api_burst" '
+                    [.spec.template.spec.containers[] | select(.name == "api") | .env[]?] as $env
+                    | ($qps == "" or any($env[]; .name == "K8S_QPS" and .value == $qps))
+                    and ($burst == "" or any($env[]; .name == "K8S_BURST" and .value == $burst))' >/dev/null 2>&1; then
+                results_api_env_applied=true
+                break
+            fi
+            sleep 2
+        done
+        [ "$results_api_env_applied" == "true" ] || fatal "Results API Deployment did not receive the requested K8S_QPS/K8S_BURST settings"
+        kubectl rollout status deployment/tekton-results-api -n "$TEKTON_RESULTS_NS" --timeout=300s
+    fi
 
     info "Tekton-Results Deployment finished"
 fi
