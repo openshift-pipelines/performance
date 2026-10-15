@@ -29,7 +29,7 @@ class FetchResultLogTest(HttpUser):
                 taskruns.append(record)
 
         # Sort the TRs by date
-        taskruns = sorted(taskruns, key=lambda tr: datetime.fromisoformat(tr["createTime"].replace("Z", "")))
+        taskruns = sorted(taskruns, key=lambda tr: datetime.fromisoformat(tr["create_time"].replace("Z", "")))
 
         # Pick the oldest TR reocrd
         self.log_id = taskruns[0]['name']
