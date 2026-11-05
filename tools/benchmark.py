@@ -263,7 +263,37 @@ class TRsEventsWatcher(EventsWatcher):
         }
 
 
-def process_events_thread(watcher, data, lock):
+def capture_finalizer_state(event, tracked):
+    """Record observed finalizer/storage transitions without changing the run."""
+    obj = event["object"]
+    metadata = obj["metadata"]
+    finalizers = sorted(metadata.get("finalizers") or [])
+    results_finalizers = [
+        value for value in finalizers if value.startswith("results.tekton.dev/")
+    ]
+    tracked["finalizers_observed"] = finalizers
+    tracked["results_finalizers"] = results_finalizers
+    tracked["results_finalizer_ever_observed"] = (
+        tracked.get("results_finalizer_ever_observed", False)
+        or bool(results_finalizers)
+    )
+    state = {
+        "finalizers": finalizers,
+        "stored": (metadata.get("annotations") or {}).get("results.tekton.dev/stored"),
+        "deletionTimestamp": metadata.get("deletionTimestamp"),
+        "deleted": event["type"] == "DELETED",
+    }
+    history = tracked.setdefault("finalizer_history", [])
+    if not history or any(history[-1][key] != value for key, value in state.items()):
+        history.append({
+            **state,
+            "observed_at": now(),
+            "resourceVersion": metadata.get("resourceVersion"),
+            "event_type": event["type"],
+        })
+
+
+def process_events_thread(watcher, data, lock, capture_finalizers=False):
     for event in watcher:
         if event is None:
             continue
@@ -324,7 +354,7 @@ def process_events_thread(watcher, data, lock):
                         else:
                             data[e_name]["outcome"] = "unknown"
 
-            # Determine finalizers
+            # These legacy finalizer fields describe Chains only.
             # PRs: chains.tekton.dev/pipelinerun
             # TRs: chains.tekton.dev
             try:
@@ -357,6 +387,9 @@ def process_events_thread(watcher, data, lock):
                         if key + "_at" not in data[e_name]:
                             data[e_name][key + "_at"] = now()
                         data[e_name][key] = annotations[annotation]
+
+            if capture_finalizers:
+                capture_finalizer_state(event, data[e_name])
 
             # Determine deleted status
             if event["type"] == "DELETED":
@@ -766,7 +799,7 @@ def doit(args):
 
     pipelineruns_future = PropagatingThread(
         target=process_events_thread,
-        args=[pipelineruns_watcher, pipelineruns, pipelineruns_lock],
+        args=[pipelineruns_watcher, pipelineruns, pipelineruns_lock, args.capture_finalizers],
     )
     pipelineruns_future.name = "pipelineruns_watcher"
     pipelineruns_future.start()
@@ -776,6 +809,7 @@ def doit(args):
             taskruns_watcher,
             taskruns,
             taskruns_lock,
+            args.capture_finalizers,
         ],
     )
     taskruns_future.name = "taskruns_watcher"
@@ -882,6 +916,13 @@ def main():
         "--insecure",
         help="Disable 'InsecureRequestWarning' warnings",
         action="store_true",
+    )
+    parser.add_argument(
+        "--capture-finalizers",
+        help="Capture observed finalizer/storage transitions in the output JSON. "
+             "Can also be enabled with TEST_CAPTURE_FINALIZERS=true.",
+        action="store_true",
+        default=os.environ.get("TEST_CAPTURE_FINALIZERS", "false").lower() == "true",
     )
     parser.add_argument(
         "-v",
