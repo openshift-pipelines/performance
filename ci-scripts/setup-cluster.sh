@@ -112,6 +112,12 @@ esac
 results_api_kube_api_qps="${DEPLOYMENT_RESULTS_API_KUBE_API_QPS:-}"
 results_api_kube_api_burst="${DEPLOYMENT_RESULTS_API_KUBE_API_BURST:-}"
 results_api_ha_replicas="${DEPLOYMENT_RESULTS_API_HA_REPLICAS:-}"
+# Empty preserves the existing downstream auth-disabled setup and upstream defaults.
+results_api_auth_disable="${DEPLOYMENT_RESULTS_API_AUTH_DISABLE:-}"
+case "$results_api_auth_disable" in
+    ""|true|false) ;;
+    *) fatal "DEPLOYMENT_RESULTS_API_AUTH_DISABLE must be true or false" ;;
+esac
 if [ "$INSTALL_RESULTS" == "true" ] && [ -n "${DEPLOYMENT_RESULTS_API_DISABLE_STORING_INCOMPLETE_RUNS:-}" ]; then
     fatal "DEPLOYMENT_RESULTS_API_DISABLE_STORING_INCOMPLETE_RUNS is a watcher setting; use DEPLOYMENT_RESULTS_WATCHER_DISABLE_STORING_INCOMPLETE_RUNS"
 fi
@@ -679,7 +685,7 @@ spec:
 $CONDITIONAL_FIELDS
     logs_path: /logs
     logs_buffer_size: 2097152
-    auth_disable: true
+    auth_disable: ${results_api_auth_disable:-true}
     tls_hostname_override: tekton-results-api-service.$TEKTON_RESULTS_NS.svc.cluster.local
     db_enable_auto_migration: true
     server_port: 8080
@@ -888,7 +894,7 @@ EOF
           # Starting 1.18, Results is installed as part of Operator
           # https://docs.redhat.com/en/documentation/red_hat_openshift_pipelines/1.18/html/release_notes/op-release-notes#tekton-results-new-features-1-18_op-release-notes
           info "Enabling Tekton-Result in Tekton Operator"
-          kubectl patch TektonConfig/config --type merge --patch '{"spec":{"result":{"disabled":false,"auth_disable":true,"loki_stack_name":"logging-loki","loki_stack_namespace":"openshift-logging"}}}'
+          kubectl patch TektonConfig/config --type merge --patch "$(jq -cn --argjson disabled "${results_api_auth_disable:-true}" '{spec:{result:{disabled:false,auth_disable:$disabled,loki_stack_name:"logging-loki",loki_stack_namespace:"openshift-logging"}}}')"
 
           # Wait for the default Results install to finish before Watcher HA / statefulSets
           # patches. Applying those while InstallerSets are still converging races the
@@ -1009,7 +1015,7 @@ kind: TektonResult
 metadata:
     name: result
 spec:
-  auth_disable: true
+  auth_disable: ${results_api_auth_disable:-true}
   targetNamespace: openshift-pipelines
   loki_stack_name: logging-loki
   loki_stack_namespace: openshift-logging
@@ -1032,7 +1038,7 @@ kind: TektonResult
 metadata:
     name: result
 spec:
-  auth_disable: true
+  auth_disable: ${results_api_auth_disable:-true}
   targetNamespace: openshift-pipelines
   loki_stack_name: logging-loki
   loki_stack_namespace: openshift-logging
@@ -1101,8 +1107,8 @@ EOF
     fi
 
     # A fresh baseline keeps the Results API defaults. Tune only when requested.
-    if [ -n "$results_api_kube_api_qps" ] || [ -n "$results_api_kube_api_burst" ] || [ -n "$results_api_ha_replicas" ]; then
-        info "Configure Results API: replicas=${results_api_ha_replicas:-default}, QPS=${results_api_kube_api_qps:-default}, burst=${results_api_kube_api_burst:-default}"
+    if [ -n "$results_api_kube_api_qps" ] || [ -n "$results_api_kube_api_burst" ] || [ -n "$results_api_ha_replicas" ] || [ -n "$results_api_auth_disable" ]; then
+        info "Configure Results API: replicas=${results_api_ha_replicas:-default}, QPS=${results_api_kube_api_qps:-default}, burst=${results_api_kube_api_burst:-default}, AUTH_DISABLE=${results_api_auth_disable:-unchanged}"
         if [ "$DEPLOYMENT_TYPE_RESULTS" == "downstream" ]; then
             if [ "$DEPLOYMENT_VERSION" == "1.15" ] || { [ "$DEPLOYMENT_VERSION" != "nightly" ] && [ "$DEPLOYMENT_VERSION" != "custom" ] && ! version_gte "$DEPLOYMENT_VERSION" "1.18"; }; then
                 results_api_resource="TektonResult/result"
@@ -1113,10 +1119,11 @@ EOF
             fi
             results_api_patch=$(jq -cn --argjson path "$results_api_deploy_path" \
                 --arg qps "$results_api_kube_api_qps" --arg burst "$results_api_kube_api_burst" \
-                --arg replicas "$results_api_ha_replicas" '
+                --arg replicas "$results_api_ha_replicas" --arg auth_disable "$results_api_auth_disable" '
                 (if $replicas != "" then {replicas: ($replicas | tonumber)} else {} end) as $base
                 | [if $qps != "" then {name:"K8S_QPS",value:$qps} else empty end,
-                   if $burst != "" then {name:"K8S_BURST",value:$burst} else empty end] as $env
+                   if $burst != "" then {name:"K8S_BURST",value:$burst} else empty end,
+                   if $auth_disable != "" then {name:"AUTH_DISABLE",value:$auth_disable} else empty end] as $env
                 | (if ($env | length) > 0 then $base + {template:{spec:{containers:[{name:"api",env:$env}]}}} else $base end) as $spec
                 | setpath($path; $spec)')
             kubectl patch "$results_api_resource" -n "$TEKTON_RESULTS_NS" --type merge --patch "$results_api_patch"
@@ -1125,8 +1132,9 @@ EOF
             if [ -n "$results_api_ha_replicas" ]; then
                 kubectl scale deployment/tekton-results-api -n "$TEKTON_RESULTS_NS" --replicas="$results_api_ha_replicas"
             fi
-            if [ -n "$results_api_kube_api_qps" ] || [ -n "$results_api_kube_api_burst" ]; then
+            if [ -n "$results_api_kube_api_qps" ] || [ -n "$results_api_kube_api_burst" ] || [ -n "$results_api_auth_disable" ]; then
                 results_api_env_args=()
+                [ -z "$results_api_auth_disable" ] || results_api_env_args+=("AUTH_DISABLE=$results_api_auth_disable")
                 [ -z "$results_api_kube_api_qps" ] || results_api_env_args+=("K8S_QPS=$results_api_kube_api_qps")
                 [ -z "$results_api_kube_api_burst" ] || results_api_env_args+=("K8S_BURST=$results_api_kube_api_burst")
                 kubectl set env deployment/tekton-results-api -n "$TEKTON_RESULTS_NS" --containers=api "${results_api_env_args[@]}"
@@ -1138,18 +1146,19 @@ EOF
         for i in {1..60}; do
             if kubectl get deployment/tekton-results-api -n "$TEKTON_RESULTS_NS" -o json | \
                 jq -e --arg qps "$results_api_kube_api_qps" --arg burst "$results_api_kube_api_burst" \
-                    --arg replicas "$results_api_ha_replicas" '
+                    --arg replicas "$results_api_ha_replicas" --arg auth_disable "$results_api_auth_disable" '
                     (.spec.replicas | tostring) as $have_replicas
                     | [.spec.template.spec.containers[] | select(.name == "api") | .env[]?] as $env
                     | ($replicas == "" or $have_replicas == $replicas)
                     and ($qps == "" or any($env[]; .name == "K8S_QPS" and .value == $qps))
-                    and ($burst == "" or any($env[]; .name == "K8S_BURST" and .value == $burst))' >/dev/null 2>&1; then
+                    and ($burst == "" or any($env[]; .name == "K8S_BURST" and .value == $burst))
+                    and ($auth_disable == "" or any($env[]; .name == "AUTH_DISABLE" and .value == $auth_disable))' >/dev/null 2>&1; then
                 results_api_applied=true
                 break
             fi
             sleep 2
         done
-        [ "$results_api_applied" == "true" ] || fatal "Results API Deployment did not receive the requested replicas/QPS/burst settings"
+        [ "$results_api_applied" == "true" ] || fatal "Results API Deployment did not receive the requested replicas/QPS/burst/authentication settings"
         kubectl rollout status deployment/tekton-results-api -n "$TEKTON_RESULTS_NS" --timeout=300s
     fi
 
@@ -1160,6 +1169,34 @@ fi
 if [ "$RUN_LOCUST" == "true" ]; then
     # Create namespace if not exists
     oc get ns "${LOCUST_NAMESPACE}" >/dev/null 2>&1 || oc create ns "${LOCUST_NAMESPACE}"
+
+    if [ "$results_api_auth_disable" == "false" ]; then
+        # Locust operator 0.1.6 uses the namespace default service account for test pods.
+        # Grant only read access to Results' virtual API resources, not Kubernetes CRs.
+        cat <<EOF | kubectl apply -f -
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: performance-results-reader
+rules:
+- apiGroups: ["results.tekton.dev"]
+  resources: ["results", "records", "logs"]
+  verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: performance-locust-results-reader
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: performance-results-reader
+subjects:
+- kind: ServiceAccount
+  name: default
+  namespace: ${LOCUST_NAMESPACE}
+EOF
+    fi
 
     # Add official Locust operator Helm repo
     if ! helm repo list | grep -q "^${LOCUST_OPERATOR_REPO}[[:space:]]"; then

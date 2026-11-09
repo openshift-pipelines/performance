@@ -1,3 +1,4 @@
+from results_auth import configure_results_auth
 import urllib3
 from random import choice
 from urllib3.exceptions import InsecureRequestWarning
@@ -25,6 +26,7 @@ class FetchResultLogTest(HttpUser):
 
     def on_start(self):
         self.client.verify = False
+        configure_results_auth(self.client)
         global _log_ids
         with _log_ids_lock:
             if _log_ids is None:

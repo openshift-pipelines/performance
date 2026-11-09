@@ -339,6 +339,12 @@ function run_locust() {
         export LOCUST_DURATION="$5"
         export LOCUST_WORKERS="$6"
         export LOCUST_EXTRA_CMD="$7"
+        export RESULTS_AUTH_ENABLED=false
+        case "${DEPLOYMENT_RESULTS_API_AUTH_DISABLE:-}" in
+            false) export RESULTS_AUTH_ENABLED=true ;;
+            ""|true) ;;
+            *) fatal "DEPLOYMENT_RESULTS_API_AUTH_DISABLE must be true or false" ;;
+        esac
 
         # Locust test
         local LOCUST_NAMESPACE=locust-operator
@@ -355,7 +361,14 @@ function run_locust() {
         cleanup_locust "$SCENARIO"
 
         # Create a ConfigMap from the scenario file FIRST (operator will check for it immediately)
-        kubectl create --namespace "${LOCUST_NAMESPACE}" configmap locust."${SCENARIO}" --from-file="scenario/$TEST_SCENARIO/locust/${SCENARIO}".py --dry-run=client -o yaml | kubectl apply --namespace "${LOCUST_NAMESPACE}" -f -
+        local locust_files=(--from-file="scenario/$TEST_SCENARIO/locust/${SCENARIO}.py")
+        local auth_helper="scenario/$TEST_SCENARIO/locust/results_auth.py"
+        if [ -f "$auth_helper" ]; then
+            locust_files+=(--from-file="$auth_helper")
+        elif [ "$RESULTS_AUTH_ENABLED" == "true" ]; then
+            fatal "Authenticated Results testing is unsupported by scenario $TEST_SCENARIO"
+        fi
+        kubectl create --namespace "${LOCUST_NAMESPACE}" configmap locust."${SCENARIO}" "${locust_files[@]}" --dry-run=client -o yaml | kubectl apply --namespace "${LOCUST_NAMESPACE}" -f -
 
         # Apply locust test template with environment variable substitution
         cat $LOCUST_TEMPLATE | envsubst | kubectl apply --namespace "${LOCUST_NAMESPACE}" -f -
