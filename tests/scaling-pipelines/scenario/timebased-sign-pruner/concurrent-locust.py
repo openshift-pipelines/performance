@@ -17,7 +17,7 @@ ARTIFACT = Path("locust-concurrent.json")
 LOG = Path("locust-test.log")
 LOG_DIR = Path("locust-concurrent")
 # Reserve time for operator/pod startup and cleanup when admitting another run.
-STARTUP_TIMEOUT = 120
+STARTUP_TIMEOUT = 300
 CLEANUP_MARGIN = 60
 ENDPOINTS = {
     "fetch-record": "/record",
@@ -136,6 +136,7 @@ def verify_overlap():
 
 
 def cleanup(child, scenario):
+    deadline = time.monotonic() + CLEANUP_MARGIN
     if child is not None:
         try:
             os.killpg(child.pid, signal.SIGTERM)
@@ -159,11 +160,17 @@ def cleanup(child, scenario):
             errors.append(resource)
     try:
         # An interrupted master must not leave worker pods reading during the next iteration.
+        # Use the remaining cleanup budget: ten seconds can be shorter than a
+        # worker's normal graceful termination period.
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise TimeoutError("Locust cleanup budget exhausted")
+        pod_wait_seconds = max(1, int(remaining - 1))
         subprocess.run(
             ["kubectl", "delete", "pod", "-n", "locust-operator", "-l",
              f"locust.io/test-run={scenario}-test", "--ignore-not-found=true",
-             "--wait=true", "--timeout=10s", "--request-timeout=5s"],
-            timeout=15, check=True,
+             "--wait=true", f"--timeout={pod_wait_seconds}s", "--request-timeout=5s"],
+            timeout=remaining, check=True,
         )
     except (OSError, subprocess.SubprocessError):
         errors.append("pods")
