@@ -27,7 +27,12 @@ ENDPOINTS = {
 
 
 def timestamp(value):
-    return datetime.fromisoformat(value.replace("Z", "+00:00")).timestamp()
+    # The CI tooling image uses Python 3.6: fromisoformat and colon-separated
+    # offsets in strptime's %z are only supported starting with Python 3.7.
+    normalized = re.sub(r"([+-]\d{2}):(\d{2})$", r"\1\2", value.replace("Z", "+0000"))
+    normalized = re.sub(r"(\.\d{6})\d+", r"\1", normalized)
+    pattern = "%Y-%m-%dT%H:%M:%S" + (".%f" if "." in normalized else "") + "%z"
+    return datetime.strptime(normalized, pattern).timestamp()
 
 
 def utc_now():
@@ -243,7 +248,8 @@ def run(config, parent_pid):
             result = subprocess.run(
                 ["kubectl", "get", "pipelineruns", "-n", namespace, "--request-timeout=10s",
                  "-o", "jsonpath={.items[*].metadata.creationTimestamp}"],
-                capture_output=True, text=True, timeout=15, check=True,
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                universal_newlines=True, timeout=15, check=True,
             )
             created = result.stdout.split()
             if created:
@@ -275,7 +281,8 @@ def run(config, parent_pid):
             iteration["status"] == "completed" for iteration in state["iterations"]) else "failed"
         if state["status"] == "failed":
             state["error"] = "One or more read iterations failed, were incomplete, or did not run"
-    except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as exc:
+    except Exception as exc:
+        # Preserve failure state even for an unexpected runtime/programming error.
         state.update(status="failed", error=str(exc))
         raise
     finally:
