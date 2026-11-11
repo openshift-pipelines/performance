@@ -37,6 +37,15 @@ mkdir -p "${monitoring_collection_dir}"
 [ -f tests/scaling-pipelines/imagestreamtags.json ] && mv tests/scaling-pipelines/imagestreamtags.json "${ARTIFACT_DIR}/"
 [ -f tests/scaling-pipelines/measure-signed.csv ] && mv tests/scaling-pipelines/measure-signed.csv "${ARTIFACT_DIR}/"
 [ -f tests/scaling-pipelines/locust-test.log ] && mv tests/scaling-pipelines/locust-test.log "${ARTIFACT_DIR}/"
+[ -f tests/scaling-pipelines/locust-concurrent.json ] && mv tests/scaling-pipelines/locust-concurrent.json "${ARTIFACT_DIR}/"
+if [ -d tests/scaling-pipelines/locust-concurrent ]; then
+    mkdir -p "${ARTIFACT_DIR}/locust-concurrent"
+    for locust_iteration_log in tests/scaling-pipelines/locust-concurrent/*.log; do
+        if [ -f "$locust_iteration_log" ]; then
+            mv "$locust_iteration_log" "${ARTIFACT_DIR}/locust-concurrent/"
+        fi
+    done
+fi
 
 info "Collecting logs..."
 oc -n openshift-pipelines logs --tail=-1 --all-containers=true --max-log-requests=10 -l app.kubernetes.io/name=controller,app.kubernetes.io/part-of=tekton-pipelines,app=tekton-pipelines-controller >"$tekton_pipelines_controller_log" || true
@@ -189,7 +198,12 @@ if [ "$INSTALL_RESULTS" == "true" ]; then
 
     info "Parsing Locust summary stats"
     locust_log="$ARTIFACT_DIR/locust-test.log"
-    if [ -f "$locust_log" ]; then
+    if [ -f "$ARTIFACT_DIR/locust-concurrent.json" ]; then
+        # Keep every iteration. The legacy single-value summary would overwrite earlier cycles.
+        jq --slurpfile concurrent "$ARTIFACT_DIR/locust-concurrent.json" \
+            '.results.ResultsAPIConcurrent = $concurrent[0]' "$monitoring_collection_data" \
+            > "${monitoring_collection_data}.tmp" && mv "${monitoring_collection_data}.tmp" "$monitoring_collection_data"
+    elif [ -f "$locust_log" ]; then
         locust_summary=$(python3 -c "
 import json, re, sys
 

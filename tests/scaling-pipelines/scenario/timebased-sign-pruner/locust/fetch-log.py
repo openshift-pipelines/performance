@@ -1,4 +1,7 @@
 from results_auth import configure_results_auth
+import os
+from time import monotonic
+from gevent import sleep
 import urllib3
 from random import choice
 from urllib3.exceptions import InsecureRequestWarning
@@ -30,7 +33,16 @@ class FetchResultLogTest(HttpUser):
         global _log_ids
         with _log_ids_lock:
             if _log_ids is None:
-                _log_ids = self._collect_log_ids()
+                concurrent = os.environ.get("LOCUST_RUN_PHASE") == "concurrent"
+                deadline = monotonic() + 300
+                while True:
+                    pool = self._collect_log_ids()
+                    if pool or not concurrent:
+                        _log_ids = pool
+                        break
+                    if monotonic() >= deadline:
+                        raise RuntimeError("No TaskRun log IDs available for GetLog")
+                    sleep(2)
         self.log_ids = _log_ids or []
 
     def _collect_log_ids(self):
@@ -44,6 +56,7 @@ class FetchResultLogTest(HttpUser):
             response = self.client.get(
                 f"/apis/results.tekton.dev/v1alpha2/parents/-/results/-/records?{params}",
                 name="fetch_id",
+                **({"timeout": 10} if os.environ.get("LOCUST_RUN_PHASE") == "concurrent" else {}),
             )
             payload = response.json()
             for record in payload.get("records") or []:

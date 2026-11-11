@@ -339,6 +339,7 @@ function run_locust() {
         export LOCUST_DURATION="$5"
         export LOCUST_WORKERS="$6"
         export LOCUST_EXTRA_CMD="$7"
+        export LOCUST_RUN_PHASE="${LOCUST_RUN_PHASE:-after-load}"
         export RESULTS_AUTH_ENABLED=false
         case "${DEPLOYMENT_RESULTS_API_AUTH_DISABLE:-}" in
             false) export RESULTS_AUTH_ENABLED=true ;;
@@ -351,7 +352,7 @@ function run_locust() {
         local LOCUST_OPERATOR_REPO=locust-k8s-operator
         local LOCUST_OPERATOR=locust-operator
         local LOCUST_TEMPLATE="scenario/common/locust-test-template.yaml"
-        local LOCUST_LOG="locust-test.log"
+        local LOCUST_LOG="${LOCUST_LOG:-locust-test.log}"
 
         TMP_DIR=$(mktemp -d)
 
@@ -393,7 +394,7 @@ function run_locust() {
 
         # Get Locust master logs
         echo "Getting locust master log:"
-        kubectl logs --namespace "${LOCUST_NAMESPACE}" -f -l "locust.io/test-run=${SCENARIO}-test,locust.io/component=master" 2>&1 | tee -a $LOCUST_LOG
+        kubectl logs --namespace "${LOCUST_NAMESPACE}" --tail=-1 -f -l "locust.io/test-run=${SCENARIO}-test,locust.io/component=master" 2>&1 | tee -a "$LOCUST_LOG"
 
         # Cleanup locust job after test end
         cleanup_locust "$SCENARIO"

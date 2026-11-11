@@ -8,6 +8,10 @@ spec:
   env:
     - name: RESULTS_AUTH_ENABLED
       value: "${RESULTS_AUTH_ENABLED}"
+    - name: LOCUST_RUN_PHASE
+      value: "${LOCUST_RUN_PHASE}"
+    - name: TZ
+      value: UTC
   args:
     --locustfile /home/locust/${SCENARIO}.py
     --host ${LOCUST_HOST}
