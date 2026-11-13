@@ -10,6 +10,9 @@ spec:
       value: "${RESULTS_AUTH_ENABLED}"
     - name: LOCUST_RUN_PHASE
       value: "${LOCUST_RUN_PHASE}"
+    # The master otherwise waits only one second for worker reports after ramp-up.
+    - name: LOCUST_WAIT_FOR_WORKERS_REPORT_AFTER_RAMP_UP
+      value: "10"
     - name: TZ
       value: UTC
   args:

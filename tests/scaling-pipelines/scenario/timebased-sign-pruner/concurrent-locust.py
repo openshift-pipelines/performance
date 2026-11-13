@@ -85,9 +85,6 @@ def read_result(log, scenario, config):
     aggregate = re.search(r"^\s+Aggregated\s+(\d+)\s+(\d+)\(", final, re.M)
     if not row or int(row[1]) == 0 or not aggregate:
         raise ValueError("Locust has no final request summary for the selected endpoint")
-    spawned = re.findall(r"All users spawned:.*\((\d+) total users\)", log)
-    if not spawned or int(spawned[-1]) != config["users"]:
-        raise ValueError("Locust did not reach the configured user count")
     start = re.search(r"\[([^]]+)\].*Run time limit set to (\d+) seconds", log)
     if not start or int(start[2]) != config["duration_seconds"]:
         raise ValueError("Locust did not confirm the configured duration")
@@ -102,7 +99,14 @@ def read_result(log, scenario, config):
     if percentiles:
         names = ("p50", "p66", "p75", "p80", "p90", "p95", "p98", "p99", "p99_9", "p99_99", "p100")
         latency.update(zip(names, map(float, percentiles[1].split())))
+    # A late worker report must not discard the completed window's measurements.
+    # Keep user-count validation separate, and never infer observed users from --users.
+    reported = re.findall(
+        r"(?:All users spawned|Spawning is complete and report waittime is expired[^\n]*):"
+        r"[^\n]*\((\d+) total users\)", log)
     return dict(read_started_at=started.isoformat(), read_ended_at=ended.isoformat(),
+                user_count_verified=bool(reported and int(reported[-1]) == config["users"]),
+                ramp_up_reported_users=int(reported[-1]) if reported else None,
                 requests=int(row[1]), failed_requests=int(row[2]),
                 total_failed_requests=int(aggregate[2]), locust_exit_code=int(shutdown[-1][2]),
                 requests_per_second=float(row[7]), latency_ms=latency)
@@ -114,11 +118,17 @@ def verify_overlap():
     created = [timestamp(run["creationTimestamp"]) for run in runs.values()
                if run.get("creationTimestamp")]
     for iteration in state["iterations"]:
+        start = timestamp(iteration["read_started_at"]) if iteration.get("read_started_at") else None
+        end = timestamp(iteration["read_ended_at"]) if iteration.get("read_ended_at") else None
+        during = sorted(t for t in created if start <= t <= end) if start is not None and end is not None else []
+        iteration["pipelines_created_during_read"] = len(during)
+        if start is not None and end is not None and start < end:
+            boundaries = [start] + during + [end]
+            iteration["max_pipeline_creation_gap_seconds"] = max(
+                right - left for left, right in zip(boundaries, boundaries[1:]))
         iteration["overlap_verified"] = bool(
-            created and iteration.get("read_started_at") and iteration.get("read_ended_at")
-            and min(created) <= timestamp(iteration["read_started_at"])
-            < timestamp(iteration["read_ended_at"]) <= max(created)
-            and timestamp(iteration["read_ended_at"]) <= timestamp(state["read_cutoff_at"])
+            during and min(created) <= start < end <= max(created)
+            and end <= timestamp(state["read_cutoff_at"])
         )
     state["overlap_verified"] = bool(state["iterations"]) and all(
         iteration["overlap_verified"] for iteration in state["iterations"])
@@ -137,6 +147,7 @@ def verify_overlap():
 
 def cleanup(child, scenario):
     deadline = time.monotonic() + CLEANUP_MARGIN
+    errors = []
     if child is not None:
         try:
             os.killpg(child.pid, signal.SIGTERM)
@@ -145,9 +156,14 @@ def cleanup(child, scenario):
         try:
             child.wait(timeout=10)
         except subprocess.TimeoutExpired:
-            os.killpg(child.pid, signal.SIGKILL)
-            child.wait()
-    errors = []
+            try:
+                os.killpg(child.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            try:
+                child.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                errors.append("process (did not exit after SIGKILL)")
     for resource, name in (("locusttest", scenario + "-test"),
                            ("configmap", "locust." + scenario)):
         try:
@@ -208,8 +224,14 @@ def run_iteration(scenario, iteration, config, cutoff, check_parent):
                 raise TimeoutError("Locust did not start within its startup allowance")
             time.sleep(0.5)
         iteration.update(read_result(log_path.read_text(), scenario, config))
+        errors = []
         if child.returncode or iteration["locust_exit_code"] or iteration["total_failed_requests"]:
-            iteration.update(status="failed", error="Locust reported failed requests or a nonzero exit")
+            errors.append("Locust reported failed requests or a nonzero exit")
+        if not iteration["user_count_verified"]:
+            errors.append("Locust user count unconfirmed: expected {}; ramp-up report {}".format(
+                config["users"], iteration["ramp_up_reported_users"]))
+        if errors:
+            iteration.update(status="failed", error="; ".join(errors))
         else:
             iteration["status"] = "completed"
     except (OSError, ValueError, subprocess.SubprocessError) as exc:
@@ -252,12 +274,18 @@ def run(config, parent_pid):
             check_parent()
             if time.monotonic() >= deadline:
                 raise RuntimeError("No PipelineRun observed within 300 seconds")
-            result = subprocess.run(
-                ["kubectl", "get", "pipelineruns", "-n", namespace, "--request-timeout=10s",
-                 "-o", "jsonpath={.items[*].metadata.creationTimestamp}"],
-                stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                universal_newlines=True, timeout=15, check=True,
-            )
+            try:
+                result = subprocess.run(
+                    ["kubectl", "get", "pipelineruns", "-n", namespace, "--request-timeout=10s",
+                     "-o", "jsonpath={.items[*].metadata.creationTimestamp}"],
+                    stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                    universal_newlines=True, timeout=15, check=True,
+                )
+            except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
+                # A transient API error during startup should not abort the whole
+                # coordinator. The existing deadline still bounds this discovery.
+                time.sleep(2)
+                continue
             created = result.stdout.split()
             if created:
                 first = min(map(timestamp, created))

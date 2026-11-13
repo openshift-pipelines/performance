@@ -19,5 +19,6 @@ class FetchAllRecordsTest(HttpUser):
         """Get all records"""
         self.client.get(
             "/apis/results.tekton.dev/v1alpha2/parents/-/results/-/records",
-            name='/records'
+            name='/records',
+            timeout=(10, 30),
         )

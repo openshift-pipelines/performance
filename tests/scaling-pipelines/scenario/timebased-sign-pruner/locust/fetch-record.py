@@ -40,5 +40,6 @@ class FetchRecordsTest(HttpUser):
         """Get Record for a particular result"""
         self.client.get(
             f"/apis/results.tekton.dev/v1alpha2/parents/{self.record_id}",
-            name="/record"
+            name="/record",
+            timeout=(10, 30),
         )

@@ -22,11 +22,6 @@ _log_ids_lock = Semaphore()
 class FetchResultLogTest(HttpUser):
     """Fetch TaskRun log content via Results API (Loki-backed)."""
 
-    # Locust defaults are ~10s; /log via Loki often needs longer under load.
-    # Per-request timeout= on client.get() is ignored for these in Locust 2.x.
-    network_timeout = 60.0
-    connection_timeout = 30.0
-
     def on_start(self):
         self.client.verify = False
         configure_results_auth(self.client)
@@ -88,6 +83,7 @@ class FetchResultLogTest(HttpUser):
             f"/apis/results.tekton.dev/v1alpha2/parents/{log_id}",
             name="/log",
             catch_response=True,
+            timeout=(30, 60),
         ) as response:
             if self.validate_response(response):
                 response.success()
