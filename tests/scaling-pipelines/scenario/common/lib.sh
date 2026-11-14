@@ -84,8 +84,39 @@ function chains_setup_tekton_tekton_() {
 
 function chains_start() {
     info "Enabling Chains"
-    cosign_generate_key_pair_secret   # it was removed when we disabled Chains
+    # Enable first, then (re)create signing-secrets. Disabling Chains often deletes the
+    # secret; with Chains HA the operator also rolls pods, so creating the secret before
+    # enable races and leaves Chains without keys (signed=unknown for the whole run).
+    # HA=10 rolls routinely exceed 300s; prefer rollout status and keep going once the
+    # secret is present (timebased-sign-pruner runs this in a background subshell).
+    local chains_ready_timeout="${CHAINS_READY_TIMEOUT:-600s}"
     kubectl patch TektonConfig/config --type='merge' -p='{"spec":{"chain":{"disabled": false}}}'
+    wait_for_entity_by_selector 300 openshift-pipelines deployment app.kubernetes.io/name=controller,app.kubernetes.io/part-of=tekton-chains
+    wait_for_entity_by_selector 300 openshift-pipelines pod app.kubernetes.io/part-of=tekton-chains
+    kubectl -n openshift-pipelines rollout status deployment -l app.kubernetes.io/part-of=tekton-chains --timeout="$chains_ready_timeout" \
+        || oc -n openshift-pipelines wait --for=condition=ready --timeout="$chains_ready_timeout" pod -l app.kubernetes.io/part-of=tekton-chains \
+        || warning "Chains pods not fully ready after enable; continuing to create signing-secrets"
+
+    cosign_generate_key_pair_secret
+
+    # Confirm the secret sticks (HA reconcile must not delete it) and bounce Chains so
+    # every replica reloads signing-secrets.
+    before=$( date +%s )
+    while ! kubectl -n openshift-pipelines get secret/signing-secrets >/dev/null 2>&1; do
+        now=$( date +%s )
+        [ $(( $now - $before )) -gt 120 ] && fatal "signing-secrets missing after Chains enable"
+        debug "Waiting for signing-secrets to appear after Chains enable"
+        sleep 5
+        cosign_generate_key_pair_secret
+    done
+    kubectl -n openshift-pipelines rollout restart deployment -l app.kubernetes.io/part-of=tekton-chains || \
+        kubectl -n openshift-pipelines delete pod -l app.kubernetes.io/part-of=tekton-chains --wait=false || true
+    kubectl -n openshift-pipelines rollout status deployment -l app.kubernetes.io/part-of=tekton-chains --timeout="$chains_ready_timeout" \
+        || oc -n openshift-pipelines wait --for=condition=ready --timeout="$chains_ready_timeout" pod -l app.kubernetes.io/part-of=tekton-chains \
+        || warning "Chains pods not fully ready after signing-secrets restart; secret is present, continuing"
+    kubectl -n openshift-pipelines get secret/signing-secrets >/dev/null \
+        || fatal "signing-secrets disappeared after Chains restart"
+    info "Chains enabled with signing-secrets present"
 }
 
 function chains_stop() {
@@ -308,13 +339,20 @@ function run_locust() {
         export LOCUST_DURATION="$5"
         export LOCUST_WORKERS="$6"
         export LOCUST_EXTRA_CMD="$7"
+        export LOCUST_RUN_PHASE="${LOCUST_RUN_PHASE:-after-load}"
+        export RESULTS_AUTH_ENABLED=false
+        case "${DEPLOYMENT_RESULTS_API_AUTH_DISABLE:-}" in
+            false) export RESULTS_AUTH_ENABLED=true ;;
+            ""|true) ;;
+            *) fatal "DEPLOYMENT_RESULTS_API_AUTH_DISABLE must be true or false" ;;
+        esac
 
         # Locust test
         local LOCUST_NAMESPACE=locust-operator
         local LOCUST_OPERATOR_REPO=locust-k8s-operator
         local LOCUST_OPERATOR=locust-operator
         local LOCUST_TEMPLATE="scenario/common/locust-test-template.yaml"
-        local LOCUST_LOG="locust-test.log"
+        local LOCUST_LOG="${LOCUST_LOG:-locust-test.log}"
 
         TMP_DIR=$(mktemp -d)
 
@@ -324,7 +362,17 @@ function run_locust() {
         cleanup_locust "$SCENARIO"
 
         # Create a ConfigMap from the scenario file FIRST (operator will check for it immediately)
-        kubectl create --namespace "${LOCUST_NAMESPACE}" configmap locust."${SCENARIO}" --from-file="scenario/$TEST_SCENARIO/locust/${SCENARIO}".py --dry-run=client -o yaml | kubectl apply --namespace "${LOCUST_NAMESPACE}" -f -
+        local locust_files=(--from-file="scenario/$TEST_SCENARIO/locust/${SCENARIO}.py")
+        if [ "$TEST_SCENARIO" == "timebased-sign-pruner" ] && [ "$SCENARIO" == "fetch-log" ]; then
+            locust_files+=(--from-file="../../tools/results_log_diagnostics.py")
+        fi
+        local auth_helper="scenario/$TEST_SCENARIO/locust/results_auth.py"
+        if [ -f "$auth_helper" ]; then
+            locust_files+=(--from-file="$auth_helper")
+        elif [ "$RESULTS_AUTH_ENABLED" == "true" ]; then
+            fatal "Authenticated Results testing is unsupported by scenario $TEST_SCENARIO"
+        fi
+        kubectl create --namespace "${LOCUST_NAMESPACE}" configmap locust."${SCENARIO}" "${locust_files[@]}" --dry-run=client -o yaml | kubectl apply --namespace "${LOCUST_NAMESPACE}" -f -
 
         # Apply locust test template with environment variable substitution
         cat $LOCUST_TEMPLATE | envsubst | kubectl apply --namespace "${LOCUST_NAMESPACE}" -f -
@@ -349,13 +397,43 @@ function run_locust() {
 
         # Get Locust master logs
         echo "Getting locust master log:"
-        kubectl logs --namespace "${LOCUST_NAMESPACE}" -f -l "locust.io/test-run=${SCENARIO}-test,locust.io/component=master" 2>&1 | tee -a $LOCUST_LOG
+        local locust_log_status=1
+        local locust_log_attempt
+        local locust_log_attempts=1
+        if [ "$TEST_SCENARIO" == "timebased-sign-pruner" ] && [ "$LOCUST_RUN_PHASE" == "concurrent" ]; then
+            locust_log_attempts=3
+        fi
+        for ((locust_log_attempt=1; locust_log_attempt<=locust_log_attempts; locust_log_attempt++)); do
+            # Reconnect to the same test, replaying retained logs. The coordinator
+            # still requires a complete final summary; an interrupted stream is not a pass.
+            if kubectl logs --namespace "${LOCUST_NAMESPACE}" --tail=-1 -f -l "locust.io/test-run=${SCENARIO}-test,locust.io/component=master" 2>&1 | tee -a "$LOCUST_LOG"; then
+                locust_log_status=0
+                break
+            else
+                locust_log_status=$?
+            fi
+            if [ "$locust_log_attempt" -lt "$locust_log_attempts" ]; then
+                warning "Locust master log stream interrupted; reconnecting (attempt $((locust_log_attempt + 1))/$locust_log_attempts)"
+                sleep 2
+            fi
+        done
+
+        if [ "$TEST_SCENARIO" == "timebased-sign-pruner" ] && [ "$SCENARIO" == "fetch-log" ] && [ "$LOCUST_RUN_PHASE" == "concurrent" ]; then
+            # Worker samples are relayed live into the master log. The operator
+            # can remove workers before this post-window API/Loki snapshot runs.
+            python3 ../../tools/results_log_diagnostics.py \
+                --output "${LOCUST_LOG%.log}-diagnostics" \
+                --since-time "$(cat "${TMP_DIR}/benchmark-before")" \
+                --budget 60 \
+                || warning "Some Results/Loki diagnostics are unavailable; inspect results-log-diagnostics.json"
+        fi
 
         # Cleanup locust job after test end
         cleanup_locust "$SCENARIO"
 
         # Record test end time
         date --utc -Ins > "${TMP_DIR}/benchmark-after"
+        return "$locust_log_status"
 
     else 
         warning "RUN_LOCUST env variable is not set for Locust testing."

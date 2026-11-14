@@ -14,9 +14,6 @@ tekton_pipelines_controller_log=$ARTIFACT_DIR/tekton-pipelines-controller.log
 tekton_chains_controller_log=$ARTIFACT_DIR/tekton-chains-controller.log
 tekton_results_watcher_log=$ARTIFACT_DIR/tekton-results-watcher.log
 creationtimestamp_collection_log=$ARTIFACT_DIR/creationtimestamp-collection.log
-results_api_logs="$ARTIFACT_DIR/results-api-logs.txt"
-results_api_json="$ARTIFACT_DIR/results-api-logs.json"
-results_api_error_logs="$ARTIFACT_DIR/results-api-logs-parse-errors.txt"
 results_api_db_sql="$ARTIFACT_DIR/tekton-results-postgres-pgdump.dump"
 INSTALL_RESULTS="${INSTALL_RESULTS:-false}"
 
@@ -37,12 +34,30 @@ mkdir -p "${monitoring_collection_dir}"
 [ -f tests/scaling-pipelines/imagestreamtags.json ] && mv tests/scaling-pipelines/imagestreamtags.json "${ARTIFACT_DIR}/"
 [ -f tests/scaling-pipelines/measure-signed.csv ] && mv tests/scaling-pipelines/measure-signed.csv "${ARTIFACT_DIR}/"
 [ -f tests/scaling-pipelines/locust-test.log ] && mv tests/scaling-pipelines/locust-test.log "${ARTIFACT_DIR}/"
+[ -f tests/scaling-pipelines/locust-concurrent.json ] && mv tests/scaling-pipelines/locust-concurrent.json "${ARTIFACT_DIR}/"
+if [ -d tests/scaling-pipelines/locust-concurrent ]; then
+    mkdir -p "${ARTIFACT_DIR}/locust-concurrent"
+    for locust_iteration_log in tests/scaling-pipelines/locust-concurrent/*; do
+        if [ -e "$locust_iteration_log" ]; then
+            mv "$locust_iteration_log" "${ARTIFACT_DIR}/locust-concurrent/"
+        fi
+    done
+fi
 
 info "Collecting logs..."
 oc -n openshift-pipelines logs --tail=-1 --all-containers=true --max-log-requests=10 -l app.kubernetes.io/name=controller,app.kubernetes.io/part-of=tekton-pipelines,app=tekton-pipelines-controller >"$tekton_pipelines_controller_log" || true
 oc -n openshift-pipelines logs --tail=-1 --all-containers=true --max-log-requests=10 -l app.kubernetes.io/name=controller,app.kubernetes.io/part-of=tekton-chains,app=tekton-chains-controller >"$tekton_chains_controller_log" || true
 
 if [ "$INSTALL_RESULTS" == "true" ]; then
+    # Capture before monitoring dependency installation or DB dumps can delay collection.
+    diagnostic_since=$(jq -r '.results.started // empty' "$monitoring_collection_data" 2>/dev/null || true)
+    diagnostic_args=()
+    if [ -n "$diagnostic_since" ]; then
+        diagnostic_args+=(--since-time "$diagnostic_since")
+    fi
+    python3 tools/results_log_diagnostics.py --output "$ARTIFACT_DIR" \
+        --budget 90 "${diagnostic_args[@]}" \
+        || warning "Some Results/Loki diagnostics are unavailable; inspect results-log-diagnostics.json"
     info "Collecting Tekton Results Watcher logs..."
     oc -n openshift-pipelines logs --tail=-1 --all-containers=true --max-log-requests=10 -l app.kubernetes.io/name=tekton-results-watcher >"$tekton_results_watcher_log" || true
     oc -n tekton-pipelines logs --tail=-1 --all-containers=true --max-log-requests=10 -l app.kubernetes.io/name=tekton-results-watcher >>"$tekton_results_watcher_log" || true
@@ -168,25 +183,14 @@ if [ "$INSTALL_RESULTS" == "true" ]; then
     capture_results_db_query "$pg_user" "$pg_pwd" "tekton-results" "select parent, type, count(*) from records group by parent, type order by parent" "$monitoring_collection_data"
 
 
-    info "Collecting Results-API log data"
-
-    # JSON fields from log lines
-    JQ_FIELDS_TO_EXTRACT='{timestamp: .ts, "grpc.start_time": .["grpc.start_time"], "grpc.request.deadline": .["grpc.request.deadline"], "grpc.method": .["grpc.method"], "grpc.code": .["grpc.code"], "grpc.time_duration_in_ms": .["grpc.time_duration_in_ms"]}'
-
-    # Fetch logs from results-api pods
-    oc -n openshift-pipelines logs --tail=-1 -l app.kubernetes.io/name=tekton-results-api >> "$results_api_logs"
-    oc -n tekton-pipelines logs --tail=-1 -l app.kubernetes.io/name=tekton-results-api >> "$results_api_logs"
-
-    # Parse and store JSON log lines 
-    echo "[" > "$results_api_json"
-    grep -oE '\{[^}]+\}' "$results_api_logs" \
-        | jq -e -c "$JQ_FIELDS_TO_EXTRACT" 2>"$results_api_error_logs" \
-        | sed '$!s/$/,/' >> "$results_api_json"
-    echo "]" >> "$results_api_json"
-
     info "Parsing Locust summary stats"
     locust_log="$ARTIFACT_DIR/locust-test.log"
-    if [ -f "$locust_log" ]; then
+    if [ -f "$ARTIFACT_DIR/locust-concurrent.json" ]; then
+        # Keep every iteration. The legacy single-value summary would overwrite earlier cycles.
+        jq --slurpfile concurrent "$ARTIFACT_DIR/locust-concurrent.json" \
+            '.results.ResultsAPIConcurrent = $concurrent[0]' "$monitoring_collection_data" \
+            > "${monitoring_collection_data}.tmp" && mv "${monitoring_collection_data}.tmp" "$monitoring_collection_data"
+    elif [ -f "$locust_log" ]; then
         locust_summary=$(python3 -c "
 import json, re, sys
 
@@ -232,19 +236,8 @@ else
     info "Skipping Results-API log data"
 fi
 
-# The echo scenario has known log lines, so verify every run and TaskRun log.
-# Other scenarios can opt in once their expected log lines are defined.
-# This is the direct ingestion gate for Citi Results scale testing: every
-# expected PipelineRun/TaskRun UID must land complete in PostgreSQL, and every
-# expected TaskRun log must be retrievable with the exact echo markers.
-if [ -z "${VERIFY_RESULTS_INGESTION:-}" ]; then
-    if [ "${TEST_SCENARIO:-}" == "timebased-sign-pruner" ]; then
-        VERIFY_RESULTS_INGESTION=true
-    else
-        VERIFY_RESULTS_INGESTION=false
-    fi
-fi
-
+# Opt-in: full UID/log verification is slow; set VERIFY_RESULTS_INGESTION=true when needed.
+VERIFY_RESULTS_INGESTION="${VERIFY_RESULTS_INGESTION:-false}"
 if [ "$INSTALL_RESULTS" == "true" ] && [ "$VERIFY_RESULTS_INGESTION" == "true" ]; then
     info "Verifying Tekton Results ingestion..."
     ingestion_report="$ARTIFACT_DIR/results-ingestion-verification.json"

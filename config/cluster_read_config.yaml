@@ -303,6 +303,38 @@
   monitoring_step: 15
 
 ## Loki metrics
+# Read-path resources, including gateway sidecars. Empty series mean unavailable,
+# not zero load. Keep the component separated so one saturated tier is visible.
+{% for component in ['gateway', 'query-frontend', 'querier', 'index-gateway', 'ingester'] %}
+- name: measurements.logs.loki.{{ component }}.cpu
+  monitoring_query: sum(rate(container_cpu_usage_seconds_total{namespace="openshift-logging",pod=~"logging-loki-{{ component }}-.+",container!="",container!="POD"}[1m]))
+  monitoring_step: 15
+- name: measurements.logs.loki.{{ component }}.memory_working_set_bytes
+  monitoring_query: sum(container_memory_working_set_bytes{namespace="openshift-logging",pod=~"logging-loki-{{ component }}-.+",container!="",container!="POD"})
+  monitoring_step: 15
+- name: measurements.logs.loki.{{ component }}.cpu_throttled_period_ratio
+  monitoring_query: sum(rate(container_cpu_cfs_throttled_periods_total{namespace="openshift-logging",pod=~"logging-loki-{{ component }}-.+",container!="",container!="POD"}[1m])) / sum(rate(container_cpu_cfs_periods_total{namespace="openshift-logging",pod=~"logging-loki-{{ component }}-.+",container!="",container!="POD"}[1m]))
+  monitoring_step: 15
+- name: measurements.logs.loki.{{ component }}.restarts
+  monitoring_query: sum(kube_pod_container_status_restarts_total{namespace="openshift-logging",pod=~"logging-loki-{{ component }}-.+"})
+  monitoring_step: 15
+- name: measurements.logs.loki.{{ component }}.query_range_p95_seconds
+  monitoring_query: histogram_quantile(0.95, sum by (le) (rate(loki_request_duration_seconds_bucket{namespace="openshift-logging",pod=~"logging-loki-{{ component }}-.+",route=~".*query_range.*"}[1m])))
+  monitoring_step: 15
+- name: measurements.logs.loki.{{ component }}.query_range_5xx_per_second
+  monitoring_query: sum(rate(loki_request_duration_seconds_count{namespace="openshift-logging",pod=~"logging-loki-{{ component }}-.+",route=~".*query_range.*",status_code=~"5.."}[1m]))
+  monitoring_step: 15
+{% endfor %}
+
+# Depending on Loki's version/topology these may be absent. Do not manufacture
+# zeroes when the scheduler or its metrics are not deployed/scraped.
+- name: measurements.logs.loki.query_scheduler_queue_length
+  monitoring_query: sum(loki_query_scheduler_queue_length{namespace="openshift-logging"})
+  monitoring_step: 15
+- name: measurements.logs.loki.query_scheduler_queue_p95_seconds
+  monitoring_query: histogram_quantile(0.95, sum by (le) (rate(loki_query_scheduler_queue_duration_seconds_bucket{namespace="openshift-logging"}[1m])))
+  monitoring_step: 15
+
 - name: measurements.logs.loki.events_sent
   monitoring_query: sum(vector_component_sent_events_total{component_kind='sink', component_type='loki'})
   monitoring_step: 15
