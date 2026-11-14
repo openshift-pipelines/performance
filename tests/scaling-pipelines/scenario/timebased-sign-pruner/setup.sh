@@ -24,6 +24,11 @@ TEST_BIGBANG_MULTI_STEP__LINE_COUNT="${TEST_BIGBANG_MULTI_STEP__LINE_COUNT:-15}"
 # Values should be less than TOTAL_TIMEOUT to enable the components for the test.
 CHAINS_WAIT_TIME=${CHAINS_WAIT_TIME:-600} # [Default: 10 mins]
 PRUNER_WAIT_TIME=${PRUNER_WAIT_TIME:-600} # [Default: 10 mins]
+TEST_PRUNER_ENABLED=${TEST_PRUNER_ENABLED:-true}
+case "$TEST_PRUNER_ENABLED" in
+    true|false) ;;
+    *) fatal "TEST_PRUNER_ENABLED must be true or false" ;;
+esac
 
 chains_setup_tekton_tekton_
 
@@ -39,10 +44,14 @@ pruner_stop
 
 
 #  Timeout before enabling Pruner
-(
-    wait_for_timeout $PRUNER_WAIT_TIME "enable Pruner"
-    pruner_start
-) &
+if [ "$TEST_PRUNER_ENABLED" == true ]; then
+    (
+        wait_for_timeout $PRUNER_WAIT_TIME "enable Pruner"
+        pruner_start
+    ) &
+else
+    info "Pruner remains disabled for this test"
+fi
 
 # Configure execution mode
 if [ -n "${TOTAL_TIMEOUT:-}" ]; then

@@ -19,11 +19,18 @@ LOG_DIR = Path("locust-concurrent")
 # Reserve time for operator/pod startup and cleanup when admitting another run.
 STARTUP_TIMEOUT = 300
 CLEANUP_MARGIN = 60
+# Matches run_locust's bounded post-window snapshot, before pod cleanup.
+LOG_DIAGNOSTIC_BUDGET = 60
 ENDPOINTS = {
     "fetch-record": "/record",
     "fetch-all-records": "/records",
     "fetch-log": "/log",
 }
+
+
+def iteration_budget(scenario, duration):
+    return (duration + STARTUP_TIMEOUT + CLEANUP_MARGIN
+            + (LOG_DIAGNOSTIC_BUDGET if scenario == 'fetch-log' else 0))
 
 
 def timestamp(value):
@@ -57,8 +64,7 @@ def settings(env):
     spawn = int(env.get("LOCUST_SPAWN_RATE", "10"))
     if min(delay, stop_before) < 0 or min(users, workers, spawn) <= 0 or workers > users:
         raise ValueError("Invalid warm-up, user count, worker count or spawn rate")
-    slot = seconds + STARTUP_TIMEOUT + CLEANUP_MARGIN
-    if delay + len(ENDPOINTS) * slot >= total - stop_before:
+    if delay + sum(iteration_budget(scenario, seconds) for scenario in ENDPOINTS) >= total - stop_before:
         raise ValueError("TOTAL_TIMEOUT must fit warm-up, one full three-scenario cycle "
                          "with startup/cleanup allowances, and LOCUST_STOP_BEFORE_END")
     return dict(scenarios=list(ENDPOINTS), duration=duration, duration_seconds=seconds,
@@ -214,7 +220,7 @@ def run_iteration(scenario, iteration, config, cutoff, check_parent):
         )
         launched = time.monotonic()
         deadline = min(cutoff - CLEANUP_MARGIN,
-                       time.time() + STARTUP_TIMEOUT + config["duration_seconds"])
+                       time.time() + iteration_budget(scenario, config["duration_seconds"]) - CLEANUP_MARGIN)
         while child.poll() is None:
             check_parent()
             if time.time() >= deadline:
@@ -301,7 +307,7 @@ def run(config, parent_pid):
         state["status"] = "running"
         for scenario in cycle(config["scenarios"]):
             check_parent()
-            if time.time() + config["duration_seconds"] + STARTUP_TIMEOUT + CLEANUP_MARGIN >= cutoff:
+            if time.time() + iteration_budget(scenario, config["duration_seconds"]) >= cutoff:
                 state["stop_reason"] = "Insufficient time for another full iteration before the read cutoff"
                 break
             number = len(state["iterations"]) + 1

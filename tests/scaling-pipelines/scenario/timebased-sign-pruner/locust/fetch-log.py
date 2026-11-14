@@ -1,11 +1,15 @@
 from results_auth import configure_results_auth
+from results_log_diagnostics import sanitize_text, utc_now
+import json
+import logging
 import os
 from time import monotonic
 from gevent import sleep
 import urllib3
 from random import choice
 from urllib3.exceptions import InsecureRequestWarning
-from locust import HttpUser, task
+from locust import HttpUser, events, task
+from locust.runners import MasterRunner, WorkerRunner
 from gevent.lock import Semaphore
 
 urllib3.disable_warnings(InsecureRequestWarning)
@@ -17,6 +21,42 @@ RECORDS_PAGE_SIZE = 200
 # Shared pool so 100 users don't each paginate records at startup.
 _log_ids = None
 _log_ids_lock = Semaphore()
+_failure_samples = 0
+FAILURE_SAMPLE_LIMIT = 50  # Per worker and window; Locust still counts every failure.
+logger = logging.getLogger(__name__)
+DIAGNOSTIC_MESSAGE = "results_log_diagnostic"
+_relay_warning_logged = False
+
+
+def write_diagnostic(sample):
+    level = logging.INFO if sample.get('event') == 'log_pool' else logging.WARNING
+    logger.log(level, 'RESULTS_LOG_DIAGNOSTIC %s', json.dumps(sample))
+
+
+def receive_diagnostic(environment, msg, **kwargs):
+    sample = dict(msg.data, worker_id=msg.node_id)
+    write_diagnostic(sample)
+
+
+@events.init.add_listener
+def configure_diagnostic_relay(environment, **kwargs):
+    if isinstance(environment.runner, MasterRunner):
+        environment.runner.register_message(DIAGNOSTIC_MESSAGE, receive_diagnostic)
+
+
+def emit_diagnostic(environment, sample):
+    """Persist worker samples in the streamed master log while pods are alive."""
+    write_diagnostic(sample)
+    if isinstance(environment.runner, WorkerRunner):
+        try:
+            environment.runner.send_message(DIAGNOSTIC_MESSAGE, sample)
+        except Exception as exc:
+            # A diagnostic transport failure must not mask a measured HTTP failure.
+            global _relay_warning_logged
+            if not _relay_warning_logged:
+                logger.warning('Results log diagnostic relay failed (%s); samples remain in worker logs',
+                               type(exc).__name__)
+                _relay_warning_logged = True
 
 
 class FetchResultLogTest(HttpUser):
@@ -34,6 +74,9 @@ class FetchResultLogTest(HttpUser):
                     pool = self._collect_log_ids()
                     if pool or not concurrent:
                         _log_ids = pool
+                        emit_diagnostic(self.environment, dict(
+                            event='log_pool', timestamp=utc_now(), worker=os.environ.get('HOSTNAME'),
+                            log_ids=pool))
                         break
                     if monotonic() >= deadline:
                         raise RuntimeError("No TaskRun log IDs available for GetLog")
@@ -79,6 +122,8 @@ class FetchResultLogTest(HttpUser):
         if not self.log_ids:
             return
         log_id = choice(self.log_ids)
+        started_at = utc_now()
+        started = monotonic()
         with self.client.get(
             f"/apis/results.tekton.dev/v1alpha2/parents/{log_id}",
             name="/log",
@@ -89,6 +134,21 @@ class FetchResultLogTest(HttpUser):
                 response.success()
             else:
                 err = getattr(response, "error", None)
+                global _failure_samples
+                _failure_samples += 1
+                if _failure_samples <= FAILURE_SAMPLE_LIMIT:
+                    body = sanitize_text(response.text or '')
+                    emit_diagnostic(self.environment, dict(
+                        event='log_failure', timestamp=started_at, ended_at=utc_now(),
+                        worker=os.environ.get('HOSTNAME'), log_id=log_id,
+                        elapsed_ms=round((monotonic() - started) * 1000, 2),
+                        status=response.status_code, body_bytes=len(response.content or b''),
+                        body_sample=body[:1024], body_truncated=len(body) > 1024,
+                        error=sanitize_text(err)))
+                elif _failure_samples == FAILURE_SAMPLE_LIMIT + 1:
+                    emit_diagnostic(self.environment, dict(
+                        event='failure_sample_limit', timestamp=utc_now(),
+                        worker=os.environ.get('HOSTNAME'), limit=FAILURE_SAMPLE_LIMIT))
                 response.failure(
-                    f"status={response.status_code} bytes={len(response.text or '')} err={err}"
+                    f"status={response.status_code} bytes={len(response.text or '')} err={sanitize_text(err)}"
                 )

@@ -14,9 +14,6 @@ tekton_pipelines_controller_log=$ARTIFACT_DIR/tekton-pipelines-controller.log
 tekton_chains_controller_log=$ARTIFACT_DIR/tekton-chains-controller.log
 tekton_results_watcher_log=$ARTIFACT_DIR/tekton-results-watcher.log
 creationtimestamp_collection_log=$ARTIFACT_DIR/creationtimestamp-collection.log
-results_api_logs="$ARTIFACT_DIR/results-api-logs.txt"
-results_api_json="$ARTIFACT_DIR/results-api-logs.json"
-results_api_error_logs="$ARTIFACT_DIR/results-api-logs-parse-errors.txt"
 results_api_db_sql="$ARTIFACT_DIR/tekton-results-postgres-pgdump.dump"
 INSTALL_RESULTS="${INSTALL_RESULTS:-false}"
 
@@ -40,8 +37,8 @@ mkdir -p "${monitoring_collection_dir}"
 [ -f tests/scaling-pipelines/locust-concurrent.json ] && mv tests/scaling-pipelines/locust-concurrent.json "${ARTIFACT_DIR}/"
 if [ -d tests/scaling-pipelines/locust-concurrent ]; then
     mkdir -p "${ARTIFACT_DIR}/locust-concurrent"
-    for locust_iteration_log in tests/scaling-pipelines/locust-concurrent/*.log; do
-        if [ -f "$locust_iteration_log" ]; then
+    for locust_iteration_log in tests/scaling-pipelines/locust-concurrent/*; do
+        if [ -e "$locust_iteration_log" ]; then
             mv "$locust_iteration_log" "${ARTIFACT_DIR}/locust-concurrent/"
         fi
     done
@@ -52,6 +49,15 @@ oc -n openshift-pipelines logs --tail=-1 --all-containers=true --max-log-request
 oc -n openshift-pipelines logs --tail=-1 --all-containers=true --max-log-requests=10 -l app.kubernetes.io/name=controller,app.kubernetes.io/part-of=tekton-chains,app=tekton-chains-controller >"$tekton_chains_controller_log" || true
 
 if [ "$INSTALL_RESULTS" == "true" ]; then
+    # Capture before monitoring dependency installation or DB dumps can delay collection.
+    diagnostic_since=$(jq -r '.results.started // empty' "$monitoring_collection_data" 2>/dev/null || true)
+    diagnostic_args=()
+    if [ -n "$diagnostic_since" ]; then
+        diagnostic_args+=(--since-time "$diagnostic_since")
+    fi
+    python3 tools/results_log_diagnostics.py --output "$ARTIFACT_DIR" \
+        --budget 90 "${diagnostic_args[@]}" \
+        || warning "Some Results/Loki diagnostics are unavailable; inspect results-log-diagnostics.json"
     info "Collecting Tekton Results Watcher logs..."
     oc -n openshift-pipelines logs --tail=-1 --all-containers=true --max-log-requests=10 -l app.kubernetes.io/name=tekton-results-watcher >"$tekton_results_watcher_log" || true
     oc -n tekton-pipelines logs --tail=-1 --all-containers=true --max-log-requests=10 -l app.kubernetes.io/name=tekton-results-watcher >>"$tekton_results_watcher_log" || true
@@ -176,25 +182,6 @@ if [ "$INSTALL_RESULTS" == "true" ]; then
 
     capture_results_db_query "$pg_user" "$pg_pwd" "tekton-results" "select parent, type, count(*) from records group by parent, type order by parent" "$monitoring_collection_data"
 
-
-    info "Collecting Results-API log data"
-
-    # JSON fields from log lines
-    JQ_FIELDS_TO_EXTRACT='{timestamp: .ts, "grpc.start_time": .["grpc.start_time"], "grpc.request.deadline": .["grpc.request.deadline"], "grpc.method": .["grpc.method"], "grpc.code": .["grpc.code"], "grpc.time_duration_in_ms": .["grpc.time_duration_in_ms"]}'
-
-    # Fetch logs from results-api pods (downstream: openshift-pipelines; upstream: tekton-pipelines).
-    # Missing namespace/pods and HA multi-stream log fetch must not fail the job (set -e / pipefail).
-    oc -n openshift-pipelines logs --tail=-1 --max-log-requests=20 -l app.kubernetes.io/name=tekton-results-api >>"$results_api_logs" 2>/dev/null || true
-    oc -n tekton-pipelines logs --tail=-1 --max-log-requests=20 -l app.kubernetes.io/name=tekton-results-api >>"$results_api_logs" 2>/dev/null || true
-
-    # Parse and store JSON log lines. HA API logs are noisy; keep parse errors as artifacts only.
-    echo "[" > "$results_api_json"
-    if [ -s "$results_api_logs" ]; then
-        grep -oE '\{[^}]+\}' "$results_api_logs" \
-            | jq -c "$JQ_FIELDS_TO_EXTRACT" 2>"$results_api_error_logs" \
-            | sed '$!s/$/,/' >>"$results_api_json" || true
-    fi
-    echo "]" >> "$results_api_json"
 
     info "Parsing Locust summary stats"
     locust_log="$ARTIFACT_DIR/locust-test.log"

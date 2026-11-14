@@ -363,6 +363,9 @@ function run_locust() {
 
         # Create a ConfigMap from the scenario file FIRST (operator will check for it immediately)
         local locust_files=(--from-file="scenario/$TEST_SCENARIO/locust/${SCENARIO}.py")
+        if [ "$TEST_SCENARIO" == "timebased-sign-pruner" ] && [ "$SCENARIO" == "fetch-log" ]; then
+            locust_files+=(--from-file="../../tools/results_log_diagnostics.py")
+        fi
         local auth_helper="scenario/$TEST_SCENARIO/locust/results_auth.py"
         if [ -f "$auth_helper" ]; then
             locust_files+=(--from-file="$auth_helper")
@@ -394,13 +397,43 @@ function run_locust() {
 
         # Get Locust master logs
         echo "Getting locust master log:"
-        kubectl logs --namespace "${LOCUST_NAMESPACE}" --tail=-1 -f -l "locust.io/test-run=${SCENARIO}-test,locust.io/component=master" 2>&1 | tee -a "$LOCUST_LOG"
+        local locust_log_status=1
+        local locust_log_attempt
+        local locust_log_attempts=1
+        if [ "$TEST_SCENARIO" == "timebased-sign-pruner" ] && [ "$LOCUST_RUN_PHASE" == "concurrent" ]; then
+            locust_log_attempts=3
+        fi
+        for ((locust_log_attempt=1; locust_log_attempt<=locust_log_attempts; locust_log_attempt++)); do
+            # Reconnect to the same test, replaying retained logs. The coordinator
+            # still requires a complete final summary; an interrupted stream is not a pass.
+            if kubectl logs --namespace "${LOCUST_NAMESPACE}" --tail=-1 -f -l "locust.io/test-run=${SCENARIO}-test,locust.io/component=master" 2>&1 | tee -a "$LOCUST_LOG"; then
+                locust_log_status=0
+                break
+            else
+                locust_log_status=$?
+            fi
+            if [ "$locust_log_attempt" -lt "$locust_log_attempts" ]; then
+                warning "Locust master log stream interrupted; reconnecting (attempt $((locust_log_attempt + 1))/$locust_log_attempts)"
+                sleep 2
+            fi
+        done
+
+        if [ "$TEST_SCENARIO" == "timebased-sign-pruner" ] && [ "$SCENARIO" == "fetch-log" ] && [ "$LOCUST_RUN_PHASE" == "concurrent" ]; then
+            # Worker samples are relayed live into the master log. The operator
+            # can remove workers before this post-window API/Loki snapshot runs.
+            python3 ../../tools/results_log_diagnostics.py \
+                --output "${LOCUST_LOG%.log}-diagnostics" \
+                --since-time "$(cat "${TMP_DIR}/benchmark-before")" \
+                --budget 60 \
+                || warning "Some Results/Loki diagnostics are unavailable; inspect results-log-diagnostics.json"
+        fi
 
         # Cleanup locust job after test end
         cleanup_locust "$SCENARIO"
 
         # Record test end time
         date --utc -Ins > "${TMP_DIR}/benchmark-after"
+        return "$locust_log_status"
 
     else 
         warning "RUN_LOCUST env variable is not set for Locust testing."
